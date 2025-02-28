@@ -123,6 +123,16 @@ func (fc *FilerConf) SetLocationConf(locConf *filer_pb.FilerConf_PathConf) (err 
 	}
 	return
 }
+func (fc *FilerConf) GetLocationPrefixesMatchCollection(collection string) []string {
+	var locationPrefixes []string
+	fc.rules.Walk(func(key []byte, value *filer_pb.FilerConf_PathConf) bool {
+		if value.Collection == collection {
+			locationPrefixes = append(locationPrefixes, string(key))
+		}
+		return true
+	})
+	return locationPrefixes
+}
 
 func (fc *FilerConf) AddLocationConf(locConf *filer_pb.FilerConf_PathConf) (err error) {
 	existingConf, found := fc.rules.Get([]byte(locConf.LocationPrefix))

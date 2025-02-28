@@ -7,6 +7,9 @@ services:
     restart: always
     environment:
       - TZ=Asia/Ho_Chi_Minh
+      - REDIS_ADDRESS=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DATABASES=0
     depends_on:
       - redis
     ports:
@@ -25,7 +28,7 @@ services:
     image: chrislusf/seaweedfs:3.84_large_disk_full
     command: "shell -master=go-api:9333 -filer=go-api:8888"
   redis:
-    command: dragonfly  --admin_nopass  --cache_mode=true --dir=/var/lib/dragonfly --dbfilename=dump.rdb
+    command: dragonfly  --admin_nopass  --cache_mode=true --dir=/var/lib/dragonfly
     environment:
     - REDIS_PORT=6379
     - REDIS_DATABASES=16

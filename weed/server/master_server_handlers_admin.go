@@ -80,7 +80,7 @@ func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.R
 	log.Println("QUYNGUYEN: delete collection ", collectionName, fromTime, toTime)
 
 	if fromTime != 0 && toTime != 0 {
-
+		DeleteEntryByCollectionAndTime(collectionName, uint64(fromTime), uint64(toTime))
 	} else {
 		log.Println("QUYNGUYEN: delete collection 3", collectionName)
 		ms.Topo.DeleteCollection(collectionName)

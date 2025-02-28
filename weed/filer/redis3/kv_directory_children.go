@@ -3,6 +3,7 @@ package redis3
 import (
 	"context"
 	"fmt"
+
 	"github.com/redis/go-redis/v9"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
 )
@@ -29,7 +30,6 @@ func insertChild(ctx context.Context, redisStore *UniversalRedis3Store, key stri
 	}
 	store := newSkipListElementStore(key, client)
 	nameList := LoadItemList([]byte(data), key, client, store, maxNameBatchSizeLimit)
-
 	if err := nameList.WriteName(name); err != nil {
 		glog.Errorf("add %s %s: %v", key, name, err)
 		return err
@@ -38,7 +38,6 @@ func insertChild(ctx context.Context, redisStore *UniversalRedis3Store, key stri
 	if !nameList.HasChanges() {
 		return nil
 	}
-
 	if err := client.Set(ctx, key, nameList.ToBytes(), 0).Err(); err != nil {
 		return err
 	}

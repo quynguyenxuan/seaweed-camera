@@ -3,6 +3,7 @@ package redis3
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -34,7 +35,6 @@ func (store *UniversalRedis3Store) RollbackTransaction(ctx context.Context) erro
 }
 
 func (store *UniversalRedis3Store) InsertEntry(ctx context.Context, entry *filer.Entry) (err error) {
-
 	if err = store.doInsertEntry(ctx, entry); err != nil {
 		return err
 	}
@@ -59,11 +59,28 @@ func (store *UniversalRedis3Store) doInsertEntry(ctx context.Context, entry *fil
 	if len(entry.GetChunks()) > filer.CountEntryChunksForGzip {
 		value = util.MaybeGzipData(value)
 	}
-
-	if err = store.Client.Set(ctx, string(entry.FullPath), value, time.Duration(entry.TtlSec)*time.Second).Err(); err != nil {
+	expireInDays := store.generateExpirationInDays(string(entry.FullPath))
+	// if err = store.Client.Set(ctx, string(entry.FullPath), value, time.Duration(entry.TtlSec)*time.Second).Err(); err != nil {
+	if err = store.Client.Set(ctx, string(entry.FullPath), value, time.Duration(expireInDays)*time.Hour*24).Err(); err != nil {
 		return fmt.Errorf("persisting %s : %v", entry.FullPath, err)
 	}
 	return nil
+}
+
+func (store *UniversalRedis3Store) generateExpirationInDays(key string) int {
+	var re7Days = `(?m).*\/007\/007_.*`
+	var re15Days = `(?m).*\/015\/015_.*`
+	var re30Days = `(?m).*\/030\/030_.*`
+	if ok, _ := regexp.MatchString(re7Days, key); ok {
+		return 7
+	}
+	if ok, _ := regexp.MatchString(re15Days, key); ok {
+		return 15
+	}
+	if ok, _ := regexp.MatchString(re30Days, key); ok {
+		return 30
+	}
+	return 0
 }
 
 func (store *UniversalRedis3Store) UpdateEntry(ctx context.Context, entry *filer.Entry) (err error) {
@@ -175,6 +192,30 @@ func (store *UniversalRedis3Store) ListDirectoryEntries(ctx context.Context, dir
 	})
 
 	return lastFileName, err
+}
+
+func (store *UniversalRedis3Store) ListEntriesByPattern(pattern string, objectsCh *chan string) error {
+	defer close(*objectsCh)
+	var cursor uint64
+	var objectKeys []string
+	for {
+		var err error
+		redisKey := pattern
+		objectKeys, cursor, err = store.Client.Scan(context.Background(), cursor, redisKey, 10000).Result()
+		if err != nil {
+			fmt.Println(err)
+			return nil
+		}
+		glog.V(4).Infof("QUYNGUYEN Delete objects with pattern: %s, count %d", redisKey, len(objectKeys))
+
+		for _, objectKey := range objectKeys {
+			*objectsCh <- objectKey
+		}
+		if cursor == 0 {
+			break
+		}
+	}
+	return nil
 }
 
 func genDirectoryListKey(dir string) (dirList string) {

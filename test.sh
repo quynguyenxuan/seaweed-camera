@@ -4,26 +4,29 @@ do_put() {
     warp put --duration=1s  \
     --host=127.0.0.1:8333 \
     --obj.size=512K \
-    --bucket=buc-releas12 \
+    --bucket=camera2009 \
     --concurrent=1 \
     --noclear \
-    --prefix=test_multi
+    --prefix=007/007_kdfjksdf_250228155600_234234234
 }
 
 
 for i in $(seq 1 100);
 do
+
     echo "Deleting $i"
     do_put $i
-    NOW = $(date +%s)
-    sleep 30
+    local NOW=$(date +%s)
+    sleep 3
     do_put $i
-    curl "http://localhost:9333/col/delete?collection=buc-releas12&fromTime=1732953740&toTime=${ NOW }&pretty=y"
+    sleep 3
 
+    curl "http://localhost:9333/col/delete?collection=007&fromTime=1732953740&toTime=${NOW}&pretty=y"
+    sleep 3
     echo "Putting $i"
 done
 
-# curl "http://localhost:9333/col/delete?collection=buc-releas12&fromTime=1732953740&toTime=$(date +%s)&pretty=y"
+# curl "http://localhost:9333/col/delete?collection=007&fromTime=1732953740&toTime=$(date +%s)&pretty=y"
 
 #  warp put --duration=1s  \
 #  --host=127.0.0.1:80 \

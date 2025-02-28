@@ -109,7 +109,9 @@ func runMaster(cmd *Command, args []string) bool {
 
 	util.LoadSecurityConfiguration()
 	util.LoadConfiguration("master", false)
-	util.LoadConfiguration("filer", false)
+	// util.LoadConfiguration("filer", false)
+	weed_server.InitializeRedis()
+	// weed_server.LoadFilerConf()
 
 	grace.SetupProfiling(*masterCpuProfile, *masterMemProfile)
 

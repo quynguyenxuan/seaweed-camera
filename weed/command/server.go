@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	weed_server "github.com/seaweedfs/seaweedfs/weed/server"
 	stats_collect "github.com/seaweedfs/seaweedfs/weed/stats"
 
 	"github.com/seaweedfs/seaweedfs/weed/glog"
@@ -182,7 +183,9 @@ func runServer(cmd *Command, args []string) bool {
 
 	util.LoadSecurityConfiguration()
 	util.LoadConfiguration("master", false)
-	util.LoadConfiguration("filer", false)
+	weed_server.InitializeRedis()
+	// weed_server.LoadFilerConf()
+	// util.LoadConfiguration("filer", false)
 
 	grace.SetupProfiling(*serverOptions.cpuprofile, *serverOptions.memprofile)
 

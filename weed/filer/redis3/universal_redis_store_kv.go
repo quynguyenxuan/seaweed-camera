@@ -9,7 +9,6 @@ import (
 )
 
 func (store *UniversalRedis3Store) KvPut(ctx context.Context, key []byte, value []byte) (err error) {
-
 	_, err = store.Client.Set(ctx, string(key), value, 0).Result()
 
 	if err != nil {
