@@ -1,10 +1,12 @@
  
 
 do_put() {
-    warp put --duration=1s  \
+    warp put --duration=15s  \
     --host=127.0.0.1:8333 \
     --obj.size=512K \
-    --bucket=camera2009 \
+    --access-key=8_tests3_accid \
+    --secret-key=-aJ20yurXb2RhF9pYwNG9shc-RKb \
+    --bucket=camera2020 \
     --concurrent=1 \
     --noclear \
     --prefix=007/007_kdfjksdf_250228155600_234234234
@@ -25,7 +27,10 @@ do
     sleep 3
     echo "Putting $i"
 done
-
+http://localhost:8888/buckets/camera2020/007/007_kdfjksdf_250228155600_234234234/h5DQKP(Q/11.iKIYrGM8D)9OaIbr.rnd
+aws s3api get-object --bucket camera2020 --key "007/007_kdfjksdf_250228155600_234234234/h5DQKP(Q/11.iKIYrGM8D)9OaIbr.rnd" example.txt --endpoint-url=http://localhost:8333 --profile=local
+aws s3api list-objects-v2 --bucket camera2020 --prefix 007/007_ --endpoint-url=http://localhost:8333 --no-sign-request
+aws s3api list-objects-v2 --bucket camera2020 --prefix "007" --endpoint-url=http://localhost:8333 --profile=local  
 # curl "http://localhost:9333/col/delete?collection=007&fromTime=1732953740&toTime=$(date +%s)&pretty=y"
 
 #  warp put --duration=1s  \
