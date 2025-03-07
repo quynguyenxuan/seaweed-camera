@@ -1,0 +1,52 @@
+version: '3.7'
+services:
+  go-api:
+    hostname: go-api
+    container_name: go-api
+    image: cosmtrek/air
+    restart: always
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - REDIS_ADDRESS=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DATABASES=0
+    depends_on:
+      - redis
+    ports:
+      - 9333:9333
+      - 8333:8333
+      - 8080:8080
+      - 8111:8111
+      - 8888:8888 
+    working_dir: /app
+    volumes:
+      - .:/app/
+      - ~/seaweedfs:/mnt/seaweedfs
+      - ./filer.toml:/etc/seaweedfs/filer.toml
+      - ./s3.json:/etc/seaweedfs/s3.json
+  shell:
+    container_name: seaweed-shell
+    image: chrislusf/seaweedfs:3.84_large_disk_full
+    command: "shell -master=go-api:9333 -filer=go-api:8888"
+  redis:
+    command: dragonfly  --logtostderr  --admin_nopass --tiered_max_file_size 5GB --tiered_prefix /mnt/redisvol/tiered  --proactor_threads=1 --dir /mnt/dragonfly --maxmemory=256mb
+    environment:
+    - REDIS_PORT=6379
+    - REDIS_DATABASES=0
+    hostname: redis
+    volumes:
+      - ./redis:/mnt/redisvol
+      - ./redisbackup:/mnt/dragonfly
+
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    ports:
+    - 6379:6379
+    restart: always
+    ulimits:
+      memlock: -1
+  redis-gui:
+    image: redis/redisinsight:latest
+    restart: always
+    ports:
+      - "5540:5540"
+    

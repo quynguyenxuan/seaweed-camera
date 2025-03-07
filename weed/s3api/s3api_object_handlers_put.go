@@ -127,7 +127,8 @@ func (s3a *S3ApiServer) putToFiler(r *http.Request, uploadUrl string, dataReader
 
 	if s3a.option.FilerGroup != "" {
 		query := proxyReq.URL.Query()
-		query.Add("collection", s3a.getCollectionName(bucket))
+		currentDate := time.Now().Format("2006-01-02-15-04")
+		query.Add("collection", s3a.getCollectionName(bucket)+"_"+strings.ReplaceAll(currentDate, "-", ""))
 		proxyReq.URL.RawQuery = query.Encode()
 	}
 

@@ -3,13 +3,15 @@ package s3api
 import (
 	"bytes"
 	"fmt"
-	"github.com/seaweedfs/seaweedfs/weed/filer"
-	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/seaweedfs/seaweedfs/weed/filer"
+	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3_constants"
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3err"
@@ -107,6 +109,7 @@ func (s3a *S3ApiServer) toFilerUrl(bucket, object string) string {
 	object = urlPathEscape(removeDuplicateSlashes(object))
 	destUrl := fmt.Sprintf("http://%s%s/%s%s",
 		s3a.option.Filer.ToHttpAddress(), s3a.option.BucketsPath, bucket, object)
+	log.Println("QUYNGUYEN: toFilerUrl", bucket, object)
 	return destUrl
 }
 

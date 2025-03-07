@@ -1,0 +1,52 @@
+{
+    "identities": [
+      {
+        "name": "anonymous",
+        "actions": [
+          "Read"
+        ]
+      },
+      {
+        "name": "minioadmin",
+        "credentials": [
+          {
+            "accessKey": "8_tests3_accid",
+            "secretKey": "-aJ20yurXb2RhF9pYwNG9shc-RKb"
+          }
+        ],
+        "actions": [
+          "Admin",
+          "Read",
+          "List",
+          "Tagging",
+          "Write",
+            "WriteAcp"
+        ]
+      },
+      {
+        "name": "minioadmin1",
+        "credentials": [
+          {
+            "accessKey": "5_test-public_accid",
+            "secretKey": "WGdv7-UdOLiDFbzOa6C2MG3TKy8P"
+          }
+        ],
+        "actions": [
+          "Admin",
+          "Read",
+          "List",
+          "Tagging",
+          "Write",
+          "WriteAcp"
+        ]
+      }
+    ],
+    
+    "accounts": [
+        {
+          "id" : "testid",
+          "displayName": "M. Tester",
+          "emailAddress": "tester@ceph.com"
+        }
+      ]
+  }
