@@ -1,7 +1,7 @@
  
 
 do_put() {
-    warp put --duration=15s  \
+    warp put --duration=90s  \
     --host=127.0.0.1:8333 \
     --obj.size=512K \
     --bucket=camera2020 \

@@ -29,16 +29,19 @@ services:
     image: chrislusf/seaweedfs:3.84_large_disk_full
     command: "shell -master=go-api:9333 -filer=go-api:8888"
   redis:
-    command: dragonfly  --logtostderr  --admin_nopass --tiered_max_file_size 5GB --tiered_prefix /mnt/redisvol/tiered  --proactor_threads=1 --dir /mnt/dragonfly --maxmemory=256mb
+    # command: dragonfly  --logtostderr  --admin_nopass --tiered_max_file_size 5GB --tiered_prefix /mnt/redisvol/tiered  --proactor_threads=1 --dir /mnt/dragonfly --maxmemory=256mb
+    command: /opt/bitnami/scripts/keydb/run.sh --maxmemory 100mb
     environment:
     - REDIS_PORT=6379
     - REDIS_DATABASES=0
+    - ALLOW_EMPTY_PASSWORD=yes
     hostname: redis
     volumes:
       - ./redis:/mnt/redisvol
-      - ./redisbackup:/mnt/dragonfly
-
-    image: docker.dragonflydb.io/dragonflydb/dragonfly
+      # - ./keydb:/bitnami/keydb/data
+      # - ./redisbackup:/mnt/dragonfly
+    # image: docker.dragonflydb.io/dragonflydb/dragonfly
+    image: bitnami/keydb:latest
     ports:
     - 6379:6379
     restart: always
