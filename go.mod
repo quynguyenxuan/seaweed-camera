@@ -1,7 +1,6 @@
 module github.com/seaweedfs/seaweedfs
 
 go 1.23
-
 toolchain go1.23.3
 
 require (
@@ -106,11 +105,11 @@ require (
 	gocloud.dev/pubsub/rabbitpubsub v0.40.0
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
-	golang.org/x/image v0.23.0
+	golang.org/x/image v0.25.0
 	golang.org/x/net v0.35.0
 	golang.org/x/oauth2 v0.26.0 // indirect
 	golang.org/x/sys v0.30.0
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/tools v0.30.0
 	golang.org/x/xerrors v0.0.0-20240716161551-93cc26a95ae9 // indirect
 	google.golang.org/api v0.221.0
@@ -154,7 +153,7 @@ require (
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.99.10
 	go.etcd.io/etcd/client/pkg/v3 v3.5.18
 	go.uber.org/atomic v1.11.0
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.12.0
 	google.golang.org/grpc/security/advancedtls v1.0.0
 )
 
