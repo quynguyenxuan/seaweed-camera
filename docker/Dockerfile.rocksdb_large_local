@@ -6,7 +6,7 @@ ADD . /go/src/github.com/seaweedfs/seaweedfs
 RUN ls -al /go/src/github.com/seaweedfs/ && \
   cd /go/src/github.com/seaweedfs/seaweedfs/weed \
   && export LDFLAGS="-X github.com/seaweedfs/seaweedfs/weed/util.COMMIT=$(git rev-parse --short HEAD)" \
-  && go install -tags "5BytesOffset rocksdb" -ldflags "-extldflags -static ${LDFLAGS}"
+  && go install -tags "5BytesOffset rocksdb tikv ydb" -ldflags "-extldflags -static ${LDFLAGS}"
 
 
 FROM alpine AS final
