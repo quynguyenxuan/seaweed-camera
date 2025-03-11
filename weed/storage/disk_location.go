@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -296,6 +297,68 @@ func (l *DiskLocation) DeleteCollectionFromDiskLocation(collection string) (e er
 	return
 }
 
+func (l *DiskLocation) DeleteCollectionFromDiskLocationByTime(collection string, fromTime uint64, toTime uint64) (e error) {
+	log.Println("QUYNGUYEN: DeleteCollectionFromDiskLocationByTime", collection, fromTime, toTime)
+	var delEcVolsMap map[needle.VolumeId]*erasure_coding.EcVolume
+	l.volumesLock.Lock()
+	delVolsMap := l.unmountVolumeByCollectionAndTime(collection, fromTime, toTime)
+	l.volumesLock.Unlock()
+	l.ecVolumesLock.Lock()
+	for k, v := range l.ecVolumes {
+		isMatchedVolume := false
+		for _, nv := range delVolsMap {
+			if nv.Id == v.VolumeId {
+				isMatchedVolume = true
+				break
+			}
+		}
+		if !isMatchedVolume && v.Collection == collection {
+			delEcVolsMap[k] = v
+		}
+	}
+	for k, _ := range delEcVolsMap {
+		delete(l.ecVolumes, k)
+	}
+
+	l.ecVolumesLock.Unlock()
+	log.Println("QUYNGUYEN: DeleteCollectionFromDiskLocationByTime 2", collection, len(delEcVolsMap), len(delVolsMap))
+
+	errChain := make(chan error, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		for _, v := range delVolsMap {
+			if err := v.Destroy(false); err != nil {
+				errChain <- err
+			}
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		for _, v := range delEcVolsMap {
+			v.Destroy()
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		wg.Wait()
+		close(errChain)
+	}()
+
+	errBuilder := strings.Builder{}
+	for err := range errChain {
+		errBuilder.WriteString(err.Error())
+		errBuilder.WriteString("; ")
+	}
+	if errBuilder.Len() > 0 {
+		e = fmt.Errorf(errBuilder.String())
+	}
+
+	return
+}
+
 func (l *DiskLocation) deleteVolumeById(vid needle.VolumeId, onlyEmpty bool) (found bool, e error) {
 	v, ok := l.volumes[vid]
 	if !ok {
@@ -348,6 +411,21 @@ func (l *DiskLocation) unmountVolumeByCollection(collectionName string) map[need
 	deltaVols := make(map[needle.VolumeId]*Volume, 0)
 	for k, v := range l.volumes {
 		if v.Collection == collectionName && !v.isCompacting && !v.isCommitCompacting {
+			deltaVols[k] = v
+		}
+	}
+
+	for k := range deltaVols {
+		delete(l.volumes, k)
+	}
+	return deltaVols
+}
+
+func (l *DiskLocation) unmountVolumeByCollectionAndTime(collectionName string, fromTime uint64, toTime uint64) map[needle.VolumeId]*Volume {
+	deltaVols := make(map[needle.VolumeId]*Volume, 0)
+	for k, v := range l.volumes {
+		if v.Collection == collectionName && !v.isCompacting && !v.isCommitCompacting && v.lastModifiedTsSeconds >= fromTime && v.lastModifiedTsSeconds <= toTime {
+			log.Println("QUYNGUYEN: unmountVolumeByCollectionAndTime", v.Id)
 			deltaVols[k] = v
 		}
 	}

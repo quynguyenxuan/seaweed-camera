@@ -37,3 +37,9 @@ func (store *Redis3Store) initialize(hostPort string, password string, database 
 	store.redsync = redsync.New(goredis.NewPool(store.Client))
 	return
 }
+
+func New(hostPort string, password string, database int) (store *Redis3Store, err error) {
+	store = &Redis3Store{}
+	err = store.initialize(hostPort, password, database)
+	return store, err
+}

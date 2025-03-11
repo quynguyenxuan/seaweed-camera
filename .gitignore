@@ -100,3 +100,5 @@ docker/weed_pub_record
 docker/weed_sub_kv
 docker/weed_sub_record
 /tmp
+/filerldb2
+/.qodo

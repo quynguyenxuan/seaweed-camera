@@ -1,11 +1,11 @@
  
 
 do_put() {
-    warp put --duration=15s  \
+    warp put --duration=5s  \
     --host=127.0.0.1:8333 \
     --obj.size=512K \
     --bucket=camera2020 \
-    --concurrent=1 \
+    --concurrent=200 \
     --noclear \
     --prefix=007/007_kdfjksdf_250228155600_234234234
 

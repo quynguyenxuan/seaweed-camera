@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -109,7 +108,6 @@ func (s3a *S3ApiServer) toFilerUrl(bucket, object string) string {
 	object = urlPathEscape(removeDuplicateSlashes(object))
 	destUrl := fmt.Sprintf("http://%s%s/%s%s",
 		s3a.option.Filer.ToHttpAddress(), s3a.option.BucketsPath, bucket, object)
-	log.Println("QUYNGUYEN: toFilerUrl", bucket, object)
 	return destUrl
 }
 

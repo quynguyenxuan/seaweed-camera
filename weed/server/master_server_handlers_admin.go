@@ -3,6 +3,7 @@ package weed_server
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand/v2"
 	"net/http"
 	"strconv"
@@ -24,15 +25,31 @@ import (
 
 func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	collectionName := r.FormValue("collection")
+	fromTime, _ := strconv.Atoi(r.FormValue("fromTime"))
+	toTime, _ := strconv.Atoi(r.FormValue("toTime"))
+
 	collection, ok := ms.Topo.FindCollection(collectionName)
 	if !ok {
 		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("collection %s does not exist", collectionName))
 		return
 	}
+	log.Println("QUYNGUYEN: delete collection ", collectionName, fromTime, toTime)
+	nowTimeStamp := 1732953640
+	if fromTime != 0 && fromTime < nowTimeStamp {
+		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("Time %s does not valid", fromTime))
+		return
+	}
+	if toTime != 0 && toTime < nowTimeStamp {
+		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("Time %s does not valid", toTime))
+		return
+	}
+
 	for _, server := range collection.ListVolumeServers() {
 		err := operation.WithVolumeServerClient(false, server.ServerAddress(), ms.grpcDialOption, func(client volume_server_pb.VolumeServerClient) error {
 			_, deleteErr := client.DeleteCollection(context.Background(), &volume_server_pb.DeleteCollectionRequest{
 				Collection: collection.Name,
+				FromTime:   uint64(fromTime),
+				ToTime:     uint64(toTime),
 			})
 			return deleteErr
 		})
@@ -41,8 +58,28 @@ func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.R
 			return
 		}
 	}
-	ms.Topo.DeleteCollection(collectionName)
+	log.Println("QUYNGUYEN: delete collection ", collectionName, fromTime, toTime)
 
+	if fromTime != 0 && toTime != 0 {
+		DeleteEntryByCollectionAndTime(collectionName, uint64(fromTime), uint64(toTime))
+		// for _, server := range collection.ListVolumeServers() {
+		// 	err := operation.WithVolumeServerClient(false, server.ServerAddress(), ms.grpcDialOption, func(client volume_server_pb.VolumeServerClient) error {
+		// 		_, deleteErr := client.DeleteCollection(context.Background(), &volume_server_pb.DeleteCollectionRequest{
+		// 			Collection: collection.Name,
+		// 			FromTime:   uint64(fromTime),
+		// 			ToTime:     uint64(toTime),
+		// 		})
+		// 		return deleteErr
+		// 	})
+		// 	if err != nil {
+		// 		writeJsonError(w, r, http.StatusInternalServerError, err)
+		// 		return
+		// 	}
+		// }
+	} else {
+		log.Println("QUYNGUYEN: delete collection 3", collectionName)
+		ms.Topo.DeleteCollection(collectionName)
+	}
 	w.WriteHeader(http.StatusNoContent)
 	return
 }

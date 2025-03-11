@@ -3,6 +3,7 @@ package weed_server
 import (
 	"context"
 	"fmt"
+	"log"
 	"path/filepath"
 	"time"
 
@@ -23,11 +24,14 @@ import (
 )
 
 func (vs *VolumeServer) DeleteCollection(ctx context.Context, req *volume_server_pb.DeleteCollectionRequest) (*volume_server_pb.DeleteCollectionResponse, error) {
-
+	log.Println("QUYNGUYEN: GRPC admin DeleteCollection filter received:  ", req.Collection, req.FromTime, req.ToTime)
 	resp := &volume_server_pb.DeleteCollectionResponse{}
-
-	err := vs.store.DeleteCollection(req.Collection)
-
+	var err error
+	if req.FromTime != 0 && req.ToTime != 0 {
+		err = vs.store.DeleteCollectionByTime(req.Collection, req.FromTime, req.ToTime)
+	} else {
+		err = vs.store.DeleteCollection(req.Collection)
+	}
 	if err != nil {
 		glog.Errorf("delete collection %s: %v", req.Collection, err)
 	} else {

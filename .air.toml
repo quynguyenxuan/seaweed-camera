@@ -5,8 +5,8 @@ tmp_dir = "tmp"
 [build]
   args_bin = ["-v=2","server", "-dir=/mnt/seaweedfs", "-volume.max=250", "-ip=go-api", "-master.volumeSizeLimitMB=100", "-filer.filerGroup=default", "-filer", "-s3"]
   bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main  -buildvcs=false ./weed"
-  delay = 1000
+  cmd = "go build -o ./tmp/main -tags=5BytesOffset,rocksdb,elastic,gocdk,sqlite,tikv,ydb -buildvcs=false ./weed"
+  delay = 3000
   # exclude_dir = ["assets", "tmp", "vendor", "testdata"]
   exclude_file = []
   exclude_regex = ["_test.go"]

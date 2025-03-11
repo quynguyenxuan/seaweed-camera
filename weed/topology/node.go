@@ -273,8 +273,9 @@ func (n *NodeImpl) CollectDeadNodeAndFullVolumes(freshThreshHoldUnixTime int64, 
 				topo := n.GetTopology()
 				diskType := types.ToDiskType(v.DiskType)
 				vl := topo.GetVolumeLayout(v.Collection, v.ReplicaPlacement, v.Ttl, diskType)
-
-				if v.Size >= volumeSizeLimit {
+				if vl.isOutdated(&v) {
+					topo.chanFullVolumes <- v
+				} else if v.Size >= volumeSizeLimit {
 					vl.accessLock.RLock()
 					vacuumTime, ok := vl.vacuumedVolumes[v.Id]
 					vl.accessLock.RUnlock()

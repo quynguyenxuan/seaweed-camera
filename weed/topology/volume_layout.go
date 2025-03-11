@@ -2,7 +2,11 @@ package topology
 
 import (
 	"fmt"
+	"math"
 	"math/rand/v2"
+	"os"
+	"strconv"
+
 	"sync"
 	"sync/atomic"
 	"time"
@@ -181,7 +185,7 @@ func (vl *VolumeLayout) RegisterVolume(v *storage.VolumeInfo, dn *DataNode) {
 }
 
 func (vl *VolumeLayout) rememberOversizedVolume(v *storage.VolumeInfo, dn *DataNode) {
-	if vl.isOversized(v) {
+	if vl.isOversized(v) || vl.isOutdated(v) {
 		vl.oversizedVolumes.Add(v.Id, dn)
 	} else {
 		vl.oversizedVolumes.Remove(v.Id, dn)
@@ -257,6 +261,24 @@ func (vl *VolumeLayout) isAllWritable(vid needle.VolumeId) bool {
 
 func (vl *VolumeLayout) isOversized(v *storage.VolumeInfo) bool {
 	return uint64(v.Size) >= vl.volumeSizeLimit
+}
+
+func (vl *VolumeLayout) isOutdated(v *storage.VolumeInfo) bool {
+	currentTime := time.Now().Unix()
+	// log.Println("QUYNGUYEN: Volume is overtime: ", v.Id, v.Collection, v.Size, v.FileCount, v.Version, math.Floor(float64(currentTime/60)), math.Floor(float64(v.ModifiedAtSecond/60)))
+
+	// if math.Floor(float64(currentTime/60)) > math.Floor(float64(v.ModifiedAtSecond/60)) && v.FileCount > 0 {
+	// }
+	volumeSplitInSeconds, _ := strconv.ParseInt(os.Getenv("VOLUME_SPLIT_IN_SECONDS"), 10, 64)
+	return math.Floor(float64(currentTime/volumeSplitInSeconds)) > math.Floor(float64(v.ModifiedAtSecond/volumeSplitInSeconds)) && v.FileCount > 0
+}
+
+// QUYNGUYEN
+func (vl *VolumeLayout) SetVolumeOutdated(vid needle.VolumeId) {
+	vl.accessLock.RLock()
+	defer vl.accessLock.RUnlock()
+	vl.removeFromWritable(vid)
+	glog.V(0).Infoln("QUYNGUYEN: Volume", vid, "becomes outdated")
 }
 
 func (vl *VolumeLayout) isCrowdedVolume(v *storage.VolumeInfo) bool {
