@@ -21,7 +21,8 @@ do_put() {
     --bucket=${random_bucket} \
     --concurrent=200 \
     --noclear \
-    --prefix=${random_package}/${random_package}_kdfjksdf_${i}_234234234
+    --prefix=${random_package} \
+    --obj.nametemplate="${random_package}_%d%s_${i}_2343234234.m3u8"
 }
 
 do_run () {

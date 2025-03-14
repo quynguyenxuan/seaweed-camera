@@ -4,11 +4,12 @@ do_put() {
     warp put --duration=1s \
     --host=127.0.0.1:8333 \
     --obj.size=5K \
+    --obj.nametemplate="007_%d%s_$(date +'%y%m%d%H%M%S')_2343234234.m3u8" \
     --bucket=camera2010 \
     --concurrent=1 \
     --noprefix \
     --noclear \
-    --prefix=007/007_kdfjksdf_$(date +'%y%m%d%H%M%S')_2343234234
+    --prefix=007
 
     #   --access-key=8_tests3_accid \
     # --secret-key=-aJ20yurXb2RhF9pYwNG9shc-RKb \
@@ -40,6 +41,15 @@ do
     sleep 3
     echo "Putting $i"
 done
+
+time AWS_ACCESS_KEY_ID=5_test-public_accid \
+AWS_SECRET_ACCESS_KEY=WGdv7-UdOLiDFbzOa6C2MG3TKy8P \
+ aws s3api put-object \
+--bucket camera2009 \
+--key "007/007_kdfjksdf_250228155600_234234234/%28JD%299F4h/10100.%sdfssdf.rnd" \
+--endpoint-url http://103.5.211.42:80 \
+--body video.m4a
+
 http://localhost:8888/buckets/camera2020/007/007_kdfjksdf_250228155600_234234234/h5DQKP(Q/11.iKIYrGM8D)9OaIbr.rnd
 aws s3api get-object --bucket camera2020 --key "007/007_kdfjksdf_250228155600_234234234/h5DQKP(Q/11.iKIYrGM8D)9OaIbr.rnd" example.txt --endpoint-url=http://localhost:8333 --profile=local
 aws s3api list-objects-v2 --bucket camera2020 --prefix 007/007_ --endpoint-url=http://localhost:8333 --no-sign-request
