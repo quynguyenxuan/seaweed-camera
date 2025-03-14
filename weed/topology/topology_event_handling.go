@@ -40,6 +40,9 @@ func (t *Topology) StartRefreshWritableVolumes(grpcDialOption grpc.DialOption, g
 			select {
 			case fv := <-t.chanFullVolumes:
 				t.SetVolumeCapacityFull(fv)
+			case fv := <-t.chanOutdatedVolumes:
+				t.SetVolumeCapacityFull(fv)
+
 			case cv := <-t.chanCrowdedVolumes:
 				t.SetVolumeCrowded(cv)
 			}
@@ -55,15 +58,14 @@ func (t *Topology) SetVolumeCapacityFull(volumeInfo storage.VolumeInfo) bool {
 
 	vl.accessLock.RLock()
 	defer vl.accessLock.RUnlock()
-
 	vidLocations, found := vl.vid2location[volumeInfo.Id]
+
 	if !found {
 		return false
 	}
 
 	for _, dn := range vidLocations.list {
 		if !volumeInfo.ReadOnly {
-
 			disk := dn.getOrCreateDisk(volumeInfo.DiskType)
 			disk.UpAdjustDiskUsageDelta(types.ToDiskType(volumeInfo.DiskType), &DiskUsageCounts{
 				activeVolumeCount: -1,
@@ -80,7 +82,22 @@ func (t *Topology) SetVolumeCrowded(volumeInfo storage.VolumeInfo) {
 	vl.SetVolumeCrowded(volumeInfo.Id)
 }
 
+// func (t *Topology) SetVolumeReadOnly(volumeInfo storage.VolumeInfo) {
+// 	diskType := types.ToDiskType(volumeInfo.DiskType)
+// 	vl := t.GetVolumeLayout(volumeInfo.Collection, volumeInfo.ReplicaPlacement, volumeInfo.Ttl, diskType)
+
+// 	// Đánh dấu volume là đầy và không thể ghi
+// 	vl.SetVolumeCapacityFull(volumeInfo.Id)
+
+// 	// Tìm tất cả các DataNode chứa volume này và đánh dấu nó không khả dụng
+// 	dataNodes := t.Lookup(volumeInfo.Collection, volumeInfo.Id)
+// 	for _, dn := range dataNodes {
+// 		vl.SetVolumeUnavailable(dn, volumeInfo.Id)
+// 	}
+// }
+
 func (t *Topology) UnRegisterDataNode(dn *DataNode) {
+	return
 	dn.IsTerminating = true
 	for _, v := range dn.GetVolumes() {
 		glog.V(0).Infoln("Removing Volume", v.Id, "from the dead volume server", dn.Id())

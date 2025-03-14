@@ -35,3 +35,18 @@ benchmark_with_pprof: benchmark
 
 test:
 	cd weed; go test -tags "elastic gocdk sqlite ydb tikv rclone" -v ./...
+
+watch_build:
+	docker build -t chrislusf/seaweedfs:rocksdb_local_dev -f docker/Dockerfile.rocksdb_large_local_dev .
+	docker run -d --name watch_build -v .:/app/ chrislusf/seaweedfs:rocksdb_local_dev
+	docker-compose -f seaweedfs-dev-compose.yml up -d
+restart:
+	docker-compose -f seaweedfs-dev-compose.yml restart
+recreate:
+	docker-compose -f seaweedfs-dev-compose.yml up --force-recreate -d
+	sleep 30
+	node gen_filer.js
+stop:
+	docker-compose -f seaweedfs-dev-compose.yml down
+	sudo rm -rf ~/seaweedfsv1
+	sudo rm -rf ~/filer/*

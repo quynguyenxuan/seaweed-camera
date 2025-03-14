@@ -3,8 +3,13 @@ package filer
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
 
+	"github.com/seaweedfs/seaweedfs/weed/cluster"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	"github.com/seaweedfs/seaweedfs/weed/pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
 	"github.com/seaweedfs/seaweedfs/weed/util"
@@ -118,7 +123,6 @@ func (f *Filer) doBatchDeleteFolderMetaAndData(ctx context.Context, entry *Entry
 
 	f.NotifyUpdateEvent(ctx, entry, nil, shouldDeleteChunks, isFromOtherCluster, signatures)
 	f.DeleteChunks(entry.FullPath, chunksToDelete)
-
 	return nil
 }
 
@@ -147,7 +151,146 @@ func (f *Filer) DoDeleteCollection(collectionName string) (err error) {
 		}
 		return err
 	})
+}
+func isValidKeyInTime(key string, fromDate, toDate int) bool {
+	keyParts := strings.Split(key, "_")
 
+	if fromDate == 0 || toDate == 0 {
+		return true
+	}
+	if len(keyParts) < 3 {
+		return false
+	}
+	key = keyParts[2]
+	keyDate, _ := strconv.Atoi(key)
+
+	if keyDate > 0 && keyDate >= fromDate && keyDate <= toDate {
+		return true
+	}
+	return false
+}
+
+func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.FullPath, fromDateNum, toDateNum int) (err error) {
+	// TODO dele record in current filer
+
+	lastFileName := ""
+	includeLastFile := false
+
+	glog.V(2).Infoln("QUYNGUYEN delete collection ", fromDateNum, toDateNum, fullPath)
+	for {
+		entries, _, err := f.ListDirectoryEntries(ctx, fullPath, lastFileName, includeLastFile, PaginationSize, "", "", "")
+		if err != nil {
+			glog.Errorf("QUYNGUYEN list folder %s: %v", fullPath, err)
+			return fmt.Errorf("QUYNGUYEN list folder %s: %v", fullPath, err)
+		}
+		for _, entry := range entries {
+			lastFileName = entry.Name()
+			glog.V(2).Infof("QUYNGUYEN deleting 1 %s %b %b %d %d", entry.FullPath, entry.IsDirectory(), isValidKeyInTime(fmt.Sprintf("%s", entry.FullPath), fromDateNum, toDateNum), fromDateNum, toDateNum)
+			if !isValidKeyInTime(fmt.Sprintf("%s", entry.FullPath), fromDateNum, toDateNum) {
+				continue
+			}
+			if entry.IsDirectory() {
+				f.doDeleteFilerEntryWithTime(ctx, entry.FullPath, fromDateNum, toDateNum)
+			} else {
+				if len(entry.HardLinkId) != 0 {
+					// hard link chunk data are deleted separately
+					f.maybeDeleteHardLinks([]HardLinkId{entry.HardLinkId})
+				}
+				storeDeletionErr := f.Store.DeleteOneEntry(ctx, entry)
+				glog.V(2).Infof("QUYNGUYEN delete collection DeleteOneEntry  %s: %v", entry.FullPath, storeDeletionErr)
+			}
+		}
+
+		if len(entries) < PaginationSize {
+			break
+		}
+	}
+
+	glog.V(2).Infof("QUYNGUYEN deleting directory %s ", fullPath)
+	if !isValidKeyInTime(string(fullPath), fromDateNum, toDateNum) {
+		return nil
+	}
+	//Keep folder but delete children
+	if storeDeletionErr := f.Store.DeleteFolderChildren(ctx, fullPath); storeDeletionErr != nil {
+		return fmt.Errorf("filer store delete: %v", storeDeletionErr)
+	}
+
+	// f.StreamListDirectoryEntries(ctx, p, "", true, int64(math.MaxInt64), "", "", "", func(entry *Entry) bool {
+	// 	glog.V(3).Infof("QUYNGUYEN delete collection2 %s: %s %b %b", collectionName, entry.FullPath.Name(), isValidKeyInTime(entry.FullPath.Name(), fromDateNum, toDateNum), entry.IsDirectory())
+	// 	if isValidKeyInTime(entry.FullPath.Name(), fromDateNum, toDateNum) {
+	// 		if entry.IsDirectory() {
+	// 			folderDeleteErr := f.Store.DeleteFolderChildren(ctx, entry.FullPath)
+	// 			if folderDeleteErr != nil {
+	// 				glog.V(2).Infof("QUYNGUYEN DeleteFolderChildren error %s: %v", collectionName, entry.FullPath.Name())
+	// 			}
+	// 		}
+	// 		if storeDeletionErr := f.Store.DeleteOneEntry(ctx, entry); storeDeletionErr != nil {
+	// 			glog.V(2).Infof("QUYNGUYEN delete collection DeleteOneEntry %s: %v", collectionName, entry.FullPath.Name())
+	// 		}
+	// 	}
+	// 	glog.V(2).Infof("QUYNGUYEN delete collection2 %s: %v", collectionName, entry.FullPath.Name())
+
+	// 	return true
+	// })
+	return nil
+}
+
+func (f *Filer) DoDeleteFilerEntryWithTime(ctx context.Context, collectionName string, fromTime, toTime uint64) (err error) {
+	// TODO dele record in current filer
+	fromDateNum, _ := strconv.Atoi(strings.ReplaceAll(time.Unix(int64(fromTime), 0).Format("06-01-02-15-04-05"), "-", ""))
+	toDateNum, _ := strconv.Atoi(strings.ReplaceAll(time.Unix(int64(toTime), 0).Format("06-01-02-15-04-05"), "-", ""))
+
+	locations := f.FilerConf.GetCollectionLocations(collectionName)
+	glog.V(2).Infoln("QUYNGUYEN GetCollectionLocations ", collectionName, len(locations), locations)
+	if len(locations) == 0 {
+		return fmt.Errorf("QUYNGUYEN delete  collection error1 %s: %v", collectionName, err)
+	}
+
+	for _, location := range locations {
+		p := util.FullPath(location)
+		f.doDeleteFilerEntryWithTime(ctx, p, fromDateNum, toDateNum)
+	}
+	return nil
+}
+
+func (f *Filer) DoDeleteCollectionWithTime(ctx context.Context, p util.FullPath, collectionName string, fromTime, toTime uint64) (err error) {
+	// glog.V(2).Infof("QUYNGUYEN: DoDeleteCollectionWithTime    delete collection %s", collectionName)
+	//  // 1. Get the list of all filers in the cluster.
+	existingNodes := f.ListExistingPeerUpdates(ctx)
+	// 2. Call each filer to delete collection in time
+	for _, node := range existingNodes {
+		if node.NodeType != cluster.FilerType {
+			continue
+		}
+		glog.V(2).Infof("QUYNGUYEN: call other filer %s to delete collection %s", node.Address, collectionName)
+		// 	 // Launch a goroutine for each filer call to avoid blocking
+		go func(filerAddress pb.ServerAddress) {
+			pb.WithFilerClient(false, f.UniqueFilerId, filerAddress, f.GrpcDialOption, func(client filer_pb.SeaweedFilerClient) error {
+				_, err := client.DeleteCollection(context.Background(), &filer_pb.DeleteCollectionRequest{
+					Collection: collectionName,
+					FromTime:   fromTime,
+					ToTime:     toTime,
+				})
+				if err != nil {
+					glog.Errorf("failed to delete collection %s on filer %s: %v", collectionName, filerAddress, err)
+				}
+				return err
+			})
+		}(pb.ServerAddress(node.Address))
+	}
+
+	return f.MasterClient.WithClient(false, func(client master_pb.SeaweedClient) error {
+		_, err := client.CollectionDelete(context.Background(), &master_pb.CollectionDeleteRequest{
+			Name:     collectionName,
+			FromTime: fromTime,
+			ToTime:   toTime,
+		})
+		if err != nil {
+			glog.Infof("delete collection %s: %v", collectionName, err)
+		}
+		return err
+	})
+	// return nil
 }
 
 func (f *Filer) maybeDeleteHardLinks(hardLinkIds []HardLinkId) {

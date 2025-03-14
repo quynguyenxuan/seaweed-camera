@@ -298,7 +298,7 @@ func (l *DiskLocation) DeleteCollectionFromDiskLocation(collection string) (e er
 }
 
 func (l *DiskLocation) DeleteCollectionFromDiskLocationByTime(collection string, fromTime uint64, toTime uint64) (e error) {
-	log.Println("QUYNGUYEN: DeleteCollectionFromDiskLocationByTime", collection, fromTime, toTime)
+	glog.V(2).Infoln("QUYNGUYEN: DeleteCollectionFromDiskLocationByTime", collection, fromTime, toTime)
 	var delEcVolsMap map[needle.VolumeId]*erasure_coding.EcVolume
 	l.volumesLock.Lock()
 	delVolsMap := l.unmountVolumeByCollectionAndTime(collection, fromTime, toTime)
@@ -424,8 +424,9 @@ func (l *DiskLocation) unmountVolumeByCollection(collectionName string) map[need
 func (l *DiskLocation) unmountVolumeByCollectionAndTime(collectionName string, fromTime uint64, toTime uint64) map[needle.VolumeId]*Volume {
 	deltaVols := make(map[needle.VolumeId]*Volume, 0)
 	for k, v := range l.volumes {
+		glog.V(2).Infoln("QUYNGUYEN: unmountVolumeByCollectionAndTime", v.Id, v.Collection, v.isCommitCompacting, v.isCompacting, v.lastModifiedTsSeconds, fromTime, toTime)
+
 		if v.Collection == collectionName && !v.isCompacting && !v.isCommitCompacting && v.lastModifiedTsSeconds >= fromTime && v.lastModifiedTsSeconds <= toTime {
-			log.Println("QUYNGUYEN: unmountVolumeByCollectionAndTime", v.Id)
 			deltaVols[k] = v
 		}
 	}

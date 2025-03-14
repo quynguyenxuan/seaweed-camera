@@ -162,6 +162,10 @@ func (n *NodeImpl) AvailableSpaceFor(option *VolumeGrowOption) int64 {
 	if ecShardCount > 0 {
 		freeVolumeSlotCount = freeVolumeSlotCount - ecShardCount/erasure_coding.DataShardsCount - 1
 	}
+	if freeVolumeSlotCount <= 1 {
+		//QUYNGUYEN: if there is no free volume slot, return 1 to avoid 0 weight
+		return 10
+	}
 	return freeVolumeSlotCount
 }
 func (n *NodeImpl) SetParent(node Node) {
@@ -274,7 +278,7 @@ func (n *NodeImpl) CollectDeadNodeAndFullVolumes(freshThreshHoldUnixTime int64, 
 				diskType := types.ToDiskType(v.DiskType)
 				vl := topo.GetVolumeLayout(v.Collection, v.ReplicaPlacement, v.Ttl, diskType)
 				if vl.isOutdated(&v) {
-					topo.chanFullVolumes <- v
+					topo.chanOutdatedVolumes <- v
 				} else if v.Size >= volumeSizeLimit {
 					vl.accessLock.RLock()
 					vacuumTime, ok := vl.vacuumedVolumes[v.Id]

@@ -168,7 +168,7 @@ func isValidKey(key string, fromDate, toDate int) bool {
 	key = keyParts[2]
 	keyDate, _ := strconv.Atoi(key)
 
-	if keyDate > 0 && keyDate >= fromDate || keyDate < toDate {
+	if keyDate > 0 && keyDate >= fromDate && keyDate < toDate {
 		return true
 	}
 	return false
@@ -187,7 +187,7 @@ func DeleteEntryByCollectionAndTime(collection string, fromTime uint64, toTime u
 
 func locationPrefixHandler(locationPrefix string, fromTime int, toTime int) error {
 	keysCh := make(chan string)
-	strings.Compare("", "")
+	// strings.Compare("", "")
 	// pattern := locationPrefix + `*_` + findCommonPrefix(fromTime, toTime) + `*`
 	// go redisStore.ListEntriesByPattern(pattern, &keysCh)
 	KeyDeleteHandler(keysCh, fromTime, toTime)

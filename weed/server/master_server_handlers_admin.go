@@ -61,25 +61,15 @@ func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.R
 	log.Println("QUYNGUYEN: delete collection ", collectionName, fromTime, toTime)
 
 	if fromTime != 0 && toTime != 0 {
-		DeleteEntryByCollectionAndTime(collectionName, uint64(fromTime), uint64(toTime))
-		// for _, server := range collection.ListVolumeServers() {
-		// 	err := operation.WithVolumeServerClient(false, server.ServerAddress(), ms.grpcDialOption, func(client volume_server_pb.VolumeServerClient) error {
-		// 		_, deleteErr := client.DeleteCollection(context.Background(), &volume_server_pb.DeleteCollectionRequest{
-		// 			Collection: collection.Name,
-		// 			FromTime:   uint64(fromTime),
-		// 			ToTime:     uint64(toTime),
-		// 		})
-		// 		return deleteErr
-		// 	})
-		// 	if err != nil {
-		// 		writeJsonError(w, r, http.StatusInternalServerError, err)
-		// 		return
-		// 	}
-		// }
-	} else {
-		log.Println("QUYNGUYEN: delete collection 3", collectionName)
-		ms.Topo.DeleteCollection(collectionName)
+
+		// DeleteEntryByCollectionAndTime(collectionName, uint64(fromTime), uint64(toTime))
+
+		w.WriteHeader(http.StatusNoContent)
+		return
+
 	}
+	log.Println("QUYNGUYEN: delete collection 3", collectionName)
+	ms.Topo.DeleteCollection(collectionName)
 	w.WriteHeader(http.StatusNoContent)
 	return
 }

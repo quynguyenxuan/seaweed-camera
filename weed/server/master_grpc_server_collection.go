@@ -2,6 +2,7 @@ package weed_server
 
 import (
 	"context"
+	"log"
 
 	"github.com/seaweedfs/raft"
 
@@ -32,16 +33,16 @@ func (ms *MasterServer) CollectionDelete(ctx context.Context, req *master_pb.Col
 	if !ms.Topo.IsLeader() {
 		return nil, raft.NotLeaderError
 	}
-
+	log.Println("QUYNGUYEN: CollectionDelete master receive request: ", req.FromTime, req.ToTime, req.Name)
 	resp := &master_pb.CollectionDeleteResponse{}
 
-	err := ms.doDeleteNormalCollection(req.Name)
+	err := ms.doDeleteNormalCollection(req.Name, req.FromTime, req.ToTime)
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = ms.doDeleteEcCollection(req.Name)
+	err = ms.doDeleteEcCollection(req.Name, req.FromTime, req.ToTime)
 
 	if err != nil {
 		return nil, err
@@ -50,7 +51,8 @@ func (ms *MasterServer) CollectionDelete(ctx context.Context, req *master_pb.Col
 	return resp, nil
 }
 
-func (ms *MasterServer) doDeleteNormalCollection(collectionName string) error {
+// QUYNGUYEN:add fromTime, toTime
+func (ms *MasterServer) doDeleteNormalCollection(collectionName string, fromTime, toTime uint64) error {
 
 	collection, ok := ms.Topo.FindCollection(collectionName)
 	if !ok {
@@ -61,6 +63,8 @@ func (ms *MasterServer) doDeleteNormalCollection(collectionName string) error {
 		err := operation.WithVolumeServerClient(false, server.ServerAddress(), ms.grpcDialOption, func(client volume_server_pb.VolumeServerClient) error {
 			_, deleteErr := client.DeleteCollection(context.Background(), &volume_server_pb.DeleteCollectionRequest{
 				Collection: collectionName,
+				FromTime:   fromTime,
+				ToTime:     toTime,
 			})
 			return deleteErr
 		})
@@ -68,12 +72,18 @@ func (ms *MasterServer) doDeleteNormalCollection(collectionName string) error {
 			return err
 		}
 	}
+	//QUYNGUYEN: delete entry in ec collection
+	if fromTime != 0 && toTime != 0 {
+		return nil
+	}
 	ms.Topo.DeleteCollection(collectionName)
 
 	return nil
 }
 
-func (ms *MasterServer) doDeleteEcCollection(collectionName string) error {
+//QUYNGUYEN:add fromTime, toTime
+
+func (ms *MasterServer) doDeleteEcCollection(collectionName string, fromTime, toTime uint64) error {
 
 	listOfEcServers := ms.Topo.ListEcServersByCollection(collectionName)
 
@@ -81,6 +91,8 @@ func (ms *MasterServer) doDeleteEcCollection(collectionName string) error {
 		err := operation.WithVolumeServerClient(false, server, ms.grpcDialOption, func(client volume_server_pb.VolumeServerClient) error {
 			_, deleteErr := client.DeleteCollection(context.Background(), &volume_server_pb.DeleteCollectionRequest{
 				Collection: collectionName,
+				FromTime:   fromTime,
+				ToTime:     toTime,
 			})
 			return deleteErr
 		})
@@ -88,7 +100,10 @@ func (ms *MasterServer) doDeleteEcCollection(collectionName string) error {
 			return err
 		}
 	}
-
+	//QUYNGUYEN: delete entry in ec collection
+	if fromTime != 0 && toTime != 0 {
+		return nil
+	}
 	ms.Topo.DeleteEcCollection(collectionName)
 
 	return nil

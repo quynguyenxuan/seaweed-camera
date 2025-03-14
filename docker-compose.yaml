@@ -11,9 +11,6 @@ services:
     environment:
       - TZ=Asia/Ho_Chi_Minh
       - VOLUME_SPLIT_IN_SECONDS=60
-      - REDIS_ADDRESS=redis:6379
-      - REDIS_PASSWORD=
-      - REDIS_DATABASES=0
     # depends_on:
     #   - redis
     ports:

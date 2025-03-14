@@ -31,13 +31,21 @@ go_build_large_disk:
 	docker build --build-arg TAGS=large_disk --no-cache -t chrislusf/seaweedfs:large_disk -f Dockerfile.go_build .
 
 build_rocksdb_dev_env:
-	docker build --no-cache -t chrislusf/rocksdb_dev_env -f Dockerfile.rocksdb_dev_env .
+	docker build  -t chrislusf/rocksdb_dev_env -f Dockerfile.rocksdb_dev_env .
 
 build_rocksdb_local: build_rocksdb_dev_env
-	cd .. ; docker build --no-cache -t chrislusf/seaweedfs:rocksdb_local -f docker/Dockerfile.rocksdb_large_local .
+	cd .. ; docker build --no-cache  -t chrislusf/seaweedfs:rocksdb_local -f docker/Dockerfile.rocksdb_large_local .
+
+build_rocksdb_local_sun: build_rocksdb_dev_env
+	cd .. ; docker build -t hub.sunteco.io/seeweedfs/seaweedfs:rocksdb_1.2 -f docker/Dockerfile.rocksdb_large_local .
+	docker push hub.sunteco.io/seeweedfs/seaweedfs:rocksdb_1.2
+
 
 build_rocksdb_local_dev: build_rocksdb_dev_env
-	cd .. ; docker build --no-cache -t chrislusf/seaweedfs:rocksdb_local_dev -f docker/Dockerfile.rocksdb_large_local_dev .
+	cd .. ; docker build  -t chrislusf/seaweedfs:rocksdb_local_dev -f docker/Dockerfile.rocksdb_large_local_dev .
+
+build_rocksdb_local_dev2: build_rocksdb_dev_env
+	cd .. ; docker build  -t chrislusf/seaweedfs:rocksdb_local_dev2 -f docker/Dockerfile.rocksdb_large_local_dev2 .
 
 build_rocksdb:
 	docker build --no-cache -t chrislusf/seaweedfs:rocksdb -f Dockerfile.rocksdb_large .

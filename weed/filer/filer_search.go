@@ -2,10 +2,11 @@ package filer
 
 import (
 	"context"
-	"github.com/seaweedfs/seaweedfs/weed/util"
 	"math"
 	"path/filepath"
 	"strings"
+
+	"github.com/seaweedfs/seaweedfs/weed/util"
 )
 
 func splitPattern(pattern string) (prefix string, restPattern string) {

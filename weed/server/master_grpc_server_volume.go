@@ -351,7 +351,7 @@ func (ms *MasterServer) VolumeGrow(ctx context.Context, req *master_pb.VolumeGro
 		Reason: "grpc volume grow",
 	}
 	replicaCount := int64(req.WritableVolumeCount * uint32(replicaPlacement.GetCopyCount()))
-
+	glog.V(1).Infoln("QUYNGUYEN: volume grow request: ", req.WritableVolumeCount, replicaPlacement.GetCopyCount(), replicaCount, ms.Topo.AvailableSpaceFor(&volumeGrowOption))
 	if ms.Topo.AvailableSpaceFor(&volumeGrowOption) < replicaCount {
 		return nil, fmt.Errorf("only %d volumes left, not enough for %d", ms.Topo.AvailableSpaceFor(&volumeGrowOption), replicaCount)
 	}

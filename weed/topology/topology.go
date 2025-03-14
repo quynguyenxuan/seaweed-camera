@@ -42,6 +42,8 @@ type Topology struct {
 
 	Sequence sequence.Sequencer
 
+	chanOutdatedVolumes chan storage.VolumeInfo
+
 	chanFullVolumes    chan storage.VolumeInfo
 	chanCrowdedVolumes chan storage.VolumeInfo
 
@@ -76,6 +78,7 @@ func NewTopology(id string, seq sequence.Sequencer, volumeSizeLimit uint64, puls
 
 	t.chanFullVolumes = make(chan storage.VolumeInfo)
 	t.chanCrowdedVolumes = make(chan storage.VolumeInfo)
+	t.chanOutdatedVolumes = make(chan storage.VolumeInfo)
 
 	t.Configuration = &Configuration{}
 

@@ -361,8 +361,11 @@ func (fs *FilerServer) CollectionList(ctx context.Context, req *filer_pb.Collect
 
 func (fs *FilerServer) DeleteCollection(ctx context.Context, req *filer_pb.DeleteCollectionRequest) (resp *filer_pb.DeleteCollectionResponse, err error) {
 
-	glog.V(4).Infof("DeleteCollection %v", req)
-
+	glog.V(2).Infof("QUYNGUYEN: Filer receive DeleteCollection %v", req)
+	if req.GetFromTime() != 0 || req.GetToTime() != 0 {
+		err = fs.filer.DoDeleteFilerEntryWithTime(context.Background(), req.GetCollection(), req.GetFromTime(), req.GetToTime())
+		return &filer_pb.DeleteCollectionResponse{}, err
+	}
 	err = fs.filer.DoDeleteCollection(req.GetCollection())
 
 	return &filer_pb.DeleteCollectionResponse{}, err

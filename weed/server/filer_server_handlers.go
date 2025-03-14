@@ -88,6 +88,8 @@ func (fs *FilerServer) filerHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodDelete:
 		if _, ok := r.URL.Query()["tagging"]; ok {
 			fs.DeleteTaggingHandler(w, r)
+		} else if _, ok := r.URL.Query()["collection"]; ok {
+			fs.DeleteHandler(w, r)
 		} else {
 			fs.DeleteHandler(w, r)
 		}

@@ -1,18 +1,30 @@
  
 
 do_put() {
-    warp put --duration=5s  \
+    warp put --duration=1s \
     --host=127.0.0.1:8333 \
-    --obj.size=512K \
-    --bucket=camera2020 \
-    --concurrent=200 \
+    --obj.size=5K \
+    --bucket=camera2010 \
+    --concurrent=1 \
+    --noprefix \
     --noclear \
-    --prefix=007/007_kdfjksdf_250228155600_234234234
+    --prefix=007/007_kdfjksdf_$(date +'%y%m%d%H%M%S')_2343234234
 
     #   --access-key=8_tests3_accid \
     # --secret-key=-aJ20yurXb2RhF9pYwNG9shc-RKb \
 }
 
+curl -F file=@filer.conf "http://localhost:8888/buckets/camera2010/007/007_kdfjksdf_$(date +'%y%m%d%H%M%S')_2343234234"
+curl -X DELETE "http://localhost:8888/buckets/camera2010/007?collection=camera2010_007&fromTime=1732953740&toTime=$(date +%s)"
+export NOW=$(date +%s)
+curl -X DELETE "http://localhost:8888/buckets/camera2010/007?collection=camera2010_007&fromTime=1732953740&toTime=${NOW}"
+docker container logs seaweedfs385-filer-1 -f    
+
+Collection list
+camera2009/007
+camera2009/015
+camera2009/030
+camera2009/003
 
 for i in $(seq 1 100);
 do

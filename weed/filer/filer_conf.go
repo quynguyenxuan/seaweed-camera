@@ -160,6 +160,16 @@ func (fc *FilerConf) MatchStorageRule(path string) (pathConf *filer_pb.FilerConf
 	return pathConf
 }
 
+func (fc *FilerConf) GetCollectionLocations(collection string) (locations []string) {
+	locations = make([]string, 0)
+	fc.rules.Walk(func(key []byte, value *filer_pb.FilerConf_PathConf) bool {
+		if value.Collection == collection {
+			locations = append(locations, value.LocationPrefix)
+		}
+		return true
+	})
+	return locations
+}
 func (fc *FilerConf) GetCollectionTtls(collection string) (ttls map[string]string) {
 	ttls = make(map[string]string)
 	fc.rules.Walk(func(key []byte, value *filer_pb.FilerConf_PathConf) bool {

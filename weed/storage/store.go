@@ -135,14 +135,14 @@ func (s *Store) DeleteCollection(collection string) (e error) {
 }
 
 func (s *Store) DeleteCollectionByTime(collection string, fromTime uint64, toTime uint64) (e error) {
-	log.Println("QUYNGUYEN: Store DeleteCollectionByTime filter received: ")
+	glog.V(2).Infoln("QUYNGUYEN: Store DeleteCollectionByTime filter received: ")
 
 	for _, location := range s.Locations {
 		e = location.DeleteCollectionFromDiskLocationByTime(collection, fromTime, toTime)
 		if e != nil {
 			return
 		}
-		stats.DeleteCollectionMetrics(collection)
+		// stats.DeleteCollectionMetrics(collection)
 		// let the heartbeat send the list of volumes, instead of sending the deleted volume ids to DeletedVolumesChan
 	}
 	return
@@ -372,6 +372,10 @@ func (s *Store) CollectHeartbeat() *master_pb.Heartbeat {
 		stats.VolumeServerDiskSizeGauge.WithLabelValues(col, "deleted_bytes").Set(float64(deletedBytes))
 	}
 
+	for col, deletedBytes := range collectionVolumeDeletedBytes {
+		// stats.VolumeServerDiskSizeGauge.WithLabelValues(col, "deleted").ge
+		stats.VolumeServerDiskSizeGauge.WithLabelValues(col, "deleted").Set(float64(deletedBytes))
+	}
 	for col, types := range collectionVolumeReadOnlyCount {
 		for t, count := range types {
 			stats.VolumeServerReadOnlyVolumeGauge.WithLabelValues(col, t).Set(float64(count))

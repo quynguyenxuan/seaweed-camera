@@ -9,6 +9,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"log"
 	"os"
 
 	gorocksdb "github.com/linxGnu/grocksdb"
@@ -236,12 +237,12 @@ func (store *RocksDBStore) ListDirectoryEntries(ctx context.Context, dirPath wee
 }
 
 func (store *RocksDBStore) ListDirectoryPrefixedEntries(ctx context.Context, dirPath weed_util.FullPath, startFileName string, includeStartFile bool, limit int64, prefix string, eachEntryFunc filer.ListEachEntryFunc) (lastFileName string, err error) {
-
 	directoryPrefix := genDirectoryKeyPrefix(dirPath, prefix)
 	lastFileStart := directoryPrefix
 	if startFileName != "" {
 		lastFileStart = genDirectoryKeyPrefix(dirPath, startFileName)
 	}
+	log.Println("QUYNGUYEN ListDirectoryPrefixedEntries,", startFileName, limit, prefix, dirPath, lastFileStart, directoryPrefix)
 
 	ro := gorocksdb.NewDefaultReadOptions()
 	defer ro.Destroy()
