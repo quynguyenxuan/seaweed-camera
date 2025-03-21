@@ -5,8 +5,8 @@ RUN mkdir -p /go/src/github.com/seaweedfs/
 ADD . /go/src/github.com/seaweedfs/seaweedfs
 RUN ls -al /go/src/github.com/seaweedfs/ && \
   cd /go/src/github.com/seaweedfs/seaweedfs/weed \
-  && export LDFLAGS="-X github.com/seaweedfs/seaweedfs/weed/util.COMMIT=$(git rev-parse --short HEAD)" \
-  && go install -tags "5BytesOffset rocksdb tikv sqlite ydb" -ldflags "-extldflags -static ${LDFLAGS}"
+  && go install -tags "5BytesOffset rocksdb tikv sqlite ydb" -ldflags "-extldflags -static -X github.com/seaweedfs/seaweedfs/weed/util.COMMIT=17b112467"
+  # && export LDFLAGS="-X github.com/seaweedfs/seaweedfs/weed/util.COMMIT=$(git rev-parse --short HEAD)" \
 
 
 FROM alpine AS final

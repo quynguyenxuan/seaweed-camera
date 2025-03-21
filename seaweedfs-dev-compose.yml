@@ -10,6 +10,7 @@ services:
     environment:
       - TZ=Asia/Ho_Chi_Minh
       - VOLUME_SPLIT_IN_SECONDS=60
+      
     # command: "master -ip=master"
     volumes:
       - ./tmp:/app
@@ -22,6 +23,7 @@ services:
     environment:
       - TZ=Asia/Ho_Chi_Minh
       - VOLUME_SPLIT_IN_SECONDS=60
+      - INDEX_CACHE_IN_MB=64
     volumes:
       - ./tmp:/app
       - ~/seaweedfsv1:/mnt/v1
@@ -41,6 +43,7 @@ services:
       - ~/filer/rocksdb1:/mnt/rocksdb
     environment:
       - TZ=Asia/Ho_Chi_Minh
+      - STORE_CACHE_IN_MB=64
     depends_on:
       - master
       - volume

@@ -17,13 +17,13 @@ const buckets = [
 ]
 const packages = {
     1: "001",
-    3: "003",
-    7: "007",
-    15: "015",
-    30: "030",
+    // 3: "003",
+    // 7: "007",
+    // 15: "015",
+    // 30: "030",
 }
 process.env.TZ="Asia/Ho_Chi_Minh"
-const filerUrl = "http://localhost:8888/buckets/"
+const filerUrl = "http://localhost:8888/buckets"
 function getEndOfDaysAgo(now, day) {
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(now.getDate() - day);
@@ -41,23 +41,23 @@ for (const bucket of buckets) {
         query: {
           collection: `${bucket}_${pkg}`,
           fromTime: 1732953740,
-          toTime: +getEndOfDaysAgo(now, daysAgo),
+          toTime: +Math.round(+getEndOfDaysAgo(now, daysAgo) / 1000),
         },
       });
       console.log(`Deleting ${fullUrl}`);
-      fetch(fullUrl, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      // fetch(fullUrl, {
+      //   method: "DELETE",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //   },
         
-      }).then((response) => {
-        if (response.ok) {
-          console.log(`Deleted ${fullUrl}`);
-        } else {
-          console.error(`Failed to delete ${fullUrl}: ${response.status}`);
-        }
-      });
+      // }).then((response) => {
+      //   if (response.ok) {
+      //     console.log(`Deleted ${fullUrl}`);
+      //   } else {
+      //     console.error(`Failed to delete ${fullUrl}: ${response.status}`);
+      //   }
+      // });
      
     }
 }

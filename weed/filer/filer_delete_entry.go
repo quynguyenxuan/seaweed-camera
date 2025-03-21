@@ -176,13 +176,14 @@ func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.Fu
 	lastFileName := ""
 	includeLastFile := false
 
-	glog.V(2).Infoln("QUYNGUYEN delete collection ", fromDateNum, toDateNum, fullPath)
+	// glog.V(2).Infoln("QUYNGUYEN delete collection ", fromDateNum, toDateNum, fullPath)
 	for {
 		entries, _, err := f.ListDirectoryEntries(ctx, fullPath, lastFileName, includeLastFile, PaginationSize, "", "", "")
 		if err != nil {
-			glog.Errorf("QUYNGUYEN list folder %s: %v", fullPath, err)
+			// glog.Errorf("QUYNGUYEN list folder %s: %v", fullPath, err)
 			return fmt.Errorf("QUYNGUYEN list folder %s: %v", fullPath, err)
 		}
+		entryCount := 0
 		for _, entry := range entries {
 			lastFileName = entry.Name()
 			glog.V(2).Infof("QUYNGUYEN deleting 1 %s %b %b %d %d", entry.FullPath, entry.IsDirectory(), isValidKeyInTime(fmt.Sprintf("%s", entry.FullPath), fromDateNum, toDateNum), fromDateNum, toDateNum)
@@ -192,21 +193,23 @@ func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.Fu
 			if entry.IsDirectory() {
 				f.doDeleteFilerEntryWithTime(ctx, entry.FullPath, fromDateNum, toDateNum)
 			} else {
-				if len(entry.HardLinkId) != 0 {
-					// hard link chunk data are deleted separately
-					f.maybeDeleteHardLinks([]HardLinkId{entry.HardLinkId})
-				}
+				// if len(entry.HardLinkId) != 0 {
+				// 	// hard link chunk data are deleted separately
+				// 	f.maybeDeleteHardLinks([]HardLinkId{entry.HardLinkId})
+				// }
+				entryCount++
 				storeDeletionErr := f.Store.DeleteOneEntry(ctx, entry)
 				glog.V(2).Infof("QUYNGUYEN delete collection DeleteOneEntry  %s: %v", entry.FullPath, storeDeletionErr)
 			}
 		}
+		// glog.V(2).Infof("QUYNGUYEN deleting directory 1 %d ", entryCount)
 
 		if len(entries) < PaginationSize {
 			break
 		}
 	}
 
-	glog.V(2).Infof("QUYNGUYEN deleting directory %s ", fullPath)
+	glog.V(2).Infof("QUYNGUYEN deleting directory %s %d ", fullPath)
 	if !isValidKeyInTime(string(fullPath), fromDateNum, toDateNum) {
 		return nil
 	}

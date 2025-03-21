@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/seaweedfs/seaweedfs/weed/storage/types"
 
@@ -190,10 +191,15 @@ func (v *Volume) load(alsoLoadIndex bool, createDatIfMissing bool, needleMapKind
 					}
 				}
 			case NeedleMapLevelDbLarge:
+				//QUYNGUYEN increase cache
+				cacheSizeInMB, _ := strconv.Atoi(os.Getenv("INDEX_CACHE_IN_MB"))
+				if cacheSizeInMB == 0 {
+					cacheSizeInMB = 8
+				}
 				opts := &opt.Options{
-					BlockCacheCapacity:            8 * 1024 * 1024, // default value is 8MiB
-					WriteBuffer:                   4 * 1024 * 1024, // default value is 4MiB
-					CompactionTableSizeMultiplier: 10,              // default value is 1
+					BlockCacheCapacity:            cacheSizeInMB * 1024 * 1024,     // default value is 8MiB
+					WriteBuffer:                   cacheSizeInMB / 2 * 1024 * 1024, // default value is 4MiB
+					CompactionTableSizeMultiplier: 10,                              // default value is 1
 				}
 				if v.tmpNm != nil {
 					glog.V(0).Infoln("updating leveldb large index", v.FileName(".ldb"))

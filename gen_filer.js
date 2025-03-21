@@ -13,6 +13,7 @@ const buckets = [
     "camera2017",
     "camera2018",
     "camera2019",
+    "camera2020",
 ]
 const packages = [
     "001",

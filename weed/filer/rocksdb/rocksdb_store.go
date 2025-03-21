@@ -9,8 +9,8 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"log"
 	"os"
+	"strconv"
 
 	gorocksdb "github.com/linxGnu/grocksdb"
 
@@ -25,10 +25,16 @@ func init() {
 }
 
 type options struct {
-	opt *gorocksdb.Options
-	bto *gorocksdb.BlockBasedTableOptions
-	ro  *gorocksdb.ReadOptions
-	wo  *gorocksdb.WriteOptions
+	opt           *gorocksdb.Options
+	bto           *gorocksdb.BlockBasedTableOptions
+	ro            *gorocksdb.ReadOptions
+	wo            *gorocksdb.WriteOptions
+	cache         *gorocksdb.Cache
+	rowCache      *gorocksdb.Cache
+	blobCache     *gorocksdb.Cache
+	wbm           *gorocksdb.WriteBufferManager
+	bbto          *gorocksdb.BlockBasedTableOptions
+	cacheSizeInMB uint64
 }
 
 func (opt *options) init() {
@@ -36,6 +42,24 @@ func (opt *options) init() {
 	opt.bto = gorocksdb.NewDefaultBlockBasedTableOptions()
 	opt.ro = gorocksdb.NewDefaultReadOptions()
 	opt.wo = gorocksdb.NewDefaultWriteOptions()
+
+	cacheSizeInMB, _ := strconv.ParseUint(os.Getenv("STORE_CACHE_IN_MB"), 10, 64)
+	//QUYNGUYEN increase cache
+	if cacheSizeInMB > 0 {
+		opt.cacheSizeInMB = cacheSizeInMB
+		opt.cache = gorocksdb.NewLRUCache(opt.cacheSizeInMB * 1024 * 1024)
+		// opt.cache.SetCapacity(1024)
+
+		opt.bbto = gorocksdb.NewDefaultBlockBasedTableOptions()
+		opt.bbto.SetBlockCache(opt.cache)
+
+		opt.opt.SetBlockBasedTableFactory(opt.bbto)
+		opt.rowCache = gorocksdb.NewLRUCache(opt.cacheSizeInMB * 1024 * 1024)
+		opt.blobCache = gorocksdb.NewLRUCache(opt.cacheSizeInMB * 1024 * 1024)
+		opt.wbm = gorocksdb.NewWriteBufferManager(int(opt.cacheSizeInMB)*1024*1024, true)
+		opt.opt.SetWriteBufferManager(opt.wbm)
+	}
+
 }
 
 func (opt *options) close() {
@@ -43,6 +67,16 @@ func (opt *options) close() {
 	opt.bto.Destroy()
 	opt.ro.Destroy()
 	opt.wo.Destroy()
+
+	//QUYNGUYEN detroy cache
+	if opt.cacheSizeInMB > 0 {
+		opt.cache.Destroy()
+		opt.rowCache.Destroy()
+		opt.blobCache.Destroy()
+		opt.bbto.Destroy()
+		opt.wbm.Destroy()
+	}
+
 }
 
 type RocksDBStore struct {
@@ -242,7 +276,6 @@ func (store *RocksDBStore) ListDirectoryPrefixedEntries(ctx context.Context, dir
 	if startFileName != "" {
 		lastFileStart = genDirectoryKeyPrefix(dirPath, startFileName)
 	}
-	log.Println("QUYNGUYEN ListDirectoryPrefixedEntries,", startFileName, limit, prefix, dirPath, lastFileStart, directoryPrefix)
 
 	ro := gorocksdb.NewDefaultReadOptions()
 	defer ro.Destroy()

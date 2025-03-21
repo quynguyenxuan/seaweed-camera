@@ -37,8 +37,8 @@ build_rocksdb_local: build_rocksdb_dev_env
 	cd .. ; docker build --no-cache  -t chrislusf/seaweedfs:rocksdb_local -f docker/Dockerfile.rocksdb_large_local .
 
 build_rocksdb_local_sun: build_rocksdb_dev_env
-	cd .. ; docker build -t hub.sunteco.io/seeweedfs/seaweedfs:rocksdb_1.2 -f docker/Dockerfile.rocksdb_large_local .
-	docker push hub.sunteco.io/seeweedfs/seaweedfs:rocksdb_1.2
+	cd .. ; docker build -t hub.sunteco.io/seeweedfs/seaweedfs:rocksdb_1.4 -f docker/Dockerfile.rocksdb_large_local .
+	docker push hub.sunteco.io/seeweedfs/seaweedfs:rocksdb_1.4
 
 
 build_rocksdb_local_dev: build_rocksdb_dev_env

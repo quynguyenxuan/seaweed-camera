@@ -11,9 +11,10 @@ do_put() {
 
     local random_package=$(printf "%s\n" "${packages[@]}" | shuf -n 1)
     local random_bucket=$(printf "%s\n" "${buckets[@]}" | shuf -n 1)
+    # curl -F file=@video.m4a "http://localhost:8888/buc-releas11/seaweedfs/"
 
     echo "Putting $i $random_bucket $random_package"
-    warp put --duration=30m  \
+    warp put --duration=1s  \
     --host=127.0.0.1:80 \
     --access-key=5_test-public_accid \
     --secret-key=WGdv7-UdOLiDFbzOa6C2MG3TKy8P \
@@ -25,17 +26,17 @@ do_put() {
     --obj.nametemplate="${random_package}_%d%s_${i}_2343234234.m3u8"
 }
 
-do_run () {
-    echo "Putting $i"
-    do_put $i
-    local NOW=$(date +%s)
-    sleep 3
-    do_put $i
-    sleep 3
-    echo "Deleting $i"
-    curl "http://localhost:9333/col/delete?collection=007&fromTime=1732953740&toTime=${NOW}&pretty=y"
-    sleep 3
-}
+# do_run () {
+#     echo "Putting $i"
+#     do_put $i
+#     local NOW=$(date +%s)
+#     sleep 3
+#     do_put $i
+#     sleep 3
+#     echo "Deleting $i"
+#     curl "http://localhost:9333/col/delete?collection=007&fromTime=1732953740&toTime=${NOW}&pretty=y"
+#     sleep 3
+# }
 
 for i in $(seq 1 200);
 do
