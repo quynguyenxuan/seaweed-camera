@@ -3,15 +3,11 @@ testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
-  # args_bin = ["-f", "seaweedfs-dev-compose.yml", "restart"]
-  # bin = "docker-compose"
-
-  # args_bin = ["-v=2", "master", "-ip=master"]
-  # bin = "./tmp/main"
-  args_bin = ["build_completed"]
-  bin = "echo"
-  cmd = "go build -o ./tmp/main -tags=5BytesOffset,rocksdb,elastic,gocdk,sqlite,tikv,ydb -buildvcs=false ./weed"
-  # cmd = "docker build -t chrislusf/seaweedfs:rocksdb_local -f docker/Dockerfile.rocksdb_large_local ."
+ #"-dir=/mnt/seaweedVolume", , "-ip=go-api"
+ #"-filer.port=8868" "-s3.port=8323"
+  args_bin = ["-v=2","server", "-volume.max=250", "-master.volumeSizeLimitMB=100", "-master.port=9221", , "-filer.filerGroup=default", "-s3"]
+  bin = "./tmp/main"
+  cmd = "go build -o ./tmp/main -tags=5BytesOffset,rocksdb -buildvcs=false ./weed"
   delay = 3000
   # exclude_dir = ["assets", "tmp", "vendor", "testdata"]
   exclude_file = []

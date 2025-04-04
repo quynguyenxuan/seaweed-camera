@@ -169,6 +169,14 @@ func isValidKeyInTime(key string, fromDate, toDate int) bool {
 	}
 	return false
 }
+func isEntryCreatedInTime(entry *Entry, fromDate, toDate int) bool {
+	createdTime := int(entry.Attr.Crtime.Unix())
+
+	if createdTime > 0 && createdTime >= fromDate && createdTime <= toDate {
+		return true
+	}
+	return false
+}
 
 func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.FullPath, fromDateNum, toDateNum int) (err error) {
 	// TODO dele record in current filer
@@ -187,12 +195,12 @@ func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.Fu
 		for _, entry := range entries {
 			lastFileName = entry.Name()
 			glog.V(2).Infof("QUYNGUYEN deleting 1 %s %b %b %d %d", entry.FullPath, entry.IsDirectory(), isValidKeyInTime(fmt.Sprintf("%s", entry.FullPath), fromDateNum, toDateNum), fromDateNum, toDateNum)
-			if !isValidKeyInTime(fmt.Sprintf("%s", entry.FullPath), fromDateNum, toDateNum) {
-				continue
-			}
+			// if !isValidKeyInTime(fmt.Sprintf("%s", entry.FullPath), fromDateNum, toDateNum) {
+			// 	continue
+			// }
 			if entry.IsDirectory() {
 				f.doDeleteFilerEntryWithTime(ctx, entry.FullPath, fromDateNum, toDateNum)
-			} else {
+			} else if isEntryCreatedInTime(entry, fromDateNum, toDateNum) {
 				// if len(entry.HardLinkId) != 0 {
 				// 	// hard link chunk data are deleted separately
 				// 	f.maybeDeleteHardLinks([]HardLinkId{entry.HardLinkId})
@@ -209,14 +217,14 @@ func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.Fu
 		}
 	}
 
-	glog.V(2).Infof("QUYNGUYEN deleting directory %s %d ", fullPath)
-	if !isValidKeyInTime(string(fullPath), fromDateNum, toDateNum) {
-		return nil
-	}
+	// glog.V(2).Infof("QUYNGUYEN deleting directory %s %d ", fullPath)
+	// if !isValidKeyInTime(string(fullPath), fromDateNum, toDateNum) {
+	// 	return nil
+	// }
 	//Keep folder but delete children
-	if storeDeletionErr := f.Store.DeleteFolderChildren(ctx, fullPath); storeDeletionErr != nil {
-		return fmt.Errorf("filer store delete: %v", storeDeletionErr)
-	}
+	// if storeDeletionErr := f.Store.DeleteFolderChildren(ctx, fullPath); storeDeletionErr != nil {
+	// 	return fmt.Errorf("filer store delete: %v", storeDeletionErr)
+	// }
 
 	// f.StreamListDirectoryEntries(ctx, p, "", true, int64(math.MaxInt64), "", "", "", func(entry *Entry) bool {
 	// 	glog.V(3).Infof("QUYNGUYEN delete collection2 %s: %s %b %b", collectionName, entry.FullPath.Name(), isValidKeyInTime(entry.FullPath.Name(), fromDateNum, toDateNum), entry.IsDirectory())
