@@ -5,7 +5,7 @@ tmp_dir = "tmp"
 [build]
  #"-dir=/mnt/seaweedVolume", , "-ip=go-api"
  #"-filer.port=8868" "-s3.port=8323"
-  args_bin = ["-v=2","server", "-volume.max=250", "-master.volumeSizeLimitMB=100", "-master.port=9221", , "-filer.filerGroup=default", "-s3"]
+  args_bin = ["-v=1","server", "-volume.max=250", "-dir=/mnt/seaweedfs",  "-master.volumeSizeLimitMB=100", "-master.port=9221", "-filer.filerGroup=default", "-s3"]
   bin = "./tmp/main"
   cmd = "go build -o ./tmp/main -tags=5BytesOffset,rocksdb -buildvcs=false ./weed"
   delay = 3000

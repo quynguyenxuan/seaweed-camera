@@ -14,18 +14,19 @@ do_put() {
     # curl -F file=@video.m4a "http://localhost:8888/buc-releas11/seaweedfs/"
 
     echo "Putting $i $random_bucket $random_package"
-    warp put --duration=1s  \
-    --host=127.0.0.1:80 \
-    --access-key=5_test-public_accid \
-    --secret-key=WGdv7-UdOLiDFbzOa6C2MG3TKy8P \
-    --obj.size=512K \
+    ./warp  put --duration=1s  \
+    --host=127.0.0.1:8333 \
+    --obj.size=1K \
     --bucket=${random_bucket} \
-    --concurrent=200 \
+    --concurrent=1 \
     --noclear \
     --prefix=${random_package} \
     --obj.nametemplate="${random_package}_%d%s_${i}_2343234234.m3u8"
 }
 
+
+    # --access-key=5_test-public_accid \
+    # --secret-key=WGdv7-UdOLiDFbzOa6C2MG3TKy8P \
 # do_run () {
 #     echo "Putting $i"
 #     do_put $i

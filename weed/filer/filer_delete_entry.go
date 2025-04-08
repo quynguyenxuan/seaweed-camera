@@ -169,41 +169,49 @@ func isValidKeyInTime(key string, fromDate, toDate int) bool {
 	}
 	return false
 }
-func isEntryCreatedInTime(entry *Entry, fromDate, toDate int) bool {
-	createdTime := int(entry.Attr.Crtime.Unix())
-
+func isEntryCreatedInTime(entry *Entry, fromDate, toDate uint64) bool {
+	createdTime := uint64(entry.Attr.Crtime.Unix())
+	// log.Println("QUYNGUYEN Get Created Time  ", createdTime, fromDate, toDate)
 	if createdTime > 0 && createdTime >= fromDate && createdTime <= toDate {
 		return true
 	}
 	return false
 }
+func timestamptoDate(timestamp int64) int {
+	dateNum, err := strconv.Atoi(strings.ReplaceAll(time.Unix(timestamp, 0).Format("06-01-02-15-04-05"), "-", ""))
+	if err != nil {
+		return 0
+	}
+	return dateNum
+}
 
-func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.FullPath, fromDateNum, toDateNum int) (err error) {
+func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.FullPath, fromDate, toDate uint64) (err error) {
 	// TODO dele record in current filer
 
 	lastFileName := ""
 	includeLastFile := false
 
-	// glog.V(2).Infoln("QUYNGUYEN delete collection ", fromDateNum, toDateNum, fullPath)
+	// glog.V(2).Infoln("QUYNGUYEN delete collection  ", fromDate, toDate, fullPath)
 	for {
 		entries, _, err := f.ListDirectoryEntries(ctx, fullPath, lastFileName, includeLastFile, PaginationSize, "", "", "")
 		if err != nil {
-			// glog.Errorf("QUYNGUYEN list folder %s: %v", fullPath, err)
+			glog.Errorf("QUYNGUYEN list folder %s: %v", fullPath, err)
 			return fmt.Errorf("QUYNGUYEN list folder %s: %v", fullPath, err)
 		}
 		entryCount := 0
 		for _, entry := range entries {
 			lastFileName = entry.Name()
-			glog.V(2).Infof("QUYNGUYEN deleting 1 %s %b %b %d %d", entry.FullPath, entry.IsDirectory(), isValidKeyInTime(fmt.Sprintf("%s", entry.FullPath), fromDateNum, toDateNum), fromDateNum, toDateNum)
-			// if !isValidKeyInTime(fmt.Sprintf("%s", entry.FullPath), fromDateNum, toDateNum) {
+			// glog.V(2).Infof("QUYNGUYEN deleting 1 %s %b %b %d %d", entry.FullPath, entry.IsDirectory(), fromDate, toDate)
+			// if !isValidKeyInTime(fmt.Sprintf("%s", entry.FullPath), fromDate, toDate) {
 			// 	continue
 			// }
 			if entry.IsDirectory() {
-				f.doDeleteFilerEntryWithTime(ctx, entry.FullPath, fromDateNum, toDateNum)
-			} else if isEntryCreatedInTime(entry, fromDateNum, toDateNum) {
+				f.doDeleteFilerEntryWithTime(ctx, entry.FullPath, fromDate, toDate)
+			} else if isEntryCreatedInTime(entry, fromDate, toDate) {
 				// if len(entry.HardLinkId) != 0 {
 				// 	// hard link chunk data are deleted separately
 				// 	f.maybeDeleteHardLinks([]HardLinkId{entry.HardLinkId})
+				// glog.Errorf("QUYNGUYEN list isEntryCreatedInTime %s: %v", fullPath, err)
 				// }
 				entryCount++
 				storeDeletionErr := f.Store.DeleteOneEntry(ctx, entry)
@@ -218,7 +226,7 @@ func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.Fu
 	}
 
 	// glog.V(2).Infof("QUYNGUYEN deleting directory %s %d ", fullPath)
-	// if !isValidKeyInTime(string(fullPath), fromDateNum, toDateNum) {
+	// if !isValidKeyInTime(string(fullPath), fromDate, toDate) {
 	// 	return nil
 	// }
 	//Keep folder but delete children
@@ -227,8 +235,8 @@ func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.Fu
 	// }
 
 	// f.StreamListDirectoryEntries(ctx, p, "", true, int64(math.MaxInt64), "", "", "", func(entry *Entry) bool {
-	// 	glog.V(3).Infof("QUYNGUYEN delete collection2 %s: %s %b %b", collectionName, entry.FullPath.Name(), isValidKeyInTime(entry.FullPath.Name(), fromDateNum, toDateNum), entry.IsDirectory())
-	// 	if isValidKeyInTime(entry.FullPath.Name(), fromDateNum, toDateNum) {
+	// 	glog.V(3).Infof("QUYNGUYEN delete collection2 %s: %s %b %b", collectionName, entry.FullPath.Name(), isValidKeyInTime(entry.FullPath.Name(), fromDate, toDate), entry.IsDirectory())
+	// 	if isValidKeyInTime(entry.FullPath.Name(), fromDate, toDate) {
 	// 		if entry.IsDirectory() {
 	// 			folderDeleteErr := f.Store.DeleteFolderChildren(ctx, entry.FullPath)
 	// 			if folderDeleteErr != nil {
@@ -248,8 +256,6 @@ func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.Fu
 
 func (f *Filer) DoDeleteFilerEntryWithTime(ctx context.Context, collectionName string, fromTime, toTime uint64) (err error) {
 	// TODO dele record in current filer
-	fromDateNum, _ := strconv.Atoi(strings.ReplaceAll(time.Unix(int64(fromTime), 0).Format("06-01-02-15-04-05"), "-", ""))
-	toDateNum, _ := strconv.Atoi(strings.ReplaceAll(time.Unix(int64(toTime), 0).Format("06-01-02-15-04-05"), "-", ""))
 
 	locations := f.FilerConf.GetCollectionLocations(collectionName)
 	glog.V(2).Infoln("QUYNGUYEN GetCollectionLocations ", collectionName, len(locations), locations)
@@ -259,7 +265,7 @@ func (f *Filer) DoDeleteFilerEntryWithTime(ctx context.Context, collectionName s
 
 	for _, location := range locations {
 		p := util.FullPath(location)
-		f.doDeleteFilerEntryWithTime(ctx, p, fromDateNum, toDateNum)
+		f.doDeleteFilerEntryWithTime(ctx, p, fromTime, toTime)
 	}
 	return nil
 }

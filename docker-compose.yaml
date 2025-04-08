@@ -16,20 +16,20 @@ services:
     # depends_on:
     #   - redis
     ports:
-      # - 9333:9333
+      - 9333:9333
       - 8233:8333
-      # - 8080:8080
-      # - 8111:8111
-      # - 8888:8888 
-    # working_dir: /app
+      - 8080:8080
+      - 8111:8111
+      - 8888:8888 
+    working_dir: /app
     volumes:
       - .:/app/
-      # - ~/seaweedfs:/mnt/seaweedfs:rshared
+      - ~/seaweedfs:/mnt/seaweedfs:rshared
       - ./filer.toml:/etc/seaweedfs/filer.toml
       - ./s3.json:/etc/seaweedfs/s3.json
       # - ~/rocksdb:/mnt/rocksdb
   # shell:
-  #   container_name: seaweed-shell
+  #   container_name: seaweed-shellock
   #   image: chrislusf/seaweedfs:3.84_large_disk_full
   #   command: "shell -master=go-api:9333 -filer=go-api:8888"
   # scylla:

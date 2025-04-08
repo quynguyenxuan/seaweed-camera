@@ -2,7 +2,7 @@
 
 do_put() {
     go run /mnt/nvme0n1p6/warp put --duration=1s \
-    --host=127.0.0.1:8333 \
+    --host=127.0.0.1:8233 \
     --obj.size=5K,10K \
     --obj.randsize=true \
     --obj.nametemplate="007_%d%s_$(date +'%y%m%d%H%M%S')_2343234234.m3u8" \
@@ -17,7 +17,7 @@ do_put() {
 }
 
 
-curl -X DELETE "http://localhost:8888/buckets/camera2010/007?collection=camera2010_007&fromTime=1732953740&toTime=1742442108"
+curl -X DELETE "http://localhost:8888/buckets/camera2010/007?collection=camera2010_007&fromTime=1732953740&toTime=1744103784"
 
 curl -X DELETE "http://103.5.211.42:8800/buckets/camera2010/007?collection=camera2019_001&fromTime=1742112108&toTime=1742119308"
 

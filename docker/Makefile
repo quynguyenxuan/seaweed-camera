@@ -31,14 +31,14 @@ go_build_large_disk:
 	docker build --build-arg TAGS=large_disk --no-cache -t chrislusf/seaweedfs:large_disk -f Dockerfile.go_build .
 
 build_rocksdb_dev_env:
-	docker build  -t chrislusf/rocksdb_dev_env -f Dockerfile.rocksdb_dev_env .
+	docker build  --no-cache -t chrislusf/rocksdb_dev_env -f Dockerfile.rocksdb_dev_env .
 
 build_rocksdb_local: build_rocksdb_dev_env
 	cd .. ; docker build --network=host  -t chrislusf/seaweedfs:rocksdb_local -f docker/Dockerfile.rocksdb_large_local .
 
 build_rocksdb_local_sun: build_rocksdb_dev_env
-	cd .. ; docker build --network=host -t xuanquynguyen/seaweedfs:1.2-rocksdb_3.85 -f docker/Dockerfile.rocksdb_large_local .
-	docker push xuanquynguyen/seaweedfs:1.2-rocksdb_3.85
+	cd .. ; docker build --network=host -t xuanquynguyen/seaweedfs:1.5-rocksdb_3.85 -f docker/Dockerfile.rocksdb_large_local .
+	docker push xuanquynguyen/seaweedfs:1.5-rocksdb_3.85
 
 
 build_rocksdb_local_dev: build_rocksdb_dev_env
