@@ -10,6 +10,7 @@ services:
     environment:
       - TZ=Asia/Ho_Chi_Minh
       - VOLUME_SPLIT_IN_SECONDS=60
+      - VOLUME_DELETION_INTERVAL_MILLISECONDS=300
       
     # command: "master -ip=master"
     volumes:
@@ -25,6 +26,7 @@ services:
       - TZ=Asia/Ho_Chi_Minh
       - VOLUME_SPLIT_IN_SECONDS=60
       - INDEX_CACHE_IN_MB=64
+      - VOLUME_DELETION_INTERVAL_MILLISECONDS=300
     volumes:
       - ./tmp:/app
       - ~/seaweedfsv1:/mnt/v1

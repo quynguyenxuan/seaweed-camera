@@ -322,7 +322,10 @@ func (l *DiskLocation) DeleteCollectionFromDiskLocationByTime(collection string,
 
 	l.ecVolumesLock.Unlock()
 	log.Println("QUYNGUYEN: DeleteCollectionFromDiskLocationByTime 2", collection, len(delEcVolsMap), len(delVolsMap))
-
+	volumeDeletionInterval, err := strconv.ParseInt(os.Getenv("VOLUME_DELETION_INTERVAL_MILLISECONDS"), 10, 64)
+	if err != nil {
+		volumeDeletionInterval = 0
+	}
 	errChain := make(chan error, 2)
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -330,6 +333,9 @@ func (l *DiskLocation) DeleteCollectionFromDiskLocationByTime(collection string,
 		for _, v := range delVolsMap {
 			if err := v.Destroy(false); err != nil {
 				errChain <- err
+			}
+			if volumeDeletionInterval > 0 {
+				time.Sleep(time.Duration(volumeDeletionInterval) * time.Millisecond)
 			}
 		}
 		wg.Done()

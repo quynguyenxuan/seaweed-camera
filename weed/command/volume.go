@@ -37,29 +37,32 @@ var (
 )
 
 type VolumeServerOptions struct {
-	port                      *int
-	portGrpc                  *int
-	publicPort                *int
-	folders                   []string
-	folderMaxLimits           []int32
-	idxFolder                 *string
-	ip                        *string
-	publicUrl                 *string
-	bindIp                    *string
-	mastersString             *string
-	masters                   []pb.ServerAddress
-	idleConnectionTimeout     *int
-	dataCenter                *string
-	rack                      *string
-	whiteList                 []string
-	indexType                 *string
-	diskType                  *string
-	fixJpgOrientation         *bool
-	readMode                  *string
-	cpuProfile                *string
-	memProfile                *string
-	compactionMBPerSecond     *int
-	fileSizeLimitMB           *int
+	port                  *int
+	portGrpc              *int
+	publicPort            *int
+	folders               []string
+	folderMaxLimits       []int32
+	idxFolder             *string
+	ip                    *string
+	publicUrl             *string
+	bindIp                *string
+	mastersString         *string
+	masters               []pb.ServerAddress
+	idleConnectionTimeout *int
+	dataCenter            *string
+	rack                  *string
+	whiteList             []string
+	indexType             *string
+	diskType              *string
+	fixJpgOrientation     *bool
+	readMode              *string
+	cpuProfile            *string
+	memProfile            *string
+	compactionMBPerSecond *int
+	fileSizeLimitMB       *int
+	//QUYNGUYEN add
+	// volumeDeletionInterval *time.Duration
+	// volumeSplitInSeconds      *time.Duration
 	concurrentUploadLimitMB   *int
 	concurrentDownloadLimitMB *int
 	pprof                     *bool
@@ -105,6 +108,10 @@ func init() {
 	v.inflightUploadDataTimeout = cmdVolume.Flag.Duration("inflightUploadDataTimeout", 60*time.Second, "inflight upload data wait timeout of volume servers")
 	v.hasSlowRead = cmdVolume.Flag.Bool("hasSlowRead", true, "<experimental> if true, this prevents slow reads from blocking other requests, but large file read P99 latency will increase.")
 	v.readBufferSizeMB = cmdVolume.Flag.Int("readBufferSizeMB", 4, "<experimental> larger values can optimize query performance but will increase some memory usage,Use with hasSlowRead normally.")
+	//QUYNGUYEN Add
+	// v.volumeDeletionInterval = cmdVolume.Flag.Duration("volumeDeletionInterval", 0*time.Millisecond, "<experimental> time between two volume deletions in miliseconds.")
+	// v.volumeSplitInSeconds = cmdVolume.Flag.Duration("volumeSplitInSeconds", 0*time.Second, "<experimental> split volume file every n seconds.")
+
 }
 
 var cmdVolume = &Command{
