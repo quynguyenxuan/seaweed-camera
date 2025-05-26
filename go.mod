@@ -1,6 +1,6 @@
 module github.com/seaweedfs/seaweedfs
 
-go 1.23
+go 1.23.0
 
 toolchain go1.23.3
 
@@ -104,14 +104,14 @@ require (
 	gocloud.dev v0.40.0
 	gocloud.dev/pubsub/natspubsub v0.40.0
 	gocloud.dev/pubsub/rabbitpubsub v0.40.0
-	golang.org/x/crypto v0.33.0 // indirect
-	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
+	golang.org/x/crypto v0.38.0 // indirect
+	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	golang.org/x/image v0.23.0
-	golang.org/x/net v0.35.0
+	golang.org/x/net v0.40.0
 	golang.org/x/oauth2 v0.26.0 // indirect
-	golang.org/x/sys v0.30.0
-	golang.org/x/text v0.22.0 // indirect
-	golang.org/x/tools v0.30.0
+	golang.org/x/sys v0.33.0
+	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/tools v0.33.0
 	golang.org/x/xerrors v0.0.0-20240716161551-93cc26a95ae9 // indirect
 	google.golang.org/api v0.221.0
 	google.golang.org/genproto v0.0.0-20250122153221-138b5a5a4fd4 // indirect
@@ -120,8 +120,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	modernc.org/b v1.0.0 // indirect
 	modernc.org/mathutil v1.7.1
-	modernc.org/memory v1.8.0 // indirect
-	modernc.org/sqlite v1.34.5
+	modernc.org/memory v1.11.0 // indirect
+	modernc.org/sqlite v1.37.1
 	modernc.org/strutil v1.2.1
 )
 
@@ -154,7 +154,7 @@ require (
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.99.10
 	go.etcd.io/etcd/client/pkg/v3 v3.5.18
 	go.uber.org/atomic v1.11.0
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.14.0
 	google.golang.org/grpc/security/advancedtls v1.0.0
 )
 
@@ -349,8 +349,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/term v0.29.0 // indirect
+	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/time v0.10.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250124145028-65684f501c47 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250207221924-e9438ea467c6 // indirect
@@ -359,7 +359,7 @@ require (
 	gopkg.in/validator.v2 v2.0.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	modernc.org/libc v1.55.3 // indirect
+	modernc.org/libc v1.65.7 // indirect
 	moul.io/http2curl/v2 v2.3.0 // indirect
 	storj.io/common v0.0.0-20240812101423-26b53789c348 // indirect
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 // indirect
