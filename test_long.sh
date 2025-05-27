@@ -18,6 +18,8 @@ do_put() {
     --host=127.0.0.1:8333 \
     --obj.size=1K \
     --bucket=${random_bucket} \
+    --access-key=ZC01Q5AA38QG9BX36L81X \
+    --secret-key=qdiBYwrj8rJWQ6cHW2eg4ETHFkVW1XH/2uCNglzo7u \
     --concurrent=1 \
     --noclear \
     --prefix=${random_package} \
@@ -39,7 +41,7 @@ do_put() {
 #     sleep 3
 # }
 
-for i in $(seq 1 200);
+for i in $(seq 1 1);
 do
 
     do_put $i

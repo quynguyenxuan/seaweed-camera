@@ -37,8 +37,8 @@ build_rocksdb_local: build_rocksdb_dev_env
 	cd .. ; docker build --network=host  -t chrislusf/seaweedfs:rocksdb_local -f docker/Dockerfile.rocksdb_large_local .
 
 build_rocksdb_local_sun: build_rocksdb_dev_env
-	cd .. ; docker build --network=host -t xuanquynguyen/seaweedfs:1.6-rocksdb_3.85 -f docker/Dockerfile.rocksdb_large_local .
-	docker push xuanquynguyen/seaweedfs:1.6-rocksdb_3.85
+	cd .. ; docker build --network=host -t xuanquynguyen/seaweedfs:1.9-rocksdb_3.85 -f docker/Dockerfile.rocksdb_large_local .
+	docker push xuanquynguyen/seaweedfs:1.9-rocksdb_3.85
 
 
 build_rocksdb_local_dev: build_rocksdb_dev_env

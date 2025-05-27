@@ -32,7 +32,8 @@
         "-i",
         "--rm",
         "mcp/fetch"
-      ]
+      ],
+      "disabled": true
     },
     "sequentialthinking": {
       "command": "docker",
@@ -52,6 +53,7 @@
         "repomix",
         "--mcp"
       ],
+      "disabled": true,
       "alwaysAllow": []
     },
     "github": {

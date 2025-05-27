@@ -23,6 +23,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"fmt"
 	"hash"
 	"io"
 	"net/http"
@@ -37,8 +38,69 @@ import (
 	"unicode/utf8"
 
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3err"
+	//QUYNGUYEN
+	jwt "github.com/golang-jwt/jwt/v5"
 )
 
+type SessionTokenPayload struct {
+	Exp       int64  `json:"exp"`
+	Iat       int64  `json:"iat,omitempty"`
+	AccessKey string `json:"accessKey,omitempty"`
+}
+
+func parseSessionToken(tokenString string, secret string) (*SessionTokenPayload, error) {
+	// Phân tích token với HS512
+	token, err := jwt.ParseWithClaims(tokenString, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		// Kiểm tra thuật toán
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secret), nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token: %w", err)
+	}
+
+	// Kiểm tra tính hợp lệ của token
+	if !token.Valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+
+	// Lấy claims từ token
+	claims, ok := token.Claims.(*jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid claims format")
+	}
+
+	// Chuyển claims thành SessionTokenPayload
+	payload := &SessionTokenPayload{
+		Exp:       int64((*claims)["exp"].(float64)), // Chuyển float64 thành int64
+		Iat:       int64((*claims)["iat"].(float64)),
+		AccessKey: (*claims)["accessKey"].(string),
+	}
+
+	return payload, nil
+}
+
+func validateSessionToken(token string, targetPayload SessionTokenPayload) bool {
+	payload, err := parseSessionToken(token, emptySHA256)
+	// fmt.Println("validateSessionToken2", payload.Exp, targetPayload.Exp)
+
+	// fmt.Println(payload, err)
+
+	if err != nil || payload == nil {
+		return false
+	}
+	if payload.AccessKey != targetPayload.AccessKey {
+		return false
+	}
+	// if math.Abs(float64(payload.Exp-targetPayload.Exp)) > 5 {
+	// 	return false
+	// }
+	return true
+
+}
 func (iam *IdentityAccessManagement) reqSignatureV4Verify(r *http.Request) (*Identity, s3err.ErrorCode) {
 	sha256sum := getContentSha256Cksum(r)
 	switch {
@@ -358,7 +420,6 @@ func (iam *IdentityAccessManagement) doesPolicySignatureV4Match(formValues http.
 		credHeader.scope.service,
 		formValues.Get("Policy"),
 	)
-
 	// Verify signature.
 	if !compareSignatureV4(newSignature, formValues.Get("X-Amz-Signature")) {
 		return s3err.ErrSignatureDoesNotMatch
@@ -421,7 +482,9 @@ func (iam *IdentityAccessManagement) doesPresignedSignatureMatch(hashedPayload s
 	query.Set("X-Amz-Expires", strconv.Itoa(expireSeconds))
 	query.Set("X-Amz-SignedHeaders", getSignedHeaders(extractedSignedHeaders))
 	query.Set("X-Amz-Credential", cred.AccessKey+"/"+getScope(t, pSignValues.Credential.scope.region))
-
+	if req.URL.Query().Get("X-Amz-Security-Token") != "" {
+		query.Set("X-Amz-Security-Token", req.URL.Query().Get("X-Amz-Security-Token"))
+	}
 	// Save other headers available in the request parameters.
 	for k, v := range req.URL.Query() {
 
@@ -451,6 +514,15 @@ func (iam *IdentityAccessManagement) doesPresignedSignatureMatch(hashedPayload s
 	if req.URL.Query().Get("X-Amz-SignedHeaders") != query.Get("X-Amz-SignedHeaders") {
 		return nil, s3err.ErrSignatureDoesNotMatch
 	}
+	//QUYNGUYEN add check session Token
+	if req.URL.Query().Get("X-Amz-Security-Token") != "" {
+		// fmt.Println("validateSessionToken1", pSignValues.Expires, pSignValues.Date)
+		expTime := pSignValues.Date.Add(pSignValues.Expires).Unix()
+		isValid := validateSessionToken(req.URL.Query().Get("X-Amz-Security-Token"), SessionTokenPayload{AccessKey: cred.AccessKey, Exp: expTime})
+		if !isValid {
+			return nil, s3err.ErrExpiredPresignRequest
+		}
+	}
 	// Verify if credential query is same.
 	if req.URL.Query().Get("X-Amz-Credential") != query.Get("X-Amz-Credential") {
 		return nil, s3err.ErrSignatureDoesNotMatch
@@ -478,7 +550,8 @@ func (iam *IdentityAccessManagement) doesPresignedSignatureMatch(hashedPayload s
 		pSignValues.Credential.scope.service,
 		presignedStringToSign,
 	)
-
+	// fmt.Println("newSignature", pSignValues.SignedHeaders, "presignedStringToSign", presignedStringToSign, "presignedCanonicalReq", presignedCanonicalReq, "encodedQuery", encodedQuery, newSignature, req.URL.Query().Get("X-Amz-Signature"))
+	//QUYNGUYEN force  avoid signature is have session token
 	// Verify signature.
 	if !compareSignatureV4(req.URL.Query().Get("X-Amz-Signature"), newSignature) {
 		return nil, s3err.ErrSignatureDoesNotMatch
