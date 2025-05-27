@@ -1,12 +1,9 @@
-export AWS_ACCESS_KEY_ID="8_tests3_accid"
-export AWS_SECRET_ACCESS_KEY="-aJ20yurXb2RhF9pYwNG9shc-RKb"
+export AWS_ACCESS_KEY_ID=""
+export AWS_SECRET_ACCESS_KEY=""
 # export AWS_SESSION_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NLZXkiOiI4X3Rlc3RzM19hY2NpZCIsImV4cCI6MTc1MTAwNzE1OCwiaWF0IjoxNzQ4MzMyOTQ0fQ.qOVdPAEIxmjvYqKenr-sBuab3NAA0L81wZbmS7lKveI"
 export AWS_DEFAULT_REGION="us-east-1"
 export AWS_S3_ADDRESSING_STYLE="path"
 export AWS_SESSION_TOKEN=$(bun run test_gen_token.ts)
-# 1751007158 1748332944 8_tests3_accid
-# export AWS_ACCESS_KEY_ID="AKIAJ2YRONUXQHWUQJQY"
-# export AWS_SECRET_ACCESS_KEY="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"
 # set -x
 STRING="Hello, this is a test dfd sdfsd string!"
 
