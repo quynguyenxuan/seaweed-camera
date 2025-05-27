@@ -5,17 +5,17 @@ export AWS_DEFAULT_REGION="us-east-1"
 export AWS_S3_ADDRESSING_STYLE="path"
 export AWS_SESSION_TOKEN=$(bun run test_gen_token.ts)
 # set -x
-STRING="Hello, this is a test dfd sdfsd string!"
+# STRING="Hello, this is a test dfd sdfsd string!"
 
-PUT_URL=$(python3 test-create-presigned.py --bucket camera2024 --key test.txt --method put_object --access_key="${AWS_ACCESS_KEY_ID}" --secret_key="${AWS_SECRET_ACCESS_KEY}" --session_token="${AWS_SESSION_TOKEN}" --expires=3600)
-# sleep 3
-echo $PUT_URL
-curl -X PUT --data "$STRING" "$PUT_URL"
+# PUT_URL=$(python3 test-create-presigned.py --bucket camera2024 --key test.txt --method put_object --access_key="${AWS_ACCESS_KEY_ID}" --secret_key="${AWS_SECRET_ACCESS_KEY}" --session_token="${AWS_SESSION_TOKEN}" --expires=3600)
+# # sleep 3
+# echo $PUT_URL
+# curl -X PUT --data "$STRING" "$PUT_URL"
 
-GET_URL=$(python3 test-create-presigned.py --bucket camera2024 --key test.txt --method get_object --access_key=$AWS_ACCESS_KEY_ID --secret_key=$AWS_SECRET_ACCESS_KEY --session_token="$AWS_SESSION_TOKEN" --expires=3600)
-# sleep 6
-echo $GET_URL
-curl -X GET "${GET_URL}"
+# GET_URL=$(python3 test-create-presigned.py --bucket camera2024 --key test.txt --method get_object --access_key=$AWS_ACCESS_KEY_ID --secret_key=$AWS_SECRET_ACCESS_KEY --session_token="$AWS_SESSION_TOKEN" --expires=3600)
+# # sleep 6
+# echo $GET_URL
+# curl -X GET "${GET_URL}"
 
 # set +x
 # GET_URL=$(aws s3 presign  --endpoint-url http://localhost:8333  's3://camera2024/test.txt' --expires-in 3600 --region=us-east-1)
