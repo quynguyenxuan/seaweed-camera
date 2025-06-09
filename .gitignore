@@ -103,3 +103,5 @@ docker/weed_sub_record
 /filerldb2
 /.qodo
 .qodo
+
+test_sts.sh
