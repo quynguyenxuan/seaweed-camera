@@ -108,12 +108,19 @@ func (iam *IdentityAccessManagement) calculateSeedSignature(r *http.Request) (cr
 	if err != nil {
 		return nil, "", "", time.Time{}, s3err.ErrMalformedDate
 	}
+	urlPath := req.URL.Path
+	if forwardedPrefix := r.Header.Get("X-Forwarded-Prefix"); forwardedPrefix != "" {
+		urlPath = forwardedPrefix + urlPath
+	}
 
+	if xPath := r.Header.Get("X-Path"); xPath != "" {
+		urlPath = xPath
+	}
 	// Query string.
 	queryStr := req.URL.Query().Encode()
 
 	// Get canonical request.
-	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, payload, queryStr, req.URL.Path, req.Method)
+	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, payload, queryStr, urlPath, req.Method)
 
 	// Get string to sign from canonical request.
 	stringToSign := getStringToSign(canonicalRequest, date, signV4Values.Credential.getScope())

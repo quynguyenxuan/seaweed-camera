@@ -3,7 +3,7 @@ services:
   go-api:
     hostname: go-api
     container_name: go-api
-    network_mode: "host"
+    # network_mode: "host"
     # image: cosmtrek/air
     build:
       context: .
@@ -28,6 +28,8 @@ services:
       - ./filer.toml:/etc/seaweedfs/filer.toml
       - ./s3.json:/etc/seaweedfs/s3.json
       # - ~/rocksdb:/mnt/rocksdb
+    networks:
+      - net
   # shell:
   #   container_name: seaweed-shellock
   #   image: chrislusf/seaweedfs:3.84_large_disk_full
@@ -66,3 +68,5 @@ services:
   #   ports:
   #     - "5540:5540"
     
+networks:
+  net:

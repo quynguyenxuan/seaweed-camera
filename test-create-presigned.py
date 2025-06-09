@@ -52,11 +52,11 @@ def main():
     # s3_client = boto3.client("s3")
     s3_client = boto3.client(
             "s3",
-            endpoint_url="http://localhost:8333",
+            endpoint_url="http://localhost",
             aws_access_key_id=args.access_key,  # Thay bằng Access Key ID thực
             aws_secret_access_key=args.secret_key,  # Thay bằng Secret Access Key thực
             aws_session_token=args.session_token,
-            config=Config(signature_version="s3v4", s3={'addressing_style': 'path'})
+            config=Config(signature_version="s3v4", s3={'addressing_style': 'virtual'})
         )
 
     # The presigned URL is specified to expire in 1000 seconds

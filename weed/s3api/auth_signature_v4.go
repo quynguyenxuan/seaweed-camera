@@ -210,22 +210,31 @@ func (iam *IdentityAccessManagement) doesSignatureMatch(hashedPayload string, r 
 			hashedPayload = hex.EncodeToString(bodyHash[:])
 		}
 	}
+	//log.Println("QUYNGUYEN bucket ", r.Header.Get("X-Path"))
 
+	// if forwardedPrefix := r.Header.Get("X-Forwarded-Prefix"); forwardedPrefix != "" {
+	// 	// Handling usage of reverse proxy at prefix.
+	// 	// Trying with prefix before main path.
+
+	// 	// Get canonical request.
+	// 	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, hashedPayload, queryStr, forwardedPrefix+req.URL.Path, req.Method)
+
+	// 	errCode = iam.genAndCompareSignatureV4(canonicalRequest, cred.SecretKey, t, signV4Values)
+	// 	if errCode == s3err.ErrNone {
+	// 		return identity, errCode
+	// 	}
+	// }
+	urlPath := req.URL.Path
 	if forwardedPrefix := r.Header.Get("X-Forwarded-Prefix"); forwardedPrefix != "" {
-		// Handling usage of reverse proxy at prefix.
-		// Trying with prefix before main path.
+		urlPath = forwardedPrefix + urlPath
+	}
 
-		// Get canonical request.
-		canonicalRequest := getCanonicalRequest(extractedSignedHeaders, hashedPayload, queryStr, forwardedPrefix+req.URL.Path, req.Method)
-
-		errCode = iam.genAndCompareSignatureV4(canonicalRequest, cred.SecretKey, t, signV4Values)
-		if errCode == s3err.ErrNone {
-			return identity, errCode
-		}
+	if xPath := r.Header.Get("X-Path"); xPath != "" {
+		urlPath = xPath
 	}
 
 	// Get canonical request.
-	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, hashedPayload, queryStr, req.URL.Path, req.Method)
+	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, hashedPayload, queryStr, urlPath, req.Method)
 
 	errCode = iam.genAndCompareSignatureV4(canonicalRequest, cred.SecretKey, t, signV4Values)
 
@@ -482,8 +491,8 @@ func (iam *IdentityAccessManagement) doesPresignedSignatureMatch(hashedPayload s
 	query.Set("X-Amz-Expires", strconv.Itoa(expireSeconds))
 	query.Set("X-Amz-SignedHeaders", getSignedHeaders(extractedSignedHeaders))
 	query.Set("X-Amz-Credential", cred.AccessKey+"/"+getScope(t, pSignValues.Credential.scope.region))
-	if req.URL.Query().Get("X-Amz-Security-Token") != "" {
-		query.Set("X-Amz-Security-Token", req.URL.Query().Get("X-Amz-Security-Token"))
+	if secureToken := req.URL.Query().Get("X-Amz-Security-Token"); secureToken != "" {
+		query.Set("X-Amz-Security-Token", secureToken)
 	}
 	// Save other headers available in the request parameters.
 	for k, v := range req.URL.Query() {
@@ -515,10 +524,10 @@ func (iam *IdentityAccessManagement) doesPresignedSignatureMatch(hashedPayload s
 		return nil, s3err.ErrSignatureDoesNotMatch
 	}
 	//QUYNGUYEN add check session Token
-	if req.URL.Query().Get("X-Amz-Security-Token") != "" {
+	if secureToken := req.URL.Query().Get("X-Amz-Security-Token"); secureToken != "" {
 		// fmt.Println("validateSessionToken1", pSignValues.Expires, pSignValues.Date)
 		expTime := pSignValues.Date.Add(pSignValues.Expires).Unix()
-		isValid := validateSessionToken(req.URL.Query().Get("X-Amz-Security-Token"), SessionTokenPayload{AccessKey: cred.AccessKey, Exp: expTime})
+		isValid := validateSessionToken(secureToken, SessionTokenPayload{AccessKey: cred.AccessKey, Exp: expTime})
 		if !isValid {
 			return nil, s3err.ErrExpiredPresignRequest
 		}
@@ -533,11 +542,20 @@ func (iam *IdentityAccessManagement) doesPresignedSignatureMatch(hashedPayload s
 			return nil, s3err.ErrContentSHA256Mismatch
 		}
 	}
+	// log.Println("QUYNGUYEN bucket2 ", r.Header.Get("X-Forwarded-Prefix"), "xPath:", r.Header.Get("X-Path"))
 
+	urlPath := req.URL.Path
+	if forwardedPrefix := r.Header.Get("X-Forwarded-Prefix"); forwardedPrefix != "" {
+		urlPath = forwardedPrefix + urlPath
+	}
+
+	if xPath := r.Header.Get("X-Path"); xPath != "" {
+		urlPath = xPath
+	}
 	// / Verify finally if signature is same.
 
 	// Get canonical request.
-	presignedCanonicalReq := getCanonicalRequest(extractedSignedHeaders, hashedPayload, encodedQuery, req.URL.Path, req.Method)
+	presignedCanonicalReq := getCanonicalRequest(extractedSignedHeaders, hashedPayload, encodedQuery, urlPath, req.Method)
 
 	// Get string to sign from canonical request.
 	presignedStringToSign := getStringToSign(presignedCanonicalReq, t, pSignValues.Credential.getScope())
@@ -550,7 +568,7 @@ func (iam *IdentityAccessManagement) doesPresignedSignatureMatch(hashedPayload s
 		pSignValues.Credential.scope.service,
 		presignedStringToSign,
 	)
-	// fmt.Println("newSignature", pSignValues.SignedHeaders, "presignedStringToSign", presignedStringToSign, "presignedCanonicalReq", presignedCanonicalReq, "encodedQuery", encodedQuery, newSignature, req.URL.Query().Get("X-Amz-Signature"))
+	// fmt.Println("newSignature", pSignValues.SignedHeaders, "presignedStringToSign", presignedStringToSign, "presignedCanonicalReq:", presignedCanonicalReq, "encodedQuery:", encodedQuery, "newSignature:", newSignature, "Base Signature:", req.URL.Query().Get("X-Amz-Signature"))
 	//QUYNGUYEN force  avoid signature is have session token
 	// Verify signature.
 	if !compareSignatureV4(req.URL.Query().Get("X-Amz-Signature"), newSignature) {
