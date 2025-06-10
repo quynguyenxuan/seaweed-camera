@@ -1,6 +1,7 @@
 package logstore
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"github.com/parquet-go/parquet-go"
@@ -54,7 +55,7 @@ func GenParquetReadFunc(filerClient filer_pb.FilerClient, t topic.Topic, p topic
 	eachFileFn := func(entry *filer_pb.Entry, eachLogEntryFn log_buffer.EachLogEntryFuncType, starTsNs, stopTsNs int64) (processedTsNs int64, err error) {
 		// create readerAt for the parquet file
 		fileSize := filer.FileSize(entry)
-		visibleIntervals, _ := filer.NonOverlappingVisibleIntervals(lookupFileIdFn, entry.Chunks, 0, int64(fileSize))
+		visibleIntervals, _ := filer.NonOverlappingVisibleIntervals(context.Background(), lookupFileIdFn, entry.Chunks, 0, int64(fileSize))
 		chunkViews := filer.ViewFromVisibleIntervals(visibleIntervals, 0, int64(fileSize))
 		readerCache := filer.NewReaderCache(32, chunkCache, lookupFileIdFn)
 		readerAt := filer.NewChunkReaderAtFromClient(readerCache, chunkViews, int64(fileSize))
@@ -73,7 +74,7 @@ func GenParquetReadFunc(filerClient filer_pb.FilerClient, t topic.Topic, p topic
 					return processedTsNs, fmt.Errorf("ToRecordValue failed: %v", err)
 				}
 				processedTsNs = recordValue.Fields[SW_COLUMN_NAME_TS].GetInt64Value()
-				if processedTsNs < starTsNs {
+				if processedTsNs <= starTsNs {
 					continue
 				}
 				if stopTsNs != 0 && processedTsNs >= stopTsNs {
@@ -115,7 +116,7 @@ func GenParquetReadFunc(filerClient filer_pb.FilerClient, t topic.Topic, p topic
 
 		err = filerClient.WithFilerClient(false, func(client filer_pb.SeaweedFilerClient) error {
 
-			return filer_pb.SeaweedList(client, partitionDir, "", func(entry *filer_pb.Entry, isLast bool) error {
+			return filer_pb.SeaweedList(context.Background(), client, partitionDir, "", func(entry *filer_pb.Entry, isLast bool) error {
 				if entry.IsDirectory {
 					return nil
 				}

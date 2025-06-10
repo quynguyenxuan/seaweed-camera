@@ -13,6 +13,7 @@ services:
     environment:
       - TZ=Asia/Ho_Chi_Minh
       - VOLUME_SPLIT_IN_SECONDS=60
+      - GOTOOLCHAIN=auto
     # depends_on:
     #   - redis
     ports:

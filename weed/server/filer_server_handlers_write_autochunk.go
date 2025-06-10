@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/seaweedfs/seaweedfs/weed/util/version"
 	"io"
 	"net/http"
 	"os"
@@ -51,7 +52,7 @@ func (fs *FilerServer) autoChunk(ctx context.Context, w http.ResponseWriter, r *
 		if err.Error() == "operation not permitted" {
 			writeJsonError(w, r, http.StatusForbidden, err)
 		} else if strings.HasPrefix(err.Error(), "read input:") || err.Error() == io.ErrUnexpectedEOF.Error() {
-			writeJsonError(w, r, util.HttpStatusCancelled, err)
+			writeJsonError(w, r, version.HttpStatusCancelled, err)
 		} else if strings.HasSuffix(err.Error(), "is a file") || strings.HasSuffix(err.Error(), "already exists") {
 			writeJsonError(w, r, http.StatusConflict, err)
 		} else {
@@ -99,7 +100,7 @@ func (fs *FilerServer) doPostAutoChunk(ctx context.Context, w http.ResponseWrite
 		return
 	}
 
-	fileChunks, md5Hash, chunkOffset, err, smallContent := fs.uploadRequestToChunks(w, r, part1, chunkSize, fileName, contentType, contentLength, so)
+	fileChunks, md5Hash, chunkOffset, err, smallContent := fs.uploadRequestToChunks(ctx, w, r, part1, chunkSize, fileName, contentType, contentLength, so)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -107,12 +108,12 @@ func (fs *FilerServer) doPostAutoChunk(ctx context.Context, w http.ResponseWrite
 	md5bytes = md5Hash.Sum(nil)
 	headerMd5 := r.Header.Get("Content-Md5")
 	if headerMd5 != "" && !(util.Base64Encode(md5bytes) == headerMd5 || fmt.Sprintf("%x", md5bytes) == headerMd5) {
-		fs.filer.DeleteUncommittedChunks(fileChunks)
+		fs.filer.DeleteUncommittedChunks(ctx, fileChunks)
 		return nil, nil, errors.New("The Content-Md5 you specified did not match what we received.")
 	}
 	filerResult, replyerr = fs.saveMetaData(ctx, r, fileName, contentType, so, md5bytes, fileChunks, chunkOffset, smallContent)
 	if replyerr != nil {
-		fs.filer.DeleteUncommittedChunks(fileChunks)
+		fs.filer.DeleteUncommittedChunks(ctx, fileChunks)
 	}
 
 	return
@@ -130,7 +131,7 @@ func (fs *FilerServer) doPutAutoChunk(ctx context.Context, w http.ResponseWriter
 		return nil, nil, err
 	}
 
-	fileChunks, md5Hash, chunkOffset, err, smallContent := fs.uploadRequestToChunks(w, r, r.Body, chunkSize, fileName, contentType, contentLength, so)
+	fileChunks, md5Hash, chunkOffset, err, smallContent := fs.uploadRequestToChunks(ctx, w, r, r.Body, chunkSize, fileName, contentType, contentLength, so)
 
 	if err != nil {
 		return nil, nil, err
@@ -139,12 +140,12 @@ func (fs *FilerServer) doPutAutoChunk(ctx context.Context, w http.ResponseWriter
 	md5bytes = md5Hash.Sum(nil)
 	headerMd5 := r.Header.Get("Content-Md5")
 	if headerMd5 != "" && !(util.Base64Encode(md5bytes) == headerMd5 || fmt.Sprintf("%x", md5bytes) == headerMd5) {
-		fs.filer.DeleteUncommittedChunks(fileChunks)
+		fs.filer.DeleteUncommittedChunks(ctx, fileChunks)
 		return nil, nil, errors.New("The Content-Md5 you specified did not match what we received.")
 	}
 	filerResult, replyerr = fs.saveMetaData(ctx, r, fileName, contentType, so, md5bytes, fileChunks, chunkOffset, smallContent)
 	if replyerr != nil {
-		fs.filer.DeleteUncommittedChunks(fileChunks)
+		fs.filer.DeleteUncommittedChunks(ctx, fileChunks)
 	}
 
 	return
@@ -299,14 +300,14 @@ func (fs *FilerServer) saveMetaData(ctx context.Context, r *http.Request, fileNa
 	}
 
 	// maybe concatenate small chunks into one whole chunk
-	mergedChunks, replyerr = fs.maybeMergeChunks(so, newChunks)
+	mergedChunks, replyerr = fs.maybeMergeChunks(ctx, so, newChunks)
 	if replyerr != nil {
 		glog.V(0).Infof("merge chunks %s: %v", r.RequestURI, replyerr)
 		mergedChunks = newChunks
 	}
 
 	// maybe compact entry chunks
-	mergedChunks, replyerr = filer.MaybeManifestize(fs.saveAsChunk(so), mergedChunks)
+	mergedChunks, replyerr = filer.MaybeManifestize(fs.saveAsChunk(ctx, so), mergedChunks)
 	if replyerr != nil {
 		glog.V(0).Infof("manifestize %s: %v", r.RequestURI, replyerr)
 		return
@@ -348,7 +349,7 @@ func (fs *FilerServer) saveMetaData(ctx context.Context, r *http.Request, fileNa
 	return filerResult, replyerr
 }
 
-func (fs *FilerServer) saveAsChunk(so *operation.StorageOption) filer.SaveDataAsChunkFunctionType {
+func (fs *FilerServer) saveAsChunk(ctx context.Context, so *operation.StorageOption) filer.SaveDataAsChunkFunctionType {
 
 	return func(reader io.Reader, name string, offset int64, tsNs int64) (*filer_pb.FileChunk, error) {
 		var fileId string
@@ -356,7 +357,7 @@ func (fs *FilerServer) saveAsChunk(so *operation.StorageOption) filer.SaveDataAs
 
 		err := util.Retry("saveAsChunk", func() error {
 			// assign one file id for one chunk
-			assignedFileId, urlLocation, auth, assignErr := fs.assignNewFileInfo(so)
+			assignedFileId, urlLocation, auth, assignErr := fs.assignNewFileInfo(ctx, so)
 			if assignErr != nil {
 				return assignErr
 			}
@@ -380,7 +381,7 @@ func (fs *FilerServer) saveAsChunk(so *operation.StorageOption) filer.SaveDataAs
 			}
 
 			var uploadErr error
-			uploadResult, uploadErr, _ = uploader.Upload(reader, uploadOption)
+			uploadResult, uploadErr, _ = uploader.Upload(ctx, reader, uploadOption)
 			if uploadErr != nil {
 				return uploadErr
 			}

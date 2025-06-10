@@ -3,10 +3,11 @@ package weed_server
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand/v2"
 	"net/http"
 	"strconv"
+
+	"github.com/seaweedfs/seaweedfs/weed/util/version"
 
 	"github.com/seaweedfs/seaweedfs/weed/pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
@@ -19,7 +20,6 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/storage/super_block"
 	"github.com/seaweedfs/seaweedfs/weed/storage/types"
 	"github.com/seaweedfs/seaweedfs/weed/topology"
-	"github.com/seaweedfs/seaweedfs/weed/util"
 	util_http "github.com/seaweedfs/seaweedfs/weed/util/http"
 )
 
@@ -33,7 +33,7 @@ func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.R
 		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("collection %s does not exist", collectionName))
 		return
 	}
-	log.Println("QUYNGUYEN: delete collection ", collectionName, fromTime, toTime)
+	glog.V(0).Infoln("QUYNGUYEN: delete collection ", collectionName, fromTime, toTime)
 	nowTimeStamp := 1732953640
 	if fromTime != 0 && fromTime < nowTimeStamp {
 		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("Time %s does not valid", fromTime))
@@ -58,7 +58,7 @@ func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.R
 			return
 		}
 	}
-	log.Println("QUYNGUYEN: delete collection ", collectionName, fromTime, toTime)
+	glog.V(0).Infoln("QUYNGUYEN: delete collection ", collectionName, fromTime, toTime)
 
 	if fromTime != 0 && toTime != 0 {
 
@@ -68,7 +68,7 @@ func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.R
 		return
 
 	}
-	log.Println("QUYNGUYEN: delete collection 3", collectionName)
+	glog.V(0).Infoln("QUYNGUYEN: delete collection 3", collectionName)
 	ms.Topo.DeleteCollection(collectionName)
 	w.WriteHeader(http.StatusNoContent)
 	return
@@ -76,7 +76,7 @@ func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.R
 
 func (ms *MasterServer) dirStatusHandler(w http.ResponseWriter, r *http.Request) {
 	m := make(map[string]interface{})
-	m["Version"] = util.Version()
+	m["Version"] = version.Version()
 	m["Topology"] = ms.Topo.ToInfo()
 	writeJsonQuiet(w, r, http.StatusOK, m)
 }
@@ -131,7 +131,7 @@ func (ms *MasterServer) volumeGrowHandler(w http.ResponseWriter, r *http.Request
 
 func (ms *MasterServer) volumeStatusHandler(w http.ResponseWriter, r *http.Request) {
 	m := make(map[string]interface{})
-	m["Version"] = util.Version()
+	m["Version"] = version.Version()
 	m["Volumes"] = ms.Topo.ToVolumeMap()
 	writeJsonQuiet(w, r, http.StatusOK, m)
 }
@@ -231,7 +231,7 @@ func (ms *MasterServer) collectionInfoHandler(w http.ResponseWriter, r *http.Req
 		for i, volumeLayout := range volumeLayouts {
 			volumeLayoutStats := volumeLayout.Stats()
 			m := make(map[string]interface{})
-			m["Version"] = util.Version()
+			m["Version"] = version.Version()
 			m["Collection"] = collectionName
 			m["TotalSize"] = volumeLayoutStats.TotalSize
 			m["FileCount"] = volumeLayoutStats.FileCount
@@ -243,7 +243,7 @@ func (ms *MasterServer) collectionInfoHandler(w http.ResponseWriter, r *http.Req
 	} else {
 		//prepare the json response
 		collectionStats := map[string]interface{}{
-			"Version":     util.Version(),
+			"Version":     version.Version(),
 			"Collection":  collectionName,
 			"TotalSize":   uint64(0),
 			"FileCount":   uint64(0),

@@ -29,7 +29,6 @@ import (
 	"fmt"
 	"hash"
 	"hash/crc32"
-	"hash/crc64"
 	"io"
 	"net/http"
 	"time"
@@ -39,6 +38,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3err"
 
 	"github.com/dustin/go-humanize"
+	"github.com/minio/crc64nvme"
 )
 
 // calculateSeedSignature - Calculate seed signature in accordance with
@@ -385,7 +385,7 @@ func (cr *s3ChunkedReader) Read(buf []byte) (n int, err error) {
 
 			if extractedCheckSumAlgorithm.String() != cr.checkSumAlgorithm {
 				errorMessage := fmt.Sprintf("checksum algorithm in trailer '%s' does not match the one advertised in the header '%s'", extractedCheckSumAlgorithm.String(), cr.checkSumAlgorithm)
-				glog.V(3).Infof(errorMessage)
+				glog.V(3).Info(errorMessage)
 				cr.err = errors.New(errorMessage)
 				return 0, cr.err
 			}
@@ -564,7 +564,7 @@ func isASCIISpace(b byte) bool {
 // Constant s3 chunk encoding signature.
 const s3ChunkSignatureStr = ";chunk-signature="
 
-// parses3ChunkExtension removes any s3 specific chunk-extension from buf.
+// parseS3ChunkExtension removes any s3 specific chunk-extension from buf.
 // For example,
 //
 //	"10000;chunk-signature=..." => "10000", "chunk-signature=..."
@@ -681,7 +681,7 @@ func getCheckSumWriter(checksumAlgorithm ChecksumAlgorithm) hash.Hash {
 	case ChecksumAlgorithmCRC32C:
 		return crc32.New(crc32.MakeTable(crc32.Castagnoli))
 	case ChecksumAlgorithmCRC64NVMe:
-		return crc64.New(crc64.MakeTable(crc64.ISO))
+		return crc64nvme.New()
 	case ChecksumAlgorithmSHA1:
 		return sha1.New()
 	case ChecksumAlgorithmSHA256:

@@ -3,6 +3,7 @@ package mount
 import (
 	"context"
 	"errors"
+	"github.com/seaweedfs/seaweedfs/weed/util/version"
 	"math/rand"
 	"os"
 	"path"
@@ -212,7 +213,7 @@ func (wfs *WFS) maybeLoadEntry(fullpath util.FullPath) (*filer_pb.Entry, fuse.St
 
 func (wfs *WFS) LookupFn() wdclient.LookupFileIdFunctionType {
 	if wfs.option.VolumeServerAccess == "filerProxy" {
-		return func(fileId string) (targetUrls []string, err error) {
+		return func(ctx context.Context, fileId string) (targetUrls []string, err error) {
 			return []string{"http://" + wfs.getCurrentFiler().ToHttpAddress() + "/?proxyChunkId=" + fileId}, nil
 		}
 	}
@@ -231,7 +232,7 @@ func (wfs *WFS) ClearCacheDir() {
 }
 
 func (option *Option) setupUniqueCacheDirectory() {
-	cacheUniqueId := util.Md5String([]byte(option.MountDirectory + string(option.FilerAddresses[0]) + option.FilerMountRootPath + util.Version()))[0:8]
+	cacheUniqueId := util.Md5String([]byte(option.MountDirectory + string(option.FilerAddresses[0]) + option.FilerMountRootPath + version.Version()))[0:8]
 	option.uniqueCacheDirForRead = path.Join(option.CacheDirForRead, cacheUniqueId)
 	os.MkdirAll(option.uniqueCacheDirForRead, os.FileMode(0777)&^option.Umask)
 	option.uniqueCacheDirForWrite = filepath.Join(path.Join(option.CacheDirForWrite, cacheUniqueId), "swap")

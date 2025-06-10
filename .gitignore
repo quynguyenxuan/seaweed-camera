@@ -87,7 +87,6 @@ other/java/hdfs/dependency-reduced-pom.xml
 
 # binary file
 weed/weed
-weed/mq/client/cmd/weed_pub_kv/weed_pub
 docker/weed
 
 # test generated files
@@ -105,3 +104,4 @@ docker/weed_sub_record
 .qodo
 
 test_sts.sh
+docker/agent_sub_record

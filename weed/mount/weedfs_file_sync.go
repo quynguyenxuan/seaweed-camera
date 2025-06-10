@@ -54,7 +54,9 @@ import (
 func (wfs *WFS) Flush(cancel <-chan struct{}, in *fuse.FlushIn) fuse.Status {
 	fh := wfs.GetHandle(FileHandleId(in.Fh))
 	if fh == nil {
-		return fuse.ENOENT
+		// If handle is not found, it might have been already released
+		// This is not an error condition for FLUSH
+		return fuse.OK
 	}
 
 	return wfs.doFlush(fh, in.Uid, in.Gid)
@@ -146,7 +148,7 @@ func (wfs *WFS) doFlush(fh *FileHandle, uid, gid uint32) fuse.Status {
 
 		manifestChunks, nonManifestChunks := filer.SeparateManifestChunks(entry.GetChunks())
 
-		chunks, _ := filer.CompactFileChunks(wfs.LookupFn(), nonManifestChunks)
+		chunks, _ := filer.CompactFileChunks(context.Background(), wfs.LookupFn(), nonManifestChunks)
 		chunks, manifestErr := filer.MaybeManifestize(wfs.saveDataAsChunk(fileFullPath), chunks)
 		if manifestErr != nil {
 			// not good, but should be ok
@@ -157,7 +159,7 @@ func (wfs *WFS) doFlush(fh *FileHandle, uid, gid uint32) fuse.Status {
 		wfs.mapPbIdFromLocalToFiler(request.Entry)
 		defer wfs.mapPbIdFromFilerToLocal(request.Entry)
 
-		if err := filer_pb.CreateEntry(client, request); err != nil {
+		if err := filer_pb.CreateEntry(context.Background(), client, request); err != nil {
 			glog.Errorf("fh flush create %s: %v", fileFullPath, err)
 			return fmt.Errorf("fh flush create %s: %v", fileFullPath, err)
 		}

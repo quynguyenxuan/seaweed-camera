@@ -286,19 +286,23 @@ func (s *Store) CollectHeartbeat() *master_pb.Heartbeat {
 				maxFileKey = curMaxFileKey
 			}
 			shouldDeleteVolume := false
-			if !v.expired(volumeMessage.Size, s.GetVolumeSizeLimit()) {
-				volumeMessages = append(volumeMessages, volumeMessage)
+
+			if v.lastIoError != nil {
+				deleteVids = append(deleteVids, v.Id)
+				shouldDeleteVolume = true
+				glog.Warningf("volume %d has IO error: %v", v.Id, v.lastIoError)
 			} else {
-				if v.expiredLongEnough(MAX_TTL_VOLUME_REMOVAL_DELAY) {
-					deleteVids = append(deleteVids, v.Id)
-					shouldDeleteVolume = true
+				if !v.expired(volumeMessage.Size, s.GetVolumeSizeLimit()) {
+					volumeMessages = append(volumeMessages, volumeMessage)
 				} else {
-					glog.V(0).Infof("volume %d is expired", v.Id)
-				}
-				if v.lastIoError != nil {
-					deleteVids = append(deleteVids, v.Id)
-					shouldDeleteVolume = true
-					glog.Warningf("volume %d has IO error: %v", v.Id, v.lastIoError)
+					if v.expiredLongEnough(MAX_TTL_VOLUME_REMOVAL_DELAY) {
+						if !shouldDeleteVolume {
+							deleteVids = append(deleteVids, v.Id)
+							shouldDeleteVolume = true
+						}
+					} else {
+						glog.V(0).Infof("volume %d is expired", v.Id)
+					}
 				}
 			}
 
@@ -458,7 +462,7 @@ func (s *Store) WriteVolumeNeedle(i needle.VolumeId, n *needle.Needle, checkCook
 			err = fmt.Errorf("volume %d is read only", i)
 			return
 		}
-		_, _, isUnchanged, err = v.writeNeedle2(n, checkCookie, fsync && s.isStopping)
+		_, _, isUnchanged, err = v.writeNeedle2(n, checkCookie, fsync && !s.isStopping)
 		return
 	}
 	glog.V(0).Infoln("volume", i, "not found!")

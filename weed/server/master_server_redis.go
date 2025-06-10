@@ -3,7 +3,6 @@ package weed_server
 import (
 	"context"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -105,10 +104,10 @@ var locationPrefixesMap = []*filer_pb.FilerConf_PathConf{
 }
 
 func InitializeRedis() {
-	redisAddress := os.Getenv("REDIS_ADDRESS")
-	redisPassword := os.Getenv("REDIS_PASSWORD")
-	redisDatabase, _ := strconv.Atoi(os.Getenv("REDIS_DATABASES"))
-	redisStore, _ = redis3.New(redisAddress, redisPassword, redisDatabase)
+	// redisAddress := os.Getenv("REDIS_ADDRESS")
+	// redisPassword := os.Getenv("REDIS_PASSWORD")
+	// redisDatabase, _ := strconv.Atoi(os.Getenv("REDIS_DATABASES"))
+	// redisStore, _ = redis3.New(redisAddress, redisPassword, redisDatabase)
 }
 func KeyDeleteHandler(keysCh <-chan string, fromTime int, toTime int) error {
 	var wg sync.WaitGroup
