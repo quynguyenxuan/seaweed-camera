@@ -20,5 +20,16 @@ export AWS_SECRET_ACCESS_KEY="-aJ20yurXb2RhF9pYwNG9shc-RKb"
 # echo "Get presigned URL"
 # aws s3 presign s3://cameravttnew-day3-1/backup/test.txt   --region us-east-1 --endpoint-url https://s3-viettel.sunteco.cloud
 
-# aws s3 ls s3://camera2024/backup  --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --no-cli-pager --recursive  --human-readable --summarize  --output json
-aws --region us-east-1 --endpoint-url http://localhost:80  s3api list-objects-v2 --prefix backup/ --bucket camera2024 --output text
+# --no-cli-pager --recursive
+# aws s3 ls s3://camera2024/backup/a  --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024/backup/n --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024/backup/ --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024/backup --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024/backu --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024/ --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024 --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+
+# aws s3 ls s3://camera2025  --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+# aws s3 ls s3://camera2024/backup/fi  --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+
+# aws --region us-east-1 --endpoint-url http://localhost:80  s3api list-objects-v2 --prefix backup/ --bucket camera2024 --output text

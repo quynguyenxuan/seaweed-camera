@@ -7,8 +7,7 @@ FROM chrislusf/rocksdb_dev_env as builder
 #   cd /go/src/github.com/seaweedfs/seaweedfs/weed \
 #   && export LDFLAGS="-X github.com/seaweedfs/seaweedfs/weed/util.COMMIT=$(git rev-parse --short HEAD)" \
 #   && go install -tags "5BytesOffset rocksdb elastic gocdk rclone sqlite tikv ydb" -ldflags "-extldflags -static ${LDFLAGS}"
-RUN cd /
-RUN curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | sh -s -- -b /usr/bin
+RUN go install github.com/air-verse/air@latest
 # FROM alpine AS final
 # LABEL author="Chris Lu"
 # COPY --from=builder /go/bin/weed /usr/bin/
@@ -42,6 +41,6 @@ RUN mkdir -p /data/filer_rocksdb
 
 WORKDIR /app
 
-RUN chmod +x /bin/air
 
-ENTRYPOINT ["/usr/bin/air"]
+CMD ["air", "-c", ".air.toml"]
+

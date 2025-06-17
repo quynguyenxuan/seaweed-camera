@@ -3,8 +3,11 @@ services:
   go-api:
     hostname: go-api
     container_name: go-api
+    # image: xuanquynguyen/seaweedfs:1.13-rocksdb_3.90
+    # command:  ["-v=1","server", "-volume.max=250", "-dir=/mnt/seaweedfs",  "-master.volumeSizeLimitMB=100", "-master.port=9221", "-filer.filerGroup=default", "-s3", "-s3.config","/etc/seaweedfs/s3.json", '-iam']
+    
     # network_mode: "host"
-    # image: cosmtrek/air
+    image: cosmtrek/air
     build:
       context: .
       dockerfile: ./docker/Dockerfile.rocksdb_large_local_dev
@@ -31,43 +34,6 @@ services:
       # - ~/rocksdb:/mnt/rocksdb
     networks:
       - net
-  # shell:
-  #   container_name: seaweed-shellock
-  #   image: chrislusf/seaweedfs:3.84_large_disk_full
-  #   command: "shell -master=go-api:9333 -filer=go-api:8888"
-  # scylla:
-  #   image: scylladb/scylla
-  #   container_name: scylla
-  #   command:  --memory 5G --overprovisioned 1 --api-address 0.0.0.0
-  #   ports:
-  #   - 9042:9042
-    # - 9160:9160
-    # - 6379:6379
-
-    # volumes:
-    #   - "./scylla.yaml:/etc/scylla/scylla.yaml"
-  # redis:
-  #   command: dragonfly  --logtostderr  --admin_nopass  --proactor_threads=1 --dir /mnt/dragonfly --maxmemory=3g 
-  #   # --tiered_max_file_size 5GB --tiered_prefix /mnt/redisvol/tiered 
-  #   environment:
-  #   - REDIS_PORT=6379
-  #   - REDIS_DATABASES=0
-  #   hostname: redis
-  #   volumes:
-  #     - ./redis:/mnt/redisvol
-  #     - ./redisbackup:/mnt/dragonfly
-
-  #   image: docker.dragonflydb.io/dragonflydb/dragonfly
-  #   ports:
-  #   - 6379:6379
-  #   restart: always
-  #   ulimits:
-  #     memlock: -1
-  # redis-gui:
-  #   image: redis/redisinsight:latest
-  #   restart: always
-  #   ports:
-  #     - "5540:5540"
     
 networks:
   net:

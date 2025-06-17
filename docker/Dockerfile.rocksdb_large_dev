@@ -1,0 +1,52 @@
+# FROM sptrakesh/rocksdb:10.2.1 as builder
+
+# RUN apk add go
+# RUN go install github.com/air-verse/air@latest
+# RUN cd /
+# RUN curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | sh -s -- -b /usr/bin
+
+FROM golang:1.24-alpine3.22
+RUN apk add zlib-dev bzip2-dev snappy-dev lz4-dev zstd-dev
+RUN apk add  rocksdb-dev
+ENV ROCKSDB_VERSION v10.2.1
+
+# ENV CGO_CFLAGS "-I/tmp/rocksdb/include"
+# ENV CGO_LDFLAGS "-L/tmp/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy -llz4 -lzstd"
+ENV CGO_CFLAGS "-I/usr/include"
+ENV CGO_LDFLAGS "-L/usr/lib -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy -llz4 -lzstd"
+# ENV LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
+WORKDIR /app
+RUN go install github.com/air-verse/air@latest
+# COPY go.mod go.sum ./
+# RUN go mod download
+# binary will be $(go env GOPATH)/bin/air
+# RUN curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | sh -s
+
+
+# RUN cd /
+
+# volume server gprc port
+EXPOSE 18080
+# volume server http port
+EXPOSE 8080
+# filer server gprc port
+EXPOSE 18888
+# filer server http port
+EXPOSE 8888
+# master server shared gprc port
+EXPOSE 19333
+# master server shared http port
+EXPOSE 9333
+# s3 server http port
+EXPOSE 8333
+# webdav server http port
+EXPOSE 7333
+
+RUN mkdir -p /data/filer_rocksdb
+
+# VOLUME /app/
+
+# WORKDIR /app
+
+
+CMD ["air", "-c", ".air.toml"]

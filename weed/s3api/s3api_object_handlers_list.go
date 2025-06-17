@@ -130,6 +130,10 @@ func (s3a *S3ApiServer) ListObjectsV1Handler(w http.ResponseWriter, r *http.Requ
 }
 
 func (s3a *S3ApiServer) listFilerEntries(bucket string, originalPrefix string, maxKeys uint16, originalMarker string, delimiter string, encodingTypeUrl bool, fetchOwner bool) (response ListBucketResult, err error) {
+	if len(originalPrefix) > 1 && strings.HasSuffix(originalPrefix, "/") {
+		originalPrefix = originalPrefix[:len(originalPrefix)-1]
+	}
+
 	// convert full path prefix into directory name and prefix for entry name
 	requestDir, prefix, marker := normalizePrefixMarker(originalPrefix, originalMarker)
 	bucketPrefix := fmt.Sprintf("%s/%s/", s3a.option.BucketsPath, bucket)
@@ -151,9 +155,24 @@ func (s3a *S3ApiServer) listFilerEntries(bucket string, originalPrefix string, m
 	err = s3a.WithFilerClient(false, func(client filer_pb.SeaweedFilerClient) error {
 		for {
 			empty := true
+			// glog.V(0).Infoln("QUYNGUYEN doListFilerEntries4 dir", originalPrefix, "originalMarker:", originalMarker, "reqDir:", reqDir, "prefix:", prefix, marker, delimiter)
+			// if exists, err := s3a.exists(s3a.option.BucketsPath, reqDir, true); err == nil && exists == true {
+
+			if prefix != "" {
+				if entry, err := s3a.getEntry(reqDir+"/"+prefix, ""); err == nil && entry != nil && entry.IsDirectory {
+					reqDir = reqDir + "/" + prefix
+					prefix = ""
+					// glog.V(0).Infoln("QUYNGUYEN doListFilerEntries4.0 dir", reqDir, "prefix:", prefix, marker, delimiter)
+				}
+			}
+
+			// glog.V(0).Infoln("QUYNGUYEN doListFilerEntries4.1 dir", reqDir, prefix, marker, delimiter)
+
 			nextMarker, doErr = s3a.doListFilerEntries(client, reqDir, prefix, cursor, marker, delimiter, false, func(dir string, entry *filer_pb.Entry) {
 				empty = false
 				dirName, entryName, prefixName := entryUrlEncode(dir, entry.Name, encodingTypeUrl)
+				// glog.V(0).Infoln("QUYNGUYEN doListFilerEntries5 dir", entry.IsDirectory, reqDir, prefix, marker, delimiter, dirName, entryName, prefixName)
+
 				if entry.IsDirectory {
 					if entry.IsDirectoryKeyObject() {
 						contents = append(contents, newListEntry(entry, "", dirName, entryName, bucketPrefix, fetchOwner, true, false))
@@ -259,6 +278,8 @@ func normalizePrefixMarker(prefix, marker string) (alignedDir, alignedPrefix, al
 		prefix = strings.Trim(prefix, "/")
 	} else {
 		prefix = strings.TrimLeft(prefix, "/")
+		prefix = strings.TrimRight(prefix, "/")
+
 	}
 	marker = strings.TrimLeft(marker, "/")
 	if prefix == "" {
@@ -320,9 +341,11 @@ func (s3a *S3ApiServer) doListFilerEntries(client filer_pb.SeaweedFilerClient, d
 		return
 	}
 
+	// glog.V(0).Infoln("doListFilerEntries dir1", dir+"/"+marker, "subMarker")
+
 	if strings.Contains(marker, "/") {
 		subDir, subMarker := toParentAndDescendants(marker)
-		// println("doListFilerEntries dir", dir+"/"+subDir, "subMarker", subMarker)
+		// glog.V(0).Infoln("doListFilerEntries dir", dir+"/"+subDir, "subMarker", subMarker)
 		subNextMarker, subErr := s3a.doListFilerEntries(client, dir+"/"+subDir, "", cursor, subMarker, delimiter, false, eachEntryFn)
 		if subErr != nil {
 			err = subErr
@@ -351,6 +374,8 @@ func (s3a *S3ApiServer) doListFilerEntries(client filer_pb.SeaweedFilerClient, d
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	stream, listErr := client.ListEntries(ctx, request)
+	// glog.V(0).Infof("doListFilerEntries2 dir")
+
 	if listErr != nil {
 		err = fmt.Errorf("list entires %+v: %v", request, listErr)
 		return
@@ -395,6 +420,8 @@ func (s3a *S3ApiServer) doListFilerEntries(client filer_pb.SeaweedFilerClient, d
 				} else {
 					eachEntryFn(dir, entry)
 				}
+				// glog.V(0).Infoln("doListFilerEntries3 dir", dir+"/"+entry.Name, "nextMarker", nextMarker)
+
 				subNextMarker, subErr := s3a.doListFilerEntries(client, dir+"/"+entry.Name, "", cursor, "", delimiter, false, eachEntryFn)
 				if subErr != nil {
 					err = fmt.Errorf("doListFilerEntries2: %v", subErr)

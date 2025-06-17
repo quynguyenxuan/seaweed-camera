@@ -100,6 +100,8 @@ docker/weed_sub_kv
 docker/weed_sub_record
 /tmp
 /filerldb2
+/filerldb3
+
 /.qodo
 .qodo
 
