@@ -18,7 +18,7 @@ import (
 
 // Readonly volume types
 const (
-	Namespace        = "SeaweedFS"
+	Namespace        = "Minio"
 	IsReadOnly       = "IsReadOnly"
 	NoWriteOrDelete  = "noWriteOrDelete"
 	NoWriteCanDelete = "noWriteCanDelete"

@@ -222,7 +222,6 @@ func (store *RocksDBStore) DeleteFolderChildren(ctx context.Context, fullpath we
 }
 
 func enumerate(iter *gorocksdb.Iterator, prefix, lastKey []byte, includeLastKey bool, limit int64, fn func(key, value []byte) bool) (err error) {
-
 	if len(lastKey) == 0 {
 		iter.Seek(prefix)
 	} else {
@@ -236,8 +235,10 @@ func enumerate(iter *gorocksdb.Iterator, prefix, lastKey []byte, includeLastKey 
 		}
 	}
 
+	// glog.V(0).Infof("enumerate %s lastKey %v includeLastKey %t limit %d", string(lastKey), includeLastKey, limit)
 	i := int64(0)
 	for ; iter.Valid(); iter.Next() {
+		// glog.V(0).Infoln("enumerate1 ")
 
 		if limit > 0 {
 			i++
@@ -247,11 +248,16 @@ func enumerate(iter *gorocksdb.Iterator, prefix, lastKey []byte, includeLastKey 
 		}
 
 		key := iter.Key().Data()
+		// glog.V(0).Infoln("enumerate2 ", string(key), "prefix:", string(prefix), "key:", key, "valid", iter.ValidForPrefix(prefix)) //, getNameFromKey(prefix), "name: ", getNameFromKey(key), "contain: ", strings.HasPrefix(getNameFromKey(key), getNameFromKey(prefix)))
+
+		// if !iter.ValidForPrefix(prefix) {
+		// 	break
+		// }
 
 		if !bytes.HasPrefix(key, prefix) {
 			break
 		}
-
+		// glog.V(0).Infoln("enumerate3 ")
 		ret := fn(key, iter.Value().Data())
 
 		if !ret {
@@ -271,6 +277,8 @@ func (store *RocksDBStore) ListDirectoryEntries(ctx context.Context, dirPath wee
 }
 
 func (store *RocksDBStore) ListDirectoryPrefixedEntries(ctx context.Context, dirPath weed_util.FullPath, startFileName string, includeStartFile bool, limit int64, prefix string, eachEntryFunc filer.ListEachEntryFunc) (lastFileName string, err error) {
+	// glog.V(0).Infoln("ListDirectoryPrefixedEntries ", string(dirPath), "prefix:", string(prefix)) //, getNameFromKey(prefix), "name: ", getNameFromKey(key), "contain: ", strings.HasPrefix(getNameFromKey(key), getNameFromKey(prefix)))
+
 	directoryPrefix := genDirectoryKeyPrefix(dirPath, prefix)
 	lastFileStart := directoryPrefix
 	if startFileName != "" {
