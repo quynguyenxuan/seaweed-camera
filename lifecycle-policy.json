@@ -1,0 +1,14 @@
+{
+  "Rules": [
+    {
+      "ID": "ExpireAllObjectsAfter30Days",
+      "Filter": {
+        "Prefix": ""
+      },
+      "Status": "Enabled",
+      "Expiration": {
+        "Days": 30
+      }
+    }
+  ]
+}

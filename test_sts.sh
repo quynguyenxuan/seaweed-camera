@@ -1,7 +1,11 @@
 
-export AWS_S3_ADDRESSING_STYLE="path"
+# export AWS_S3_ADDRESSING_STYLE="virtual"
 export AWS_ACCESS_KEY_ID="8_tests3_accid"
 export AWS_SECRET_ACCESS_KEY="-aJ20yurXb2RhF9pYwNG9shc-RKb"
+export AWS_S3_ENDPOINT_URL="http://localhost"
+export AWS_ENDPOINT_URL="http://localhost"
+export AWS_S3_ADDRESSING_STYLE="path"
+
 
 # S3_ROLE=$(aws sts assume-role  --endpoint-url https://sts-viettel.sunteco.cloud --role-arn arn:custom:iam::123456789012:role/MyRole --role-session-name my-session --region us-east-1)
 # echo "STS response ${S3_ROLE}"
@@ -22,12 +26,12 @@ export AWS_SECRET_ACCESS_KEY="-aJ20yurXb2RhF9pYwNG9shc-RKb"
 
 # --no-cli-pager --recursive
 # aws s3 ls s3://camera2024/backup/a  --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
-aws s3 ls s3://camera2024/backup/n --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
-aws s3 ls s3://camera2024/backup/ --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
-aws s3 ls s3://camera2024/backup --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
-aws s3 ls s3://camera2024/backu --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
-aws s3 ls s3://camera2024/ --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
-aws s3 ls s3://camera2024 --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024/backup/n --region us-east-1  --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024/backup/ --region us-east-1  --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024/backup --region us-east-1  --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024/backu --region us-east-1  --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024/ --region us-east-1  --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
+aws s3 ls s3://camera2024 --region us-east-1  --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
 
 # aws s3 ls s3://camera2025  --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text
 # aws s3 ls s3://camera2024/backup/fi  --region us-east-1 --endpoint-url http://localhost:80 --bucket-region us-east-1 --recursive  --human-readable --summarize  --output text

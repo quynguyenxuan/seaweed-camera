@@ -34,6 +34,24 @@ services:
       # - ~/rocksdb:/mnt/rocksdb
     networks:
       - net
-    
+  # haproxy:
+  #   image: haproxy:2.4 # LTS version, until 2026
+  #   container_name: haproxy
+  #   restart: always
+  #   # networks:
+  #   #   - minio_app
+  #   # network_mode: host
+  #   # Add setting permission for open port 80 & 443 Require version kenel linux  >= 4.4, if else reading paragraph 7
+  #   sysctls:
+  #       - net.ipv4.ip_unprivileged_port_start=0
+   
+  #   volumes:
+  #       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+  #       - /etc/localtime:/etc/localtime:ro
+  #       # - ./haproxy/openssl.cnf:/etc/ssl/openssl.cnf:rshare
+  #   ports:
+  #       - 80:80
+  #   networks:
+  #       - net
 networks:
   net:
