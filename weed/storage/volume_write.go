@@ -267,9 +267,10 @@ func (v *Volume) startWorker() {
 				}
 				currentRequests = append(currentRequests, request)
 				currentBytesToWrite += request.ActualSize
+				//Quy nguyen update
 				// submit at most 4M bytes or 128 requests at one time to decrease request delay.
 				// it also need to break if there is no data in channel to avoid io hang.
-				if currentBytesToWrite >= 4*1024*1024 || len(currentRequests) >= 128 || len(v.asyncRequestsChan) == 0 {
+				if currentBytesToWrite >= 16*1024*1024 || len(currentRequests) >= 128 || len(v.asyncRequestsChan) == 0 {
 					break
 				}
 			}

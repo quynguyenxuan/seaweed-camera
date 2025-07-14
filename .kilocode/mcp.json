@@ -1,19 +1,4 @@
 {
   "mcpServers": {
-    "seaweedfs Docs": {
-      "url": "https://gitmcp.io/seaweedfs/seaweedfs",
-      "alwaysAllow": [
-        "fetch_seaweedfs_documentation",
-        "search_seaweedfs_documentation"
-      ]
-    },
-    "context7": {
-      "type": "streamable-http",
-      "url": "https://mcp.context7.com/mcp",
-      "alwaysAllow": [
-        "get-library-docs",
-        "resolve-library-id"
-      ]
-    }
   }
 }
