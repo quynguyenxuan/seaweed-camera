@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
@@ -61,6 +62,8 @@ type MasterOptions struct {
 	electionTimeout    *time.Duration
 	raftHashicorp      *bool
 	raftBootstrap      *bool
+	telemetryUrl       *string
+	telemetryEnabled   *bool
 }
 
 func init() {
@@ -88,6 +91,8 @@ func init() {
 	m.electionTimeout = cmdMaster.Flag.Duration("electionTimeout", 10*time.Second, "election timeout of master servers")
 	m.raftHashicorp = cmdMaster.Flag.Bool("raftHashicorp", false, "use hashicorp raft")
 	m.raftBootstrap = cmdMaster.Flag.Bool("raftBootstrap", false, "Whether to bootstrap the Raft cluster")
+	m.telemetryUrl = cmdMaster.Flag.String("telemetry.url", "https://telemetry.seaweedfs.com/api/collect", "telemetry server URL to send usage statistics")
+	m.telemetryEnabled = cmdMaster.Flag.Bool("telemetry", false, "enable telemetry reporting")
 }
 
 var cmdMaster = &Command{
@@ -260,19 +265,20 @@ func startMaster(masterOption MasterOptions, masterWhiteList []string) {
 		clientCertFile = viper.GetString("https.master.ca")
 	}
 
-	httpS := &http.Server{Handler: r}
 	if masterLocalListener != nil {
-		go httpS.Serve(masterLocalListener)
+		go newHttpServer(r, nil).Serve(masterLocalListener)
 	}
 
+	var tlsConfig *tls.Config
 	if useMTLS {
-		httpS.TLSConfig = security.LoadClientTLSHTTP(clientCertFile)
+		tlsConfig = security.LoadClientTLSHTTP(clientCertFile)
+		security.FixTlsConfig(util.GetViper(), tlsConfig)
 	}
 
 	if useTLS {
-		go httpS.ServeTLS(masterListener, certFile, keyFile)
+		go newHttpServer(r, tlsConfig).ServeTLS(masterListener, certFile, keyFile)
 	} else {
-		go httpS.Serve(masterListener)
+		go newHttpServer(r, nil).Serve(masterListener)
 	}
 
 	grace.OnInterrupt(ms.Shutdown)
@@ -332,5 +338,7 @@ func (m *MasterOptions) toMasterOption(whiteList []string) *weed_server.MasterOp
 		DisableHttp:             *m.disableHttp,
 		MetricsAddress:          *m.metricsAddress,
 		MetricsIntervalSec:      *m.metricsIntervalSec,
+		TelemetryUrl:            *m.telemetryUrl,
+		TelemetryEnabled:        *m.telemetryEnabled,
 	}
 }

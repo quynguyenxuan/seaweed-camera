@@ -107,3 +107,11 @@ docker/weed_sub_record
 
 test_sts.sh
 docker/agent_sub_record
+test/mq/bin/consumer
+test/mq/bin/producer
+test/producer
+bin/weed
+weed_binary
+/test/s3/copying/filerldb2
+/filerldb2
+/test/s3/retention/test-volume-data

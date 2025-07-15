@@ -8,11 +8,13 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/stats"
+	"github.com/seaweedfs/seaweedfs/weed/telemetry"
 
 	"github.com/seaweedfs/seaweedfs/weed/cluster"
 	"github.com/seaweedfs/seaweedfs/weed/pb"
@@ -30,6 +32,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/topology"
 	"github.com/seaweedfs/seaweedfs/weed/util"
 	util_http "github.com/seaweedfs/seaweedfs/weed/util/http"
+	"github.com/seaweedfs/seaweedfs/weed/util/version"
 	"github.com/seaweedfs/seaweedfs/weed/wdclient"
 )
 
@@ -52,6 +55,8 @@ type MasterOption struct {
 	MetricsAddress          string
 	MetricsIntervalSec      int
 	IsFollower              bool
+	TelemetryUrl            string
+	TelemetryEnabled        bool
 }
 
 type MasterServer struct {
@@ -76,6 +81,9 @@ type MasterServer struct {
 	adminLocks *AdminLocks
 
 	Cluster *cluster.Cluster
+
+	// telemetry
+	telemetryCollector *telemetry.Collector
 }
 
 func NewMasterServer(r *mux.Router, option *MasterOption, peers map[string]pb.ServerAddress) *MasterServer {
@@ -130,6 +138,20 @@ func NewMasterServer(r *mux.Router, option *MasterOption, peers map[string]pb.Se
 	ms.Topo = topology.NewTopology("topo", seq, uint64(ms.option.VolumeSizeLimitMB)*1024*1024, 5, replicationAsMin)
 	ms.vg = topology.NewDefaultVolumeGrowth()
 	glog.V(0).Infoln("Volume Size Limit is", ms.option.VolumeSizeLimitMB, "MB")
+
+	// Initialize telemetry after topology is created
+	if option.TelemetryEnabled && option.TelemetryUrl != "" {
+		telemetryClient := telemetry.NewClient(option.TelemetryUrl, option.TelemetryEnabled)
+		ms.telemetryCollector = telemetry.NewCollector(telemetryClient, ms.Topo, ms.Cluster)
+		ms.telemetryCollector.SetMasterServer(ms)
+
+		// Set version and OS information
+		ms.telemetryCollector.SetVersion(version.VERSION_NUMBER)
+		ms.telemetryCollector.SetOS(runtime.GOOS + "/" + runtime.GOARCH)
+
+		// Start periodic telemetry collection (every 24 hours)
+		ms.telemetryCollector.StartPeriodicCollection(24 * time.Hour)
+	}
 
 	ms.guard = security.NewGuard(append(ms.option.WhiteList, whiteList...), signingKey, expiresAfterSec, readSigningKey, readExpiresAfterSec)
 
@@ -257,7 +279,7 @@ func (ms *MasterServer) startAdminScripts() {
 	glog.V(0).Infof("adminScripts: %v", adminScripts)
 
 	v.SetDefault("master.maintenance.sleep_minutes", 17)
-	sleepMinutes := v.GetInt("master.maintenance.sleep_minutes")
+	sleepMinutes := v.GetFloat64("master.maintenance.sleep_minutes")
 
 	scriptLines := strings.Split(adminScripts, "\n")
 	if !strings.Contains(adminScripts, "lock") {

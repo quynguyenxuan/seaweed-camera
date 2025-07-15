@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/filer"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/pb/s3_pb"
@@ -41,16 +42,22 @@ type S3ApiServerOption struct {
 
 type S3ApiServer struct {
 	s3_pb.UnimplementedSeaweedS3Server
-	option         *S3ApiServerOption
-	iam            *IdentityAccessManagement
-	cb             *CircuitBreaker
-	randomClientId int32
-	filerGuard     *security.Guard
-	client         util_http_client.HTTPClientInterface
-	bucketRegistry *BucketRegistry
+	option            *S3ApiServerOption
+	iam               *IdentityAccessManagement
+	cb                *CircuitBreaker
+	randomClientId    int32
+	filerGuard        *security.Guard
+	client            util_http_client.HTTPClientInterface
+	bucketRegistry    *BucketRegistry
+	credentialManager *credential.CredentialManager
+	bucketConfigCache *BucketConfigCache
 }
 
 func NewS3ApiServer(router *mux.Router, option *S3ApiServerOption) (s3ApiServer *S3ApiServer, err error) {
+	return NewS3ApiServerWithStore(router, option, "")
+}
+
+func NewS3ApiServerWithStore(router *mux.Router, option *S3ApiServerOption, explicitStore string) (s3ApiServer *S3ApiServer, err error) {
 	startTsNs := time.Now().UnixNano()
 
 	v := util.GetViper()
@@ -64,19 +71,26 @@ func NewS3ApiServer(router *mux.Router, option *S3ApiServerOption) (s3ApiServer 
 
 	v.SetDefault("cors.allowed_origins.values", "*")
 
-	if (option.AllowedOrigins == nil) || (len(option.AllowedOrigins) == 0) {
+	if len(option.AllowedOrigins) == 0 {
 		allowedOrigins := v.GetString("cors.allowed_origins.values")
 		domains := strings.Split(allowedOrigins, ",")
 		option.AllowedOrigins = domains
 	}
 
+	var iam *IdentityAccessManagement
+
+	iam = NewIdentityAccessManagementWithStore(option, explicitStore)
+
 	s3ApiServer = &S3ApiServer{
-		option:         option,
-		iam:            NewIdentityAccessManagement(option),
-		randomClientId: util.RandomInt32(),
-		filerGuard:     security.NewGuard([]string{}, signingKey, expiresAfterSec, readSigningKey, readExpiresAfterSec),
-		cb:             NewCircuitBreaker(option),
+		option:            option,
+		iam:               iam,
+		randomClientId:    util.RandomInt32(),
+		filerGuard:        security.NewGuard([]string{}, signingKey, expiresAfterSec, readSigningKey, readExpiresAfterSec),
+		cb:                NewCircuitBreaker(option),
+		credentialManager: iam.credentialManager,
+		bucketConfigCache: NewBucketConfigCache(5 * time.Minute),
 	}
+
 	if option.Config != "" {
 		grace.OnReload(func() {
 			if err := s3ApiServer.iam.loadS3ApiConfigurationFromFile(option.Config); err != nil {
@@ -119,7 +133,7 @@ func (s3a *S3ApiServer) registerRouter(router *mux.Router) {
 		func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
 			if origin != "" {
-				if s3a.option.AllowedOrigins == nil || len(s3a.option.AllowedOrigins) == 0 || s3a.option.AllowedOrigins[0] == "*" {
+				if len(s3a.option.AllowedOrigins) == 0 || s3a.option.AllowedOrigins[0] == "*" {
 					origin = "*"
 				} else {
 					originFound := false
@@ -192,11 +206,13 @@ func (s3a *S3ApiServer) registerRouter(router *mux.Router) {
 		bucket.Methods(http.MethodPut).Path("/{object:.+}").HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.PutObjectRetentionHandler, ACTION_WRITE)), "PUT")).Queries("retention", "")
 		// PutObjectLegalHold
 		bucket.Methods(http.MethodPut).Path("/{object:.+}").HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.PutObjectLegalHoldHandler, ACTION_WRITE)), "PUT")).Queries("legal-hold", "")
-		// PutObjectLockConfiguration
-		bucket.Methods(http.MethodPut).Path("/{object:.+}").HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.PutObjectLockConfigurationHandler, ACTION_WRITE)), "PUT")).Queries("object-lock", "")
 
 		// GetObjectACL
 		bucket.Methods(http.MethodGet).Path("/{object:.+}").HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.GetObjectAclHandler, ACTION_READ_ACP)), "GET")).Queries("acl", "")
+		// GetObjectRetention
+		bucket.Methods(http.MethodGet).Path("/{object:.+}").HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.GetObjectRetentionHandler, ACTION_READ)), "GET")).Queries("retention", "")
+		// GetObjectLegalHold
+		bucket.Methods(http.MethodGet).Path("/{object:.+}").HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.GetObjectLegalHoldHandler, ACTION_READ)), "GET")).Queries("legal-hold", "")
 
 		// objects with query
 
@@ -258,6 +274,10 @@ func (s3a *S3ApiServer) registerRouter(router *mux.Router) {
 		bucket.Methods(http.MethodGet).HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.GetBucketVersioningHandler, ACTION_READ)), "GET")).Queries("versioning", "")
 		bucket.Methods(http.MethodPut).HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.PutBucketVersioningHandler, ACTION_WRITE)), "PUT")).Queries("versioning", "")
 
+		// GetObjectLockConfiguration / PutObjectLockConfiguration (bucket-level operations)
+		bucket.Methods(http.MethodGet).Path("/").HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.GetObjectLockConfigurationHandler, ACTION_READ)), "GET")).Queries("object-lock", "")
+		bucket.Methods(http.MethodPut).Path("/").HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.PutObjectLockConfigurationHandler, ACTION_WRITE)), "PUT")).Queries("object-lock", "")
+
 		// GetBucketTagging
 		bucket.Methods(http.MethodGet).HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.GetBucketTaggingHandler, ACTION_TAGGING)), "GET")).Queries("tagging", "")
 		bucket.Methods(http.MethodPut).HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.PutBucketTaggingHandler, ACTION_TAGGING)), "PUT")).Queries("tagging", "")
@@ -275,6 +295,9 @@ func (s3a *S3ApiServer) registerRouter(router *mux.Router) {
 
 		// ListObjectsV2
 		bucket.Methods(http.MethodGet).HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.ListObjectsV2Handler, ACTION_LIST)), "LIST")).Queries("list-type", "2")
+
+		// ListObjectVersions
+		bucket.Methods(http.MethodGet).HandlerFunc(track(s3a.iam.Auth(s3a.cb.Limit(s3a.ListObjectVersionsHandler, ACTION_LIST)), "LIST")).Queries("versions", "")
 
 		// buckets with query
 		// PutBucketOwnershipControls
