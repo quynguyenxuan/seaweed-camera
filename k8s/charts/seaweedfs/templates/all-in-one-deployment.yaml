@@ -50,7 +50,8 @@ spec:
         {{ tpl .Values.allInOne.affinity . | nindent 8 | trim }}
       {{- end }}
       {{- if .Values.allInOne.topologySpreadConstraints }}
-      {{- include "seaweedfs.topologySpreadConstraints" (dict "Values" .Values "component" "all-in-one") | nindent 6 }}
+      topologySpreadConstraints:
+        {{ tpl .Values.allInOne.topologySpreadConstraints . | nindent 8 | trim }}
       {{- end }}
       {{- if .Values.allInOne.tolerations }}
       tolerations:
@@ -140,6 +141,9 @@ spec:
               {{- end }}
               {{- if .Values.allInOne.disableHttp }}
               -disableHttp={{ .Values.allInOne.disableHttp }} \
+              {{- end }}
+              {{- if and (.Values.volume.dataDirs) (index .Values.volume.dataDirs 0 "maxVolumes") }}
+              -volume.max={{ index .Values.volume.dataDirs 0 "maxVolumes" }} \
               {{- end }}
               -master.port={{ .Values.master.port }} \
               {{- if .Values.global.enableReplication }}

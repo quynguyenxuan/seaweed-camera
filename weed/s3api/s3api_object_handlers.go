@@ -2,10 +2,12 @@ package s3api
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +21,17 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/glog"
 	util_http "github.com/seaweedfs/seaweedfs/weed/util/http"
 )
+
+// corsHeaders defines the CORS headers that need to be preserved
+// Package-level constant to avoid repeated allocations
+var corsHeaders = []string{
+	"Access-Control-Allow-Origin",
+	"Access-Control-Allow-Methods",
+	"Access-Control-Allow-Headers",
+	"Access-Control-Expose-Headers",
+	"Access-Control-Max-Age",
+	"Access-Control-Allow-Credentials",
+}
 
 func mimeDetect(r *http.Request, dataReader io.Reader) io.ReadCloser {
 	mimeBuffer := make([]byte, 512)
@@ -73,7 +86,96 @@ func removeDuplicateSlashes(object string) string {
 	return result.String()
 }
 
-func newListEntry(entry *filer_pb.Entry, key string, dir string, name string, bucketPrefix string, fetchOwner bool, isDirectory bool, encodingTypeUrl bool) (listEntry ListEntry) {
+// checkDirectoryObject checks if the object is a directory object (ends with "/") and if it exists
+// Returns: (entry, isDirectoryObject, error)
+// - entry: the directory entry if found and is a directory
+// - isDirectoryObject: true if the request was for a directory object (ends with "/")
+// - error: any error encountered while checking
+func (s3a *S3ApiServer) checkDirectoryObject(bucket, object string) (*filer_pb.Entry, bool, error) {
+	if !strings.HasSuffix(object, "/") {
+		return nil, false, nil // Not a directory object
+	}
+
+	bucketDir := s3a.option.BucketsPath + "/" + bucket
+	cleanObject := strings.TrimSuffix(strings.TrimPrefix(object, "/"), "/")
+
+	if cleanObject == "" {
+		return nil, true, nil // Root level directory object, but we don't handle it
+	}
+
+	// Check if directory exists
+	dirEntry, err := s3a.getEntry(bucketDir, cleanObject)
+	if err != nil {
+		if errors.Is(err, filer_pb.ErrNotFound) {
+			return nil, true, nil // Directory object requested but doesn't exist
+		}
+		return nil, true, err // Other errors should be propagated
+	}
+
+	if !dirEntry.IsDirectory {
+		return nil, true, nil // Exists but not a directory
+	}
+
+	return dirEntry, true, nil
+}
+
+// serveDirectoryContent serves the content of a directory object directly
+func (s3a *S3ApiServer) serveDirectoryContent(w http.ResponseWriter, r *http.Request, entry *filer_pb.Entry) {
+	// Set content type - use stored MIME type or default
+	contentType := entry.Attributes.Mime
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", contentType)
+
+	// Set content length - use FileSize for accuracy, especially for large files
+	contentLength := int64(entry.Attributes.FileSize)
+	w.Header().Set("Content-Length", strconv.FormatInt(contentLength, 10))
+
+	// Set last modified
+	w.Header().Set("Last-Modified", time.Unix(entry.Attributes.Mtime, 0).UTC().Format(http.TimeFormat))
+
+	// Set ETag
+	w.Header().Set("ETag", "\""+filer.ETag(entry)+"\"")
+
+	// For HEAD requests, don't write body
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Write content
+	w.WriteHeader(http.StatusOK)
+	if len(entry.Content) > 0 {
+		if _, err := w.Write(entry.Content); err != nil {
+			glog.Errorf("serveDirectoryContent: failed to write response: %v", err)
+		}
+	}
+}
+
+// handleDirectoryObjectRequest is a helper function that handles directory object requests
+// for both GET and HEAD operations, eliminating code duplication
+func (s3a *S3ApiServer) handleDirectoryObjectRequest(w http.ResponseWriter, r *http.Request, bucket, object, handlerName string) bool {
+	// Check if this is a directory object and handle it directly
+	if dirEntry, isDirectoryObject, err := s3a.checkDirectoryObject(bucket, object); err != nil {
+		glog.Errorf("%s: error checking directory object %s/%s: %v", handlerName, bucket, object, err)
+		s3err.WriteErrorResponse(w, r, s3err.ErrInternalError)
+		return true // Request was handled (with error)
+	} else if dirEntry != nil {
+		glog.V(2).Infof("%s: directory object %s/%s found, serving content", handlerName, bucket, object)
+		s3a.serveDirectoryContent(w, r, dirEntry)
+		return true // Request was handled successfully
+	} else if isDirectoryObject {
+		// Directory object but doesn't exist
+		glog.V(2).Infof("%s: directory object %s/%s not found", handlerName, bucket, object)
+		s3err.WriteErrorResponse(w, r, s3err.ErrNoSuchKey)
+		return true // Request was handled (with not found)
+	}
+
+	return false // Not a directory object, continue with normal processing
+}
+
+func newListEntry(entry *filer_pb.Entry, key string, dir string, name string, bucketPrefix string, fetchOwner bool, isDirectory bool, encodingTypeUrl bool, iam AccountManager) (listEntry ListEntry) {
 	storageClass := "STANDARD"
 	if v, ok := entry.Extended[s3_constants.AmzStorageClass]; ok {
 		storageClass = string(v)
@@ -96,9 +198,30 @@ func newListEntry(entry *filer_pb.Entry, key string, dir string, name string, bu
 		StorageClass: StorageClass(storageClass),
 	}
 	if fetchOwner {
-		listEntry.Owner = CanonicalUser{
-			ID:          fmt.Sprintf("%x", entry.Attributes.Uid),
-			DisplayName: entry.Attributes.UserName,
+		// Extract owner from S3 metadata (Extended attributes) instead of file system attributes
+		var ownerID, displayName string
+		if entry.Extended != nil {
+			if ownerBytes, exists := entry.Extended[s3_constants.ExtAmzOwnerKey]; exists {
+				ownerID = string(ownerBytes)
+			}
+		}
+
+		// Fallback to anonymous if no S3 owner found
+		if ownerID == "" {
+			ownerID = s3_constants.AccountAnonymousId
+			displayName = "anonymous"
+		} else {
+			// Get the proper display name from IAM system
+			displayName = iam.GetAccountNameById(ownerID)
+			// Fallback to ownerID if no display name found
+			if displayName == "" {
+				displayName = ownerID
+			}
+		}
+
+		listEntry.Owner = &CanonicalUser{
+			ID:          ownerID,
+			DisplayName: displayName,
 		}
 	}
 	return listEntry
@@ -116,16 +239,16 @@ func (s3a *S3ApiServer) GetObjectHandler(w http.ResponseWriter, r *http.Request)
 	bucket, object := s3_constants.GetBucketAndObject(r)
 	glog.V(3).Infof("GetObjectHandler %s %s", bucket, object)
 
-	if strings.HasSuffix(r.URL.Path, "/") {
-		s3err.WriteErrorResponse(w, r, s3err.ErrNotImplemented)
-		return
+	// Handle directory objects with shared logic
+	if s3a.handleDirectoryObjectRequest(w, r, bucket, object, "GetObjectHandler") {
+		return // Directory object request was handled
 	}
 
 	// Check for specific version ID in query parameters
 	versionId := r.URL.Query().Get("versionId")
 
-	// Check if versioning is enabled for the bucket
-	versioningEnabled, err := s3a.isVersioningEnabled(bucket)
+	// Check if versioning is configured for the bucket (Enabled or Suspended)
+	versioningConfigured, err := s3a.isVersioningConfigured(bucket)
 	if err != nil {
 		if err == filer_pb.ErrNotFound {
 			s3err.WriteErrorResponse(w, r, s3err.ErrNoSuchBucket)
@@ -136,16 +259,18 @@ func (s3a *S3ApiServer) GetObjectHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	glog.V(1).Infof("GetObject: bucket %s, object %s, versioningConfigured=%v, versionId=%s", bucket, object, versioningConfigured, versionId)
+
 	var destUrl string
 
-	if versioningEnabled {
+	if versioningConfigured {
 		// Handle versioned GET - all versions are stored in .versions directory
 		var targetVersionId string
 		var entry *filer_pb.Entry
 
 		if versionId != "" {
 			// Request for specific version
-			glog.V(2).Infof("GetObject: requesting specific version %s for %s/%s", versionId, bucket, object)
+			glog.V(2).Infof("GetObject: requesting specific version %s for %s%s", versionId, bucket, object)
 			entry, err = s3a.getSpecificObjectVersion(bucket, object, versionId)
 			if err != nil {
 				glog.Errorf("Failed to get specific version %s: %v", versionId, err)
@@ -155,10 +280,10 @@ func (s3a *S3ApiServer) GetObjectHandler(w http.ResponseWriter, r *http.Request)
 			targetVersionId = versionId
 		} else {
 			// Request for latest version
-			glog.V(2).Infof("GetObject: requesting latest version for %s/%s", bucket, object)
+			glog.V(1).Infof("GetObject: requesting latest version for %s%s", bucket, object)
 			entry, err = s3a.getLatestObjectVersion(bucket, object)
 			if err != nil {
-				glog.Errorf("Failed to get latest version: %v", err)
+				glog.Errorf("GetObject: Failed to get latest version for %s%s: %v", bucket, object, err)
 				s3err.WriteErrorResponse(w, r, s3err.ErrNoSuchKey)
 				return
 			}
@@ -166,6 +291,10 @@ func (s3a *S3ApiServer) GetObjectHandler(w http.ResponseWriter, r *http.Request)
 				if versionIdBytes, exists := entry.Extended[s3_constants.ExtVersionIdKey]; exists {
 					targetVersionId = string(versionIdBytes)
 				}
+			}
+			// If no version ID found in entry, this is a pre-versioning object
+			if targetVersionId == "" {
+				targetVersionId = "null"
 			}
 		}
 
@@ -177,13 +306,23 @@ func (s3a *S3ApiServer) GetObjectHandler(w http.ResponseWriter, r *http.Request)
 			}
 		}
 
-		// All versions are stored in .versions directory
-		versionObjectPath := object + ".versions/" + s3a.getVersionFileName(targetVersionId)
-		destUrl = s3a.toFilerUrl(bucket, versionObjectPath)
-		glog.V(2).Infof("GetObject: version %s URL: %s", targetVersionId, destUrl)
+		// Determine the actual file path based on whether this is a versioned or pre-versioning object
+		if targetVersionId == "null" {
+			// Pre-versioning object - stored as regular file
+			destUrl = s3a.toFilerUrl(bucket, object)
+			glog.V(2).Infof("GetObject: pre-versioning object URL: %s", destUrl)
+		} else {
+			// Versioned object - stored in .versions directory
+			versionObjectPath := object + ".versions/" + s3a.getVersionFileName(targetVersionId)
+			destUrl = s3a.toFilerUrl(bucket, versionObjectPath)
+			glog.V(2).Infof("GetObject: version %s URL: %s", targetVersionId, destUrl)
+		}
 
 		// Set version ID in response header
 		w.Header().Set("x-amz-version-id", targetVersionId)
+
+		// Add object lock metadata to response headers if present
+		s3a.addObjectLockHeadersToResponse(w, entry)
 	} else {
 		// Handle regular GET (non-versioned)
 		destUrl = s3a.toFilerUrl(bucket, object)
@@ -197,11 +336,16 @@ func (s3a *S3ApiServer) HeadObjectHandler(w http.ResponseWriter, r *http.Request
 	bucket, object := s3_constants.GetBucketAndObject(r)
 	glog.V(3).Infof("HeadObjectHandler %s %s", bucket, object)
 
+	// Handle directory objects with shared logic
+	if s3a.handleDirectoryObjectRequest(w, r, bucket, object, "HeadObjectHandler") {
+		return // Directory object request was handled
+	}
+
 	// Check for specific version ID in query parameters
 	versionId := r.URL.Query().Get("versionId")
 
-	// Check if versioning is enabled for the bucket
-	versioningEnabled, err := s3a.isVersioningEnabled(bucket)
+	// Check if versioning is configured for the bucket (Enabled or Suspended)
+	versioningConfigured, err := s3a.isVersioningConfigured(bucket)
 	if err != nil {
 		if err == filer_pb.ErrNotFound {
 			s3err.WriteErrorResponse(w, r, s3err.ErrNoSuchBucket)
@@ -214,14 +358,14 @@ func (s3a *S3ApiServer) HeadObjectHandler(w http.ResponseWriter, r *http.Request
 
 	var destUrl string
 
-	if versioningEnabled {
+	if versioningConfigured {
 		// Handle versioned HEAD - all versions are stored in .versions directory
 		var targetVersionId string
 		var entry *filer_pb.Entry
 
 		if versionId != "" {
 			// Request for specific version
-			glog.V(2).Infof("HeadObject: requesting specific version %s for %s/%s", versionId, bucket, object)
+			glog.V(2).Infof("HeadObject: requesting specific version %s for %s%s", versionId, bucket, object)
 			entry, err = s3a.getSpecificObjectVersion(bucket, object, versionId)
 			if err != nil {
 				glog.Errorf("Failed to get specific version %s: %v", versionId, err)
@@ -231,7 +375,7 @@ func (s3a *S3ApiServer) HeadObjectHandler(w http.ResponseWriter, r *http.Request
 			targetVersionId = versionId
 		} else {
 			// Request for latest version
-			glog.V(2).Infof("HeadObject: requesting latest version for %s/%s", bucket, object)
+			glog.V(2).Infof("HeadObject: requesting latest version for %s%s", bucket, object)
 			entry, err = s3a.getLatestObjectVersion(bucket, object)
 			if err != nil {
 				glog.Errorf("Failed to get latest version: %v", err)
@@ -243,6 +387,10 @@ func (s3a *S3ApiServer) HeadObjectHandler(w http.ResponseWriter, r *http.Request
 					targetVersionId = string(versionIdBytes)
 				}
 			}
+			// If no version ID found in entry, this is a pre-versioning object
+			if targetVersionId == "" {
+				targetVersionId = "null"
+			}
 		}
 
 		// Check if this is a delete marker
@@ -253,13 +401,23 @@ func (s3a *S3ApiServer) HeadObjectHandler(w http.ResponseWriter, r *http.Request
 			}
 		}
 
-		// All versions are stored in .versions directory
-		versionObjectPath := object + ".versions/" + s3a.getVersionFileName(targetVersionId)
-		destUrl = s3a.toFilerUrl(bucket, versionObjectPath)
-		glog.V(2).Infof("HeadObject: version %s URL: %s", targetVersionId, destUrl)
+		// Determine the actual file path based on whether this is a versioned or pre-versioning object
+		if targetVersionId == "null" {
+			// Pre-versioning object - stored as regular file
+			destUrl = s3a.toFilerUrl(bucket, object)
+			glog.V(2).Infof("HeadObject: pre-versioning object URL: %s", destUrl)
+		} else {
+			// Versioned object - stored in .versions directory
+			versionObjectPath := object + ".versions/" + s3a.getVersionFileName(targetVersionId)
+			destUrl = s3a.toFilerUrl(bucket, versionObjectPath)
+			glog.V(2).Infof("HeadObject: version %s URL: %s", targetVersionId, destUrl)
+		}
 
 		// Set version ID in response header
 		w.Header().Set("x-amz-version-id", targetVersionId)
+
+		// Add object lock metadata to response headers if present
+		s3a.addObjectLockHeadersToResponse(w, entry)
 	} else {
 		// Handle regular HEAD (non-versioned)
 		destUrl = s3a.toFilerUrl(bucket, object)
@@ -381,10 +539,34 @@ func setUserMetadataKeyToLowercase(resp *http.Response) {
 	}
 }
 
+func captureCORSHeaders(w http.ResponseWriter, headersToCapture []string) map[string]string {
+	captured := make(map[string]string)
+	for _, corsHeader := range headersToCapture {
+		if value := w.Header().Get(corsHeader); value != "" {
+			captured[corsHeader] = value
+		}
+	}
+	return captured
+}
+
+func restoreCORSHeaders(w http.ResponseWriter, capturedCORSHeaders map[string]string) {
+	for corsHeader, value := range capturedCORSHeaders {
+		w.Header().Set(corsHeader, value)
+	}
+}
+
 func passThroughResponse(proxyResponse *http.Response, w http.ResponseWriter) (statusCode int, bytesTransferred int64) {
+	// Capture existing CORS headers that may have been set by middleware
+	capturedCORSHeaders := captureCORSHeaders(w, corsHeaders)
+
+	// Copy headers from proxy response
 	for k, v := range proxyResponse.Header {
 		w.Header()[k] = v
 	}
+
+	// Restore CORS headers that were set by middleware
+	restoreCORSHeaders(w, capturedCORSHeaders)
+
 	if proxyResponse.Header.Get("Content-Range") != "" && proxyResponse.StatusCode == 200 {
 		w.WriteHeader(http.StatusPartialContent)
 		statusCode = http.StatusPartialContent
@@ -399,4 +581,45 @@ func passThroughResponse(proxyResponse *http.Response, w http.ResponseWriter) (s
 		glog.V(1).Infof("passthrough response read %d bytes: %v", bytesTransferred, err)
 	}
 	return statusCode, bytesTransferred
+}
+
+// addObjectLockHeadersToResponse extracts object lock metadata from entry Extended attributes
+// and adds the appropriate S3 headers to the response
+func (s3a *S3ApiServer) addObjectLockHeadersToResponse(w http.ResponseWriter, entry *filer_pb.Entry) {
+	if entry == nil || entry.Extended == nil {
+		return
+	}
+
+	// Check if this entry has any object lock metadata (indicating it's from an object lock enabled bucket)
+	hasObjectLockMode := false
+	hasRetentionDate := false
+
+	// Add object lock mode header if present
+	if modeBytes, exists := entry.Extended[s3_constants.ExtObjectLockModeKey]; exists && len(modeBytes) > 0 {
+		w.Header().Set(s3_constants.AmzObjectLockMode, string(modeBytes))
+		hasObjectLockMode = true
+	}
+
+	// Add retention until date header if present
+	if dateBytes, exists := entry.Extended[s3_constants.ExtRetentionUntilDateKey]; exists && len(dateBytes) > 0 {
+		dateStr := string(dateBytes)
+		// Convert Unix timestamp to ISO8601 format for S3 compatibility
+		if timestamp, err := strconv.ParseInt(dateStr, 10, 64); err == nil {
+			retainUntilDate := time.Unix(timestamp, 0).UTC()
+			w.Header().Set(s3_constants.AmzObjectLockRetainUntilDate, retainUntilDate.Format(time.RFC3339))
+			hasRetentionDate = true
+		} else {
+			glog.Errorf("addObjectLockHeadersToResponse: failed to parse retention until date from stored metadata (dateStr: %s): %v", dateStr, err)
+		}
+	}
+
+	// Add legal hold header - AWS S3 behavior: always include legal hold for object lock enabled buckets
+	if legalHoldBytes, exists := entry.Extended[s3_constants.ExtLegalHoldKey]; exists && len(legalHoldBytes) > 0 {
+		// Return stored S3 standard "ON"/"OFF" values directly
+		w.Header().Set(s3_constants.AmzObjectLockLegalHold, string(legalHoldBytes))
+	} else if hasObjectLockMode || hasRetentionDate {
+		// If this entry has object lock metadata (indicating object lock enabled bucket)
+		// but no legal hold specifically set, default to "OFF" as per AWS S3 behavior
+		w.Header().Set(s3_constants.AmzObjectLockLegalHold, s3_constants.LegalHoldOff)
+	}
 }

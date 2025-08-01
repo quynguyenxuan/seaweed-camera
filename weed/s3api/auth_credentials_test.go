@@ -1,9 +1,11 @@
 package s3api
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
+	"github.com/seaweedfs/seaweedfs/weed/credential"
 	. "github.com/seaweedfs/seaweedfs/weed/s3api/s3_constants"
 	"github.com/stretchr/testify/assert"
 
@@ -262,5 +264,96 @@ func TestLoadS3ApiConfiguration(t *testing.T) {
 		if !reflect.DeepEqual(ident, tc.expectIdent) {
 			t.Errorf("not expect for ident name %s", ident.Name)
 		}
+	}
+}
+
+func TestNewIdentityAccessManagementWithStoreEnvVars(t *testing.T) {
+	// Save original environment
+	originalAccessKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
+	originalSecretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+
+	// Clean up after test
+	defer func() {
+		if originalAccessKeyId != "" {
+			os.Setenv("AWS_ACCESS_KEY_ID", originalAccessKeyId)
+		} else {
+			os.Unsetenv("AWS_ACCESS_KEY_ID")
+		}
+		if originalSecretAccessKey != "" {
+			os.Setenv("AWS_SECRET_ACCESS_KEY", originalSecretAccessKey)
+		} else {
+			os.Unsetenv("AWS_SECRET_ACCESS_KEY")
+		}
+	}()
+
+	tests := []struct {
+		name              string
+		accessKeyId       string
+		secretAccessKey   string
+		expectEnvIdentity bool
+		expectedName      string
+		description       string
+	}{
+		{
+			name:              "Environment variables used as fallback",
+			accessKeyId:       "AKIA1234567890ABCDEF",
+			secretAccessKey:   "secret123456789012345678901234567890abcdef12",
+			expectEnvIdentity: true,
+			expectedName:      "admin-AKIA1234",
+			description:       "When no config file and no filer config, environment variables should be used",
+		},
+		{
+			name:              "Short access key fallback",
+			accessKeyId:       "SHORT",
+			secretAccessKey:   "secret123456789012345678901234567890abcdef12",
+			expectEnvIdentity: true,
+			expectedName:      "admin-SHORT",
+			description:       "Short access keys should work correctly as fallback",
+		},
+		{
+			name:              "No env vars means no identities",
+			accessKeyId:       "",
+			secretAccessKey:   "",
+			expectEnvIdentity: false,
+			expectedName:      "",
+			description:       "When no env vars and no config, should have no identities",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up environment variables
+			if tt.accessKeyId != "" {
+				os.Setenv("AWS_ACCESS_KEY_ID", tt.accessKeyId)
+			} else {
+				os.Unsetenv("AWS_ACCESS_KEY_ID")
+			}
+			if tt.secretAccessKey != "" {
+				os.Setenv("AWS_SECRET_ACCESS_KEY", tt.secretAccessKey)
+			} else {
+				os.Unsetenv("AWS_SECRET_ACCESS_KEY")
+			}
+
+			// Create IAM instance with memory store for testing (no config file)
+			option := &S3ApiServerOption{
+				Config: "", // No config file - this should trigger environment variable fallback
+			}
+			iam := NewIdentityAccessManagementWithStore(option, string(credential.StoreTypeMemory))
+
+			if tt.expectEnvIdentity {
+				// Should have exactly one identity from environment variables
+				assert.Len(t, iam.identities, 1, "Should have exactly one identity from environment variables")
+
+				identity := iam.identities[0]
+				assert.Equal(t, tt.expectedName, identity.Name, "Identity name should match expected")
+				assert.Len(t, identity.Credentials, 1, "Should have one credential")
+				assert.Equal(t, tt.accessKeyId, identity.Credentials[0].AccessKey, "Access key should match environment variable")
+				assert.Equal(t, tt.secretAccessKey, identity.Credentials[0].SecretKey, "Secret key should match environment variable")
+				assert.Contains(t, identity.Actions, Action(ACTION_ADMIN), "Should have admin action")
+			} else {
+				// When no env vars, should have no identities (since no config file)
+				assert.Len(t, iam.identities, 0, "Should have no identities when no env vars and no config file")
+			}
+		})
 	}
 }

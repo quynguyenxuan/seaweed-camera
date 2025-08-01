@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +13,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/filer"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	"github.com/seaweedfs/seaweedfs/weed/pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/iam_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
@@ -21,11 +21,14 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/pb/schema_pb"
 	"github.com/seaweedfs/seaweedfs/weed/security"
 	"github.com/seaweedfs/seaweedfs/weed/util"
+	"github.com/seaweedfs/seaweedfs/weed/wdclient"
 	"google.golang.org/grpc"
+
+	"github.com/seaweedfs/seaweedfs/weed/s3api"
 )
 
 type AdminServer struct {
-	masterAddress   string
+	masterClient    *wdclient.MasterClient
 	templateFS      http.FileSystem
 	dataDir         string
 	grpcDialOption  grpc.DialOption
@@ -56,12 +59,29 @@ type AdminServer struct {
 
 // Type definitions moved to types.go
 
-func NewAdminServer(masterAddress string, templateFS http.FileSystem, dataDir string) *AdminServer {
+func NewAdminServer(masters string, templateFS http.FileSystem, dataDir string) *AdminServer {
+	grpcDialOption := security.LoadClientTLS(util.GetViper(), "grpc.client")
+
+	// Create master client with multiple master support
+	masterClient := wdclient.NewMasterClient(
+		grpcDialOption,
+		"",      // filerGroup - not needed for admin
+		"admin", // clientType
+		"",      // clientHost - not needed for admin
+		"",      // dataCenter - not needed for admin
+		"",      // rack - not needed for admin
+		*pb.ServerAddresses(masters).ToServiceDiscovery(),
+	)
+
+	// Start master client connection process (like shell and filer do)
+	ctx := context.Background()
+	go masterClient.KeepConnectedToMaster(ctx)
+
 	server := &AdminServer{
-		masterAddress:        masterAddress,
+		masterClient:         masterClient,
 		templateFS:           templateFS,
 		dataDir:              dataDir,
-		grpcDialOption:       security.LoadClientTLS(util.GetViper(), "grpc.client"),
+		grpcDialOption:       grpcDialOption,
 		cacheExpiration:      10 * time.Second,
 		filerCacheExpiration: 30 * time.Second, // Cache filers for 30 seconds
 		configPersistence:    NewConfigPersistence(dataDir),
@@ -196,7 +216,7 @@ func (s *AdminServer) GetS3Buckets() ([]S3Bucket, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get volume information: %v", err)
+		return nil, fmt.Errorf("failed to get volume information: %w", err)
 	}
 
 	// Get filer configuration to determine FilerGroup
@@ -213,7 +233,7 @@ func (s *AdminServer) GetS3Buckets() ([]S3Bucket, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get filer configuration: %v", err)
+		return nil, fmt.Errorf("failed to get filer configuration: %w", err)
 	}
 
 	// Now list buckets from the filer and match with collection data
@@ -274,20 +294,11 @@ func (s *AdminServer) GetS3Buckets() ([]S3Bucket, error) {
 				var objectLockDuration int32 = 0
 
 				if resp.Entry.Extended != nil {
-					if versioningBytes, exists := resp.Entry.Extended["s3.versioning"]; exists {
-						versioningEnabled = string(versioningBytes) == "Enabled"
-					}
-					if objectLockBytes, exists := resp.Entry.Extended["s3.objectlock"]; exists {
-						objectLockEnabled = string(objectLockBytes) == "Enabled"
-					}
-					if objectLockModeBytes, exists := resp.Entry.Extended["s3.objectlock.mode"]; exists {
-						objectLockMode = string(objectLockModeBytes)
-					}
-					if objectLockDurationBytes, exists := resp.Entry.Extended["s3.objectlock.duration"]; exists {
-						if duration, err := strconv.ParseInt(string(objectLockDurationBytes), 10, 32); err == nil {
-							objectLockDuration = int32(duration)
-						}
-					}
+					// Use shared utility to extract versioning information
+					versioningEnabled = extractVersioningFromEntry(resp.Entry)
+
+					// Use shared utility to extract Object Lock information
+					objectLockEnabled, objectLockMode, objectLockDuration = extractObjectLockInfoFromEntry(resp.Entry)
 				}
 
 				bucket := S3Bucket{
@@ -311,7 +322,7 @@ func (s *AdminServer) GetS3Buckets() ([]S3Bucket, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to list Object Store buckets: %v", err)
+		return nil, fmt.Errorf("failed to list Object Store buckets: %w", err)
 	}
 
 	return buckets, nil
@@ -336,7 +347,7 @@ func (s *AdminServer) GetBucketDetails(bucketName string) (*BucketDetails, error
 			Name:      bucketName,
 		})
 		if err != nil {
-			return fmt.Errorf("bucket not found: %v", err)
+			return fmt.Errorf("bucket not found: %w", err)
 		}
 
 		details.Bucket.CreatedAt = time.Unix(bucketResp.Entry.Attributes.Crtime, 0)
@@ -360,20 +371,11 @@ func (s *AdminServer) GetBucketDetails(bucketName string) (*BucketDetails, error
 		var objectLockDuration int32 = 0
 
 		if bucketResp.Entry.Extended != nil {
-			if versioningBytes, exists := bucketResp.Entry.Extended["s3.versioning"]; exists {
-				versioningEnabled = string(versioningBytes) == "Enabled"
-			}
-			if objectLockBytes, exists := bucketResp.Entry.Extended["s3.objectlock"]; exists {
-				objectLockEnabled = string(objectLockBytes) == "Enabled"
-			}
-			if objectLockModeBytes, exists := bucketResp.Entry.Extended["s3.objectlock.mode"]; exists {
-				objectLockMode = string(objectLockModeBytes)
-			}
-			if objectLockDurationBytes, exists := bucketResp.Entry.Extended["s3.objectlock.duration"]; exists {
-				if duration, err := strconv.ParseInt(string(objectLockDurationBytes), 10, 32); err == nil {
-					objectLockDuration = int32(duration)
-				}
-			}
+			// Use shared utility to extract versioning information
+			versioningEnabled = extractVersioningFromEntry(bucketResp.Entry)
+
+			// Use shared utility to extract Object Lock information
+			objectLockEnabled, objectLockMode, objectLockDuration = extractObjectLockInfoFromEntry(bucketResp.Entry)
 		}
 
 		details.Bucket.VersioningEnabled = versioningEnabled
@@ -469,7 +471,7 @@ func (s *AdminServer) DeleteS3Bucket(bucketName string) error {
 			IgnoreRecursiveError: false,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to delete bucket: %v", err)
+			return fmt.Errorf("failed to delete bucket: %w", err)
 		}
 
 		return nil
@@ -606,7 +608,8 @@ func (s *AdminServer) GetClusterMasters() (*ClusterMastersData, error) {
 
 	if err != nil {
 		// If gRPC call fails, log the error but continue with topology data
-		glog.Errorf("Failed to get raft cluster servers from master %s: %v", s.masterAddress, err)
+		currentMaster := s.masterClient.GetMaster(context.Background())
+		glog.Errorf("Failed to get raft cluster servers from master %s: %v", currentMaster, err)
 	}
 
 	// Convert map to slice
@@ -614,14 +617,17 @@ func (s *AdminServer) GetClusterMasters() (*ClusterMastersData, error) {
 		masters = append(masters, *masterInfo)
 	}
 
-	// If no masters found at all, add the configured master as fallback
+	// If no masters found at all, add the current master as fallback
 	if len(masters) == 0 {
-		masters = append(masters, MasterInfo{
-			Address:  s.masterAddress,
-			IsLeader: true,
-			Suffrage: "Voter",
-		})
-		leaderCount = 1
+		currentMaster := s.masterClient.GetMaster(context.Background())
+		if currentMaster != "" {
+			masters = append(masters, MasterInfo{
+				Address:  string(currentMaster),
+				IsLeader: true,
+				Suffrage: "Voter",
+			})
+			leaderCount = 1
+		}
 	}
 
 	return &ClusterMastersData{
@@ -664,7 +670,7 @@ func (s *AdminServer) GetClusterFilers() (*ClusterFilersData, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get filer nodes from master: %v", err)
+		return nil, fmt.Errorf("failed to get filer nodes from master: %w", err)
 	}
 
 	return &ClusterFilersData{
@@ -706,7 +712,7 @@ func (s *AdminServer) GetClusterBrokers() (*ClusterBrokersData, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get broker nodes from master: %v", err)
+		return nil, fmt.Errorf("failed to get broker nodes from master: %w", err)
 	}
 
 	return &ClusterBrokersData{
@@ -1147,7 +1153,7 @@ func (as *AdminServer) getMaintenanceConfig() (*maintenance.MaintenanceConfigDat
 func (as *AdminServer) updateMaintenanceConfig(config *maintenance.MaintenanceConfig) error {
 	// Save configuration to persistent storage
 	if err := as.configPersistence.SaveMaintenanceConfig(config); err != nil {
-		return fmt.Errorf("failed to save maintenance configuration: %v", err)
+		return fmt.Errorf("failed to save maintenance configuration: %w", err)
 	}
 
 	// Update maintenance manager if available
@@ -1188,7 +1194,8 @@ func (as *AdminServer) GetConfigInfo(c *gin.Context) {
 	configInfo := as.configPersistence.GetConfigInfo()
 
 	// Add additional admin server info
-	configInfo["master_address"] = as.masterAddress
+	currentMaster := as.masterClient.GetMaster(context.Background())
+	configInfo["master_address"] = string(currentMaster)
 	configInfo["cache_expiration"] = as.cacheExpiration.String()
 	configInfo["filer_cache_expiration"] = as.filerCacheExpiration.String()
 
@@ -1333,7 +1340,7 @@ func (s *AdminServer) CreateTopicWithRetention(namespace, name string, partition
 	// Find broker leader to create the topic
 	brokerLeader, err := s.findBrokerLeader()
 	if err != nil {
-		return fmt.Errorf("failed to find broker leader: %v", err)
+		return fmt.Errorf("failed to find broker leader: %w", err)
 	}
 
 	// Create retention configuration
@@ -1367,7 +1374,7 @@ func (s *AdminServer) CreateTopicWithRetention(namespace, name string, partition
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to create topic: %v", err)
+		return fmt.Errorf("failed to create topic: %w", err)
 	}
 
 	glog.V(0).Infof("Created topic %s.%s with %d partitions (retention: enabled=%v, seconds=%d)",
@@ -1397,7 +1404,7 @@ func (s *AdminServer) UpdateTopicRetention(namespace, name string, enabled bool,
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to get broker nodes from master: %v", err)
+		return fmt.Errorf("failed to get broker nodes from master: %w", err)
 	}
 
 	if brokerAddress == "" {
@@ -1407,7 +1414,7 @@ func (s *AdminServer) UpdateTopicRetention(namespace, name string, enabled bool,
 	// Create gRPC connection
 	conn, err := grpc.Dial(brokerAddress, s.grpcDialOption)
 	if err != nil {
-		return fmt.Errorf("failed to connect to broker: %v", err)
+		return fmt.Errorf("failed to connect to broker: %w", err)
 	}
 	defer conn.Close()
 
@@ -1424,7 +1431,7 @@ func (s *AdminServer) UpdateTopicRetention(namespace, name string, enabled bool,
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get current topic configuration: %v", err)
+		return fmt.Errorf("failed to get current topic configuration: %w", err)
 	}
 
 	// Create the topic configuration request, preserving all existing settings
@@ -1456,7 +1463,7 @@ func (s *AdminServer) UpdateTopicRetention(namespace, name string, enabled bool,
 	// Send the configuration request with preserved settings
 	_, err = client.ConfigureTopic(ctx, configRequest)
 	if err != nil {
-		return fmt.Errorf("failed to update topic retention: %v", err)
+		return fmt.Errorf("failed to update topic retention: %w", err)
 	}
 
 	glog.V(0).Infof("Updated topic %s.%s retention (enabled: %v, seconds: %d) while preserving %d partitions",
@@ -1477,4 +1484,20 @@ func (s *AdminServer) Shutdown() {
 	}
 
 	glog.V(1).Infof("Admin server shutdown complete")
+}
+
+// Function to extract Object Lock information from bucket entry using shared utilities
+func extractObjectLockInfoFromEntry(entry *filer_pb.Entry) (bool, string, int32) {
+	// Try to load Object Lock configuration using shared utility
+	if config, found := s3api.LoadObjectLockConfigurationFromExtended(entry); found {
+		return s3api.ExtractObjectLockInfoFromConfig(config)
+	}
+
+	return false, "", 0
+}
+
+// Function to extract versioning information from bucket entry using shared utilities
+func extractVersioningFromEntry(entry *filer_pb.Entry) bool {
+	enabled, _ := s3api.LoadVersioningFromExtended(entry)
+	return enabled
 }

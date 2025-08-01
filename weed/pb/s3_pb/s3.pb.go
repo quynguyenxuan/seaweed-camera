@@ -7,10 +7,11 @@
 package s3_pb
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -215,6 +216,195 @@ func (x *S3CircuitBreakerOptions) GetActions() map[string]int64 {
 	return nil
 }
 
+type CORSRule struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	AllowedHeaders []string `protobuf:"bytes,1,rep,name=allowed_headers,json=allowedHeaders,proto3" json:"allowed_headers,omitempty"`
+	AllowedMethods []string `protobuf:"bytes,2,rep,name=allowed_methods,json=allowedMethods,proto3" json:"allowed_methods,omitempty"`
+	AllowedOrigins []string `protobuf:"bytes,3,rep,name=allowed_origins,json=allowedOrigins,proto3" json:"allowed_origins,omitempty"`
+	ExposeHeaders  []string `protobuf:"bytes,4,rep,name=expose_headers,json=exposeHeaders,proto3" json:"expose_headers,omitempty"`
+	MaxAgeSeconds  int32    `protobuf:"varint,5,opt,name=max_age_seconds,json=maxAgeSeconds,proto3" json:"max_age_seconds,omitempty"`
+	Id             string   `protobuf:"bytes,6,opt,name=id,proto3" json:"id,omitempty"`
+}
+
+func (x *CORSRule) Reset() {
+	*x = CORSRule{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_s3_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CORSRule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CORSRule) ProtoMessage() {}
+
+func (x *CORSRule) ProtoReflect() protoreflect.Message {
+	mi := &file_s3_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CORSRule.ProtoReflect.Descriptor instead.
+func (*CORSRule) Descriptor() ([]byte, []int) {
+	return file_s3_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CORSRule) GetAllowedHeaders() []string {
+	if x != nil {
+		return x.AllowedHeaders
+	}
+	return nil
+}
+
+func (x *CORSRule) GetAllowedMethods() []string {
+	if x != nil {
+		return x.AllowedMethods
+	}
+	return nil
+}
+
+func (x *CORSRule) GetAllowedOrigins() []string {
+	if x != nil {
+		return x.AllowedOrigins
+	}
+	return nil
+}
+
+func (x *CORSRule) GetExposeHeaders() []string {
+	if x != nil {
+		return x.ExposeHeaders
+	}
+	return nil
+}
+
+func (x *CORSRule) GetMaxAgeSeconds() int32 {
+	if x != nil {
+		return x.MaxAgeSeconds
+	}
+	return 0
+}
+
+func (x *CORSRule) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type CORSConfiguration struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	CorsRules []*CORSRule `protobuf:"bytes,1,rep,name=cors_rules,json=corsRules,proto3" json:"cors_rules,omitempty"`
+}
+
+func (x *CORSConfiguration) Reset() {
+	*x = CORSConfiguration{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_s3_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CORSConfiguration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CORSConfiguration) ProtoMessage() {}
+
+func (x *CORSConfiguration) ProtoReflect() protoreflect.Message {
+	mi := &file_s3_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CORSConfiguration.ProtoReflect.Descriptor instead.
+func (*CORSConfiguration) Descriptor() ([]byte, []int) {
+	return file_s3_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CORSConfiguration) GetCorsRules() []*CORSRule {
+	if x != nil {
+		return x.CorsRules
+	}
+	return nil
+}
+
+type BucketMetadata struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Tags map[string]string  `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Cors *CORSConfiguration `protobuf:"bytes,2,opt,name=cors,proto3" json:"cors,omitempty"`
+}
+
+func (x *BucketMetadata) Reset() {
+	*x = BucketMetadata{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_s3_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BucketMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BucketMetadata) ProtoMessage() {}
+
+func (x *BucketMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_s3_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BucketMetadata.ProtoReflect.Descriptor instead.
+func (*BucketMetadata) Descriptor() ([]byte, []int) {
+	return file_s3_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *BucketMetadata) GetTags() map[string]string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *BucketMetadata) GetCors() *CORSConfiguration {
+	if x != nil {
+		return x.Cors
+	}
+	return nil
+}
+
 var File_s3_proto protoreflect.FileDescriptor
 
 var file_s3_proto_rawDesc = []byte{
@@ -255,6 +445,37 @@ var file_s3_proto_rawDesc = []byte{
 	0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75,
 	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02,
+	0x38, 0x01, 0x22, 0xe4, 0x01, 0x0a, 0x08, 0x43, 0x4f, 0x52, 0x53, 0x52, 0x75, 0x6c, 0x65, 0x12,
+	0x27, 0x0a, 0x0f, 0x61, 0x6c, 0x6c, 0x6f, 0x77, 0x65, 0x64, 0x5f, 0x68, 0x65, 0x61, 0x64, 0x65,
+	0x72, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x0e, 0x61, 0x6c, 0x6c, 0x6f, 0x77, 0x65,
+	0x64, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x73, 0x12, 0x27, 0x0a, 0x0f, 0x61, 0x6c, 0x6c, 0x6f,
+	0x77, 0x65, 0x64, 0x5f, 0x6d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28,
+	0x09, 0x52, 0x0e, 0x61, 0x6c, 0x6c, 0x6f, 0x77, 0x65, 0x64, 0x4d, 0x65, 0x74, 0x68, 0x6f, 0x64,
+	0x73, 0x12, 0x27, 0x0a, 0x0f, 0x61, 0x6c, 0x6c, 0x6f, 0x77, 0x65, 0x64, 0x5f, 0x6f, 0x72, 0x69,
+	0x67, 0x69, 0x6e, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x0e, 0x61, 0x6c, 0x6c, 0x6f,
+	0x77, 0x65, 0x64, 0x4f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x73, 0x12, 0x25, 0x0a, 0x0e, 0x65, 0x78,
+	0x70, 0x6f, 0x73, 0x65, 0x5f, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x73, 0x18, 0x04, 0x20, 0x03,
+	0x28, 0x09, 0x52, 0x0d, 0x65, 0x78, 0x70, 0x6f, 0x73, 0x65, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72,
+	0x73, 0x12, 0x26, 0x0a, 0x0f, 0x6d, 0x61, 0x78, 0x5f, 0x61, 0x67, 0x65, 0x5f, 0x73, 0x65, 0x63,
+	0x6f, 0x6e, 0x64, 0x73, 0x18, 0x05, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0d, 0x6d, 0x61, 0x78, 0x41,
+	0x67, 0x65, 0x53, 0x65, 0x63, 0x6f, 0x6e, 0x64, 0x73, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18,
+	0x06, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x22, 0x4a, 0x0a, 0x11, 0x43, 0x4f, 0x52,
+	0x53, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x35,
+	0x0a, 0x0a, 0x63, 0x6f, 0x72, 0x73, 0x5f, 0x72, 0x75, 0x6c, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03,
+	0x28, 0x0b, 0x32, 0x16, 0x2e, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x69, 0x6e, 0x67, 0x5f, 0x70,
+	0x62, 0x2e, 0x43, 0x4f, 0x52, 0x53, 0x52, 0x75, 0x6c, 0x65, 0x52, 0x09, 0x63, 0x6f, 0x72, 0x73,
+	0x52, 0x75, 0x6c, 0x65, 0x73, 0x22, 0xba, 0x01, 0x0a, 0x0e, 0x42, 0x75, 0x63, 0x6b, 0x65, 0x74,
+	0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x12, 0x3a, 0x0a, 0x04, 0x74, 0x61, 0x67, 0x73,
+	0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x26, 0x2e, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x69,
+	0x6e, 0x67, 0x5f, 0x70, 0x62, 0x2e, 0x42, 0x75, 0x63, 0x6b, 0x65, 0x74, 0x4d, 0x65, 0x74, 0x61,
+	0x64, 0x61, 0x74, 0x61, 0x2e, 0x54, 0x61, 0x67, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x04,
+	0x74, 0x61, 0x67, 0x73, 0x12, 0x33, 0x0a, 0x04, 0x63, 0x6f, 0x72, 0x73, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x1f, 0x2e, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x69, 0x6e, 0x67, 0x5f, 0x70,
+	0x62, 0x2e, 0x43, 0x4f, 0x52, 0x53, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x52, 0x04, 0x63, 0x6f, 0x72, 0x73, 0x1a, 0x37, 0x0a, 0x09, 0x54, 0x61, 0x67,
+	0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75,
+	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02,
 	0x38, 0x01, 0x32, 0x5f, 0x0a, 0x09, 0x53, 0x65, 0x61, 0x77, 0x65, 0x65, 0x64, 0x53, 0x33, 0x12,
 	0x52, 0x0a, 0x09, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x65, 0x12, 0x20, 0x2e, 0x6d,
 	0x65, 0x73, 0x73, 0x61, 0x67, 0x69, 0x6e, 0x67, 0x5f, 0x70, 0x62, 0x2e, 0x53, 0x33, 0x43, 0x6f,
@@ -281,27 +502,34 @@ func file_s3_proto_rawDescGZIP() []byte {
 	return file_s3_proto_rawDescData
 }
 
-var file_s3_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_s3_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_s3_proto_goTypes = []any{
 	(*S3ConfigureRequest)(nil),      // 0: messaging_pb.S3ConfigureRequest
 	(*S3ConfigureResponse)(nil),     // 1: messaging_pb.S3ConfigureResponse
 	(*S3CircuitBreakerConfig)(nil),  // 2: messaging_pb.S3CircuitBreakerConfig
 	(*S3CircuitBreakerOptions)(nil), // 3: messaging_pb.S3CircuitBreakerOptions
-	nil,                             // 4: messaging_pb.S3CircuitBreakerConfig.BucketsEntry
-	nil,                             // 5: messaging_pb.S3CircuitBreakerOptions.ActionsEntry
+	(*CORSRule)(nil),                // 4: messaging_pb.CORSRule
+	(*CORSConfiguration)(nil),       // 5: messaging_pb.CORSConfiguration
+	(*BucketMetadata)(nil),          // 6: messaging_pb.BucketMetadata
+	nil,                             // 7: messaging_pb.S3CircuitBreakerConfig.BucketsEntry
+	nil,                             // 8: messaging_pb.S3CircuitBreakerOptions.ActionsEntry
+	nil,                             // 9: messaging_pb.BucketMetadata.TagsEntry
 }
 var file_s3_proto_depIdxs = []int32{
 	3, // 0: messaging_pb.S3CircuitBreakerConfig.global:type_name -> messaging_pb.S3CircuitBreakerOptions
-	4, // 1: messaging_pb.S3CircuitBreakerConfig.buckets:type_name -> messaging_pb.S3CircuitBreakerConfig.BucketsEntry
-	5, // 2: messaging_pb.S3CircuitBreakerOptions.actions:type_name -> messaging_pb.S3CircuitBreakerOptions.ActionsEntry
-	3, // 3: messaging_pb.S3CircuitBreakerConfig.BucketsEntry.value:type_name -> messaging_pb.S3CircuitBreakerOptions
-	0, // 4: messaging_pb.SeaweedS3.Configure:input_type -> messaging_pb.S3ConfigureRequest
-	1, // 5: messaging_pb.SeaweedS3.Configure:output_type -> messaging_pb.S3ConfigureResponse
-	5, // [5:6] is the sub-list for method output_type
-	4, // [4:5] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	7, // 1: messaging_pb.S3CircuitBreakerConfig.buckets:type_name -> messaging_pb.S3CircuitBreakerConfig.BucketsEntry
+	8, // 2: messaging_pb.S3CircuitBreakerOptions.actions:type_name -> messaging_pb.S3CircuitBreakerOptions.ActionsEntry
+	4, // 3: messaging_pb.CORSConfiguration.cors_rules:type_name -> messaging_pb.CORSRule
+	9, // 4: messaging_pb.BucketMetadata.tags:type_name -> messaging_pb.BucketMetadata.TagsEntry
+	5, // 5: messaging_pb.BucketMetadata.cors:type_name -> messaging_pb.CORSConfiguration
+	3, // 6: messaging_pb.S3CircuitBreakerConfig.BucketsEntry.value:type_name -> messaging_pb.S3CircuitBreakerOptions
+	0, // 7: messaging_pb.SeaweedS3.Configure:input_type -> messaging_pb.S3ConfigureRequest
+	1, // 8: messaging_pb.SeaweedS3.Configure:output_type -> messaging_pb.S3ConfigureResponse
+	8, // [8:9] is the sub-list for method output_type
+	7, // [7:8] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_s3_proto_init() }
@@ -358,6 +586,42 @@ func file_s3_proto_init() {
 				return nil
 			}
 		}
+		file_s3_proto_msgTypes[4].Exporter = func(v any, i int) any {
+			switch v := v.(*CORSRule); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_s3_proto_msgTypes[5].Exporter = func(v any, i int) any {
+			switch v := v.(*CORSConfiguration); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_s3_proto_msgTypes[6].Exporter = func(v any, i int) any {
+			switch v := v.(*BucketMetadata); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -365,7 +629,7 @@ func file_s3_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_s3_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -22,6 +22,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/admin"
 	"github.com/seaweedfs/seaweedfs/weed/admin/dash"
 	"github.com/seaweedfs/seaweedfs/weed/admin/handlers"
+	"github.com/seaweedfs/seaweedfs/weed/pb"
 	"github.com/seaweedfs/seaweedfs/weed/security"
 	"github.com/seaweedfs/seaweedfs/weed/util"
 )
@@ -119,6 +120,14 @@ func runAdmin(cmd *Command, args []string) bool {
 		return false
 	}
 
+	// Validate that masters string can be parsed
+	masterAddresses := pb.ServerAddresses(*a.masters).ToAddresses()
+	if len(masterAddresses) == 0 {
+		fmt.Println("Error: no valid master addresses found")
+		fmt.Println("Usage: weed admin -masters=master1:9333,master2:9333")
+		return false
+	}
+
 	// Security warnings
 	if *a.adminPassword == "" {
 		fmt.Println("WARNING: Admin interface is running without authentication!")
@@ -153,7 +162,7 @@ func runAdmin(cmd *Command, args []string) bool {
 		cancel()
 	}()
 
-	// Start the admin server
+	// Start the admin server with all masters
 	err := startAdminServer(ctx, a)
 	if err != nil {
 		fmt.Printf("Admin server error: %v\n", err)
@@ -177,7 +186,7 @@ func startAdminServer(ctx context.Context, options AdminOptions) error {
 	sessionKeyBytes := make([]byte, 32)
 	_, err := rand.Read(sessionKeyBytes)
 	if err != nil {
-		return fmt.Errorf("failed to generate session key: %v", err)
+		return fmt.Errorf("failed to generate session key: %w", err)
 	}
 	store := cookie.NewStore(sessionKeyBytes)
 	r.Use(sessions.Sessions("admin-session", store))
@@ -225,7 +234,7 @@ func startAdminServer(ctx context.Context, options AdminOptions) error {
 	// Start worker gRPC server for worker connections
 	err = adminServer.StartWorkerGrpcServer(*options.port)
 	if err != nil {
-		return fmt.Errorf("failed to start worker gRPC server: %v", err)
+		return fmt.Errorf("failed to start worker gRPC server: %w", err)
 	}
 
 	// Set up cleanup for gRPC server
@@ -295,7 +304,7 @@ func startAdminServer(ctx context.Context, options AdminOptions) error {
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("admin server forced to shutdown: %v", err)
+		return fmt.Errorf("admin server forced to shutdown: %w", err)
 	}
 
 	return nil
@@ -319,7 +328,7 @@ func expandHomeDir(path string) (string, error) {
 	// Get current user
 	currentUser, err := user.Current()
 	if err != nil {
-		return "", fmt.Errorf("failed to get current user: %v", err)
+		return "", fmt.Errorf("failed to get current user: %w", err)
 	}
 
 	// Handle different tilde patterns

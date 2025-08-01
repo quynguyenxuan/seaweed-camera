@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
+	"github.com/seaweedfs/seaweedfs/weed/s3api"
 )
 
 // S3 Bucket management data structures for templates
@@ -251,7 +252,7 @@ func (s *AdminServer) SetBucketQuota(bucketName string, quotaBytes int64, quotaE
 			Name:      bucketName,
 		})
 		if err != nil {
-			return fmt.Errorf("bucket not found: %v", err)
+			return fmt.Errorf("bucket not found: %w", err)
 		}
 
 		bucketEntry := lookupResp.Entry
@@ -275,7 +276,7 @@ func (s *AdminServer) SetBucketQuota(bucketName string, quotaBytes int64, quotaE
 			Entry:     bucketEntry,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to update bucket quota: %v", err)
+			return fmt.Errorf("failed to update bucket quota: %w", err)
 		}
 
 		return nil
@@ -308,7 +309,7 @@ func (s *AdminServer) CreateS3BucketWithObjectLock(bucketName string, quotaBytes
 		})
 		// Ignore error if directory already exists
 		if err != nil && !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "existing entry") {
-			return fmt.Errorf("failed to create /buckets directory: %v", err)
+			return fmt.Errorf("failed to create /buckets directory: %w", err)
 		}
 
 		// Check if bucket already exists
@@ -340,35 +341,46 @@ func (s *AdminServer) CreateS3BucketWithObjectLock(bucketName string, quotaBytes
 			TtlSec:   0,
 		}
 
-		// Create extended attributes map for versioning and object lock
+		// Create extended attributes map for versioning
 		extended := make(map[string][]byte)
-		if versioningEnabled {
-			extended["s3.versioning"] = []byte("Enabled")
-		} else {
-			extended["s3.versioning"] = []byte("Suspended")
+
+		// Create bucket entry
+		bucketEntry := &filer_pb.Entry{
+			Name:        bucketName,
+			IsDirectory: true,
+			Attributes:  attributes,
+			Extended:    extended,
+			Quota:       quota,
 		}
 
+		// Handle versioning using shared utilities
+		if err := s3api.StoreVersioningInExtended(bucketEntry, versioningEnabled); err != nil {
+			return fmt.Errorf("failed to store versioning configuration: %w", err)
+		}
+
+		// Handle Object Lock configuration using shared utilities
 		if objectLockEnabled {
-			extended["s3.objectlock"] = []byte("Enabled")
-			extended["s3.objectlock.mode"] = []byte(objectLockMode)
-			extended["s3.objectlock.duration"] = []byte(fmt.Sprintf("%d", objectLockDuration))
-		} else {
-			extended["s3.objectlock"] = []byte("Disabled")
+			// Validate Object Lock parameters
+			if err := s3api.ValidateObjectLockParameters(objectLockEnabled, objectLockMode, objectLockDuration); err != nil {
+				return fmt.Errorf("invalid Object Lock parameters: %w", err)
+			}
+
+			// Create Object Lock configuration using shared utility
+			objectLockConfig := s3api.CreateObjectLockConfigurationFromParams(objectLockEnabled, objectLockMode, objectLockDuration)
+
+			// Store Object Lock configuration in extended attributes using shared utility
+			if err := s3api.StoreObjectLockConfigurationInExtended(bucketEntry, objectLockConfig); err != nil {
+				return fmt.Errorf("failed to store Object Lock configuration: %w", err)
+			}
 		}
 
 		// Create bucket directory under /buckets
 		_, err = client.CreateEntry(context.Background(), &filer_pb.CreateEntryRequest{
 			Directory: "/buckets",
-			Entry: &filer_pb.Entry{
-				Name:        bucketName,
-				IsDirectory: true,
-				Attributes:  attributes,
-				Extended:    extended,
-				Quota:       quota,
-			},
+			Entry:     bucketEntry,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create bucket directory: %v", err)
+			return fmt.Errorf("failed to create bucket directory: %w", err)
 		}
 
 		return nil

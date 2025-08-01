@@ -3,6 +3,7 @@ package s3api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -80,8 +81,8 @@ func (s3a *S3ApiServer) ListBucketsHandler(w http.ResponseWriter, r *http.Reques
 
 func (s3a *S3ApiServer) PutBucketHandler(w http.ResponseWriter, r *http.Request) {
 
+	// collect parameters
 	bucket, _ := s3_constants.GetBucketAndObject(r)
-	glog.V(3).Infof("PutBucketHandler %s", bucket)
 
 	// validate the bucket name
 	err := s3bucket.VerifyS3BucketName(bucket)
@@ -99,7 +100,7 @@ func (s3a *S3ApiServer) PutBucketHandler(w http.ResponseWriter, r *http.Request)
 			IncludeNormalVolumes: true,
 		}); err != nil {
 			glog.Errorf("list collection: %v", err)
-			return fmt.Errorf("list collections: %v", err)
+			return fmt.Errorf("list collections: %w", err)
 		} else {
 			for _, c := range resp.Collections {
 				if s3a.getCollectionName(bucket) == c.Name {
@@ -136,6 +137,36 @@ func (s3a *S3ApiServer) PutBucketHandler(w http.ResponseWriter, r *http.Request)
 		s3err.WriteErrorResponse(w, r, s3err.ErrInternalError)
 		return
 	}
+
+	// Check for x-amz-bucket-object-lock-enabled header (S3 standard compliance)
+	if objectLockHeaderValue := r.Header.Get(s3_constants.AmzBucketObjectLockEnabled); strings.EqualFold(objectLockHeaderValue, "true") {
+		glog.V(3).Infof("PutBucketHandler: enabling Object Lock and Versioning for bucket %s due to x-amz-bucket-object-lock-enabled header", bucket)
+
+		// Atomically update the configuration of the specified bucket. See the updateBucketConfig
+		// function definition for detailed documentation on parameters and behavior.
+		errCode := s3a.updateBucketConfig(bucket, func(bucketConfig *BucketConfig) error {
+			// Enable versioning (required for Object Lock)
+			bucketConfig.Versioning = s3_constants.VersioningEnabled
+
+			// Create basic Object Lock configuration (enabled without default retention)
+			objectLockConfig := &ObjectLockConfiguration{
+				ObjectLockEnabled: s3_constants.ObjectLockEnabled,
+			}
+
+			// Set the cached Object Lock configuration
+			bucketConfig.ObjectLockConfig = objectLockConfig
+
+			return nil
+		})
+
+		if errCode != s3err.ErrNone {
+			glog.Errorf("PutBucketHandler: failed to enable Object Lock for bucket %s: %v", bucket, errCode)
+			s3err.WriteErrorResponse(w, r, errCode)
+			return
+		}
+		glog.V(3).Infof("PutBucketHandler: enabled Object Lock and Versioning for bucket %s", bucket)
+	}
+
 	w.Header().Set("Location", "/"+bucket)
 	writeSuccessResponseEmpty(w, r)
 }
@@ -200,7 +231,7 @@ func (s3a *S3ApiServer) HeadBucketHandler(w http.ResponseWriter, r *http.Request
 	bucket, _ := s3_constants.GetBucketAndObject(r)
 	glog.V(3).Infof("HeadBucketHandler %s", bucket)
 
-	if entry, err := s3a.getEntry(s3a.option.BucketsPath, bucket); entry == nil || err == filer_pb.ErrNotFound {
+	if entry, err := s3a.getEntry(s3a.option.BucketsPath, bucket); entry == nil || errors.Is(err, filer_pb.ErrNotFound) {
 		s3err.WriteErrorResponse(w, r, s3err.ErrNoSuchBucket)
 		return
 	}
@@ -210,7 +241,7 @@ func (s3a *S3ApiServer) HeadBucketHandler(w http.ResponseWriter, r *http.Request
 
 func (s3a *S3ApiServer) checkBucket(r *http.Request, bucket string) s3err.ErrorCode {
 	entry, err := s3a.getEntry(s3a.option.BucketsPath, bucket)
-	if entry == nil || err == filer_pb.ErrNotFound {
+	if entry == nil || errors.Is(err, filer_pb.ErrNotFound) {
 		return s3err.ErrNoSuchBucket
 	}
 
@@ -258,6 +289,51 @@ func (s3a *S3ApiServer) isUserAdmin(r *http.Request) bool {
 	return identity != nil && identity.isAdmin()
 }
 
+// isBucketPublicRead checks if a bucket allows anonymous read access based on its cached ACL status
+func (s3a *S3ApiServer) isBucketPublicRead(bucket string) bool {
+	// Get bucket configuration which contains cached public-read status
+	config, errCode := s3a.getBucketConfig(bucket)
+	if errCode != s3err.ErrNone {
+		return false
+	}
+
+	// Return the cached public-read status (no JSON parsing needed)
+	return config.IsPublicRead
+}
+
+// isPublicReadGrants checks if the grants allow public read access
+func isPublicReadGrants(grants []*s3.Grant) bool {
+	for _, grant := range grants {
+		if grant.Grantee != nil && grant.Grantee.URI != nil && grant.Permission != nil {
+			// Check for AllUsers group with Read permission
+			if *grant.Grantee.URI == s3_constants.GranteeGroupAllUsers &&
+				(*grant.Permission == s3_constants.PermissionRead || *grant.Permission == s3_constants.PermissionFullControl) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// AuthWithPublicRead creates an auth wrapper that allows anonymous access for public-read buckets
+func (s3a *S3ApiServer) AuthWithPublicRead(handler http.HandlerFunc, action Action) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bucket, _ := s3_constants.GetBucketAndObject(r)
+		authType := getRequestAuthType(r)
+		isAnonymous := authType == authTypeAnonymous
+
+		if isAnonymous {
+			isPublic := s3a.isBucketPublicRead(bucket)
+
+			if isPublic {
+				handler(w, r)
+				return
+			}
+		}
+		s3a.iam.Auth(handler, action)(w, r) // Fallback to normal IAM auth
+	}
+}
+
 // GetBucketAclHandler Get Bucket ACL
 // https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketAcl.html
 func (s3a *S3ApiServer) GetBucketAclHandler(w http.ResponseWriter, r *http.Request) {
@@ -290,7 +366,7 @@ func (s3a *S3ApiServer) GetBucketAclHandler(w http.ResponseWriter, r *http.Reque
 	writeSuccessResponseXML(w, r, response)
 }
 
-// PutBucketAclHandler Put bucket ACL only responds success if the ACL is private.
+// PutBucketAclHandler Put bucket ACL
 // https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketAcl.html //
 func (s3a *S3ApiServer) PutBucketAclHandler(w http.ResponseWriter, r *http.Request) {
 	// collect parameters
@@ -301,24 +377,48 @@ func (s3a *S3ApiServer) PutBucketAclHandler(w http.ResponseWriter, r *http.Reque
 		s3err.WriteErrorResponse(w, r, err)
 		return
 	}
-	cannedAcl := r.Header.Get(s3_constants.AmzCannedAcl)
-	switch {
-	case cannedAcl == "":
-		acl := &s3.AccessControlPolicy{}
-		if err := xmlDecoder(r.Body, acl, r.ContentLength); err != nil {
-			glog.Errorf("PutBucketAclHandler: %s", err)
-			s3err.WriteErrorResponse(w, r, s3err.ErrInvalidRequest)
-			return
-		}
-		if len(acl.Grants) == 1 && acl.Grants[0].Permission != nil && *acl.Grants[0].Permission == s3_constants.PermissionFullControl {
-			writeSuccessResponseEmpty(w, r)
-			return
-		}
-	case cannedAcl == s3_constants.CannedAclPrivate:
-		writeSuccessResponseEmpty(w, r)
+
+	// Get account information for ACL processing
+	amzAccountId := r.Header.Get(s3_constants.AmzAccountId)
+
+	// Get bucket ownership settings (these would be used for ownership validation in a full implementation)
+	bucketOwnership := ""         // Default/simplified for now - in a full implementation this would be retrieved from bucket config
+	bucketOwnerId := amzAccountId // Simplified - bucket owner is current account
+
+	// Use the existing ACL parsing logic to handle both canned ACLs and XML body
+	grants, errCode := ExtractAcl(r, s3a.iam, bucketOwnership, bucketOwnerId, amzAccountId, amzAccountId)
+	if errCode != s3err.ErrNone {
+		s3err.WriteErrorResponse(w, r, errCode)
 		return
 	}
-	s3err.WriteErrorResponse(w, r, s3err.ErrNotImplemented)
+
+	// Store the bucket ACL in bucket metadata
+	errCode = s3a.updateBucketConfig(bucket, func(config *BucketConfig) error {
+		if len(grants) > 0 {
+			grantsBytes, err := json.Marshal(grants)
+			if err != nil {
+				glog.Errorf("PutBucketAclHandler: failed to marshal grants: %v", err)
+				return err
+			}
+			config.ACL = grantsBytes
+			// Cache the public-read status to avoid JSON parsing on every request
+			config.IsPublicRead = isPublicReadGrants(grants)
+		} else {
+			config.ACL = nil
+			config.IsPublicRead = false
+		}
+		config.Owner = amzAccountId
+		return nil
+	})
+
+	if errCode != s3err.ErrNone {
+		s3err.WriteErrorResponse(w, r, errCode)
+		return
+	}
+
+	glog.V(3).Infof("PutBucketAclHandler: Successfully stored ACL for bucket %s with %d grants", bucket, len(grants))
+
+	writeSuccessResponseEmpty(w, r)
 }
 
 // GetBucketLifecycleConfigurationHandler Get Bucket Lifecycle configuration
@@ -639,7 +739,7 @@ func (s3a *S3ApiServer) DeleteBucketOwnershipControls(w http.ResponseWriter, r *
 
 	bucketEntry, err := s3a.getEntry(s3a.option.BucketsPath, bucket)
 	if err != nil {
-		if err == filer_pb.ErrNotFound {
+		if errors.Is(err, filer_pb.ErrNotFound) {
 			s3err.WriteErrorResponse(w, r, s3err.ErrNoSuchBucket)
 			return
 		}
@@ -684,11 +784,22 @@ func (s3a *S3ApiServer) GetBucketVersioningHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	s3err.WriteAwsXMLResponse(w, r, http.StatusOK, &s3.PutBucketVersioningInput{
-		VersioningConfiguration: &s3.VersioningConfiguration{
-			Status: aws.String(versioningStatus),
-		},
-	})
+	// AWS S3 behavior: If versioning was never configured, don't return Status field
+	var response *s3.PutBucketVersioningInput
+	if versioningStatus == "" {
+		// No versioning configuration - return empty response (no Status field)
+		response = &s3.PutBucketVersioningInput{
+			VersioningConfiguration: &s3.VersioningConfiguration{},
+		}
+	} else {
+		// Versioning was explicitly configured - return the status
+		response = &s3.PutBucketVersioningInput{
+			VersioningConfiguration: &s3.VersioningConfiguration{
+				Status: aws.String(versioningStatus),
+			},
+		}
+	}
+	s3err.WriteAwsXMLResponse(w, r, http.StatusOK, response)
 }
 
 // PutBucketVersioningHandler Put bucket Versioning
@@ -723,9 +834,20 @@ func (s3a *S3ApiServer) PutBucketVersioningHandler(w http.ResponseWriter, r *htt
 	}
 
 	status := *versioningConfig.Status
-	if status != "Enabled" && status != "Suspended" {
+	if status != s3_constants.VersioningEnabled && status != s3_constants.VersioningSuspended {
 		s3err.WriteErrorResponse(w, r, s3err.ErrInvalidRequest)
 		return
+	}
+
+	// Check if trying to suspend versioning on a bucket with object lock enabled
+	if status == s3_constants.VersioningSuspended {
+		// Get bucket configuration to check for object lock
+		bucketConfig, errCode := s3a.getBucketConfig(bucket)
+		if errCode == s3err.ErrNone && bucketConfig.ObjectLockConfig != nil {
+			// Object lock is enabled, cannot suspend versioning
+			s3err.WriteErrorResponse(w, r, s3err.ErrInvalidBucketState)
+			return
+		}
 	}
 
 	// Update bucket versioning configuration using new bucket config system

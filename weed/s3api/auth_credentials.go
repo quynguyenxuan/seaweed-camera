@@ -85,22 +85,6 @@ type Credential struct {
 	SecretKey string
 }
 
-func (i *Identity) isAnonymous() bool {
-	return i.Account.Id == s3_constants.AccountAnonymousId
-}
-
-func (action Action) isAdmin() bool {
-	return strings.HasPrefix(string(action), s3_constants.ACTION_ADMIN)
-}
-
-func (action Action) isOwner(bucket string) bool {
-	return string(action) == s3_constants.ACTION_ADMIN+":"+bucket
-}
-
-func (action Action) overBucket(bucket string) bool {
-	return strings.HasSuffix(string(action), ":"+bucket) || strings.HasSuffix(string(action), ":*")
-}
-
 // "Permission": "FULL_CONTROL"|"WRITE"|"WRITE_ACP"|"READ"|"READ_ACP"
 func (action Action) getPermission() Permission {
 	switch act := strings.Split(string(action), ":")[0]; act {
@@ -147,17 +131,72 @@ func NewIdentityAccessManagementWithStore(option *S3ApiServerOption, explicitSto
 
 	iam.credentialManager = credentialManager
 
+	// Track whether any configuration was successfully loaded
+	configLoaded := false
+
+	// First, try to load configurations from file or filer
 	if option.Config != "" {
 		glog.V(3).Infof("loading static config file %s", option.Config)
 		if err := iam.loadS3ApiConfigurationFromFile(option.Config); err != nil {
 			glog.Fatalf("fail to load config file %s: %v", option.Config, err)
 		}
+		configLoaded = true
 	} else {
 		glog.V(3).Infof("no static config file specified... loading config from credential manager")
 		if err := iam.loadS3ApiConfigurationFromFiler(option); err != nil {
 			glog.Warningf("fail to load config: %v", err)
+		} else {
+			// Check if any identities were actually loaded from filer
+			iam.m.RLock()
+			if len(iam.identities) > 0 {
+				configLoaded = true
+			}
+			iam.m.RUnlock()
 		}
 	}
+
+	// Only use environment variables as fallback if no configuration was loaded
+	if !configLoaded {
+		accessKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
+		secretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+
+		if accessKeyId != "" && secretAccessKey != "" {
+			glog.V(0).Infof("No S3 configuration found, using AWS environment variables as fallback")
+
+			// Create environment variable identity name
+			identityNameSuffix := accessKeyId
+			if len(accessKeyId) > 8 {
+				identityNameSuffix = accessKeyId[:8]
+			}
+
+			// Create admin identity with environment variable credentials
+			envIdentity := &Identity{
+				Name:    "admin-" + identityNameSuffix,
+				Account: &AccountAdmin,
+				Credentials: []*Credential{
+					{
+						AccessKey: accessKeyId,
+						SecretKey: secretAccessKey,
+					},
+				},
+				Actions: []Action{
+					s3_constants.ACTION_ADMIN,
+				},
+			}
+
+			// Set as the only configuration
+			iam.m.Lock()
+			if len(iam.identities) == 0 {
+				iam.identities = []*Identity{envIdentity}
+				iam.accessKeyIdent = map[string]*Identity{accessKeyId: envIdentity}
+				iam.isAuthEnabled = true
+			}
+			iam.m.Unlock()
+
+			glog.V(0).Infof("Added admin identity from AWS environment variables: %s", envIdentity.Name)
+		}
+	}
+
 	return iam
 }
 
@@ -178,7 +217,7 @@ func (iam *IdentityAccessManagement) LoadS3ApiConfigurationFromBytes(content []b
 	s3ApiConfiguration := &iam_pb.S3ApiConfiguration{}
 	if err := filer.ParseS3ConfigurationFromBytes(content, s3ApiConfiguration); err != nil {
 		glog.Warningf("unmarshal error: %v", err)
-		return fmt.Errorf("unmarshal error: %v", err)
+		return fmt.Errorf("unmarshal error: %w", err)
 	}
 
 	if err := filer.CheckDuplicateAccessKey(s3ApiConfiguration); err != nil {
@@ -343,6 +382,7 @@ func (iam *IdentityAccessManagement) Auth(f http.HandlerFunc, action Action) htt
 
 		identity, errCode := iam.authRequest(r, action)
 		glog.V(3).Infof("auth error: %v", errCode)
+
 		if errCode == s3err.ErrNone {
 			if identity != nil && identity.Name != "" {
 				r.Header.Set(s3_constants.AmzIdentityId, identity.Name)
@@ -534,11 +574,7 @@ func (iam *IdentityAccessManagement) GetCredentialManager() *credential.Credenti
 func (iam *IdentityAccessManagement) LoadS3ApiConfigurationFromCredentialManager() error {
 	s3ApiConfiguration, err := iam.credentialManager.LoadConfiguration(context.Background())
 	if err != nil {
-		return fmt.Errorf("failed to load configuration from credential manager: %v", err)
-	}
-
-	if len(s3ApiConfiguration.Identities) == 0 {
-		return fmt.Errorf("no identities found")
+		return fmt.Errorf("failed to load configuration from credential manager: %w", err)
 	}
 
 	return iam.loadS3ApiConfiguration(s3ApiConfiguration)

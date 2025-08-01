@@ -1,4 +1,4 @@
-package s3api
+package retention
 
 import (
 	"context"
@@ -42,18 +42,27 @@ func TestWORMRetentionIntegration(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Try to delete - should fail due to retention
+	// Try simple DELETE - should succeed and create delete marker (AWS S3 behavior)
 	_, err = client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(key),
 	})
-	require.Error(t, err)
+	require.NoError(t, err, "Simple DELETE should succeed and create delete marker")
 
-	// Delete with bypass should succeed
+	// Try DELETE with version ID - should fail due to GOVERNANCE retention
+	_, err = client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
+		Bucket:    aws.String(bucketName),
+		Key:       aws.String(key),
+		VersionId: putResp.VersionId,
+	})
+	require.Error(t, err, "DELETE with version ID should be blocked by GOVERNANCE retention")
+
+	// Delete with version ID and bypass should succeed
 	_, err = client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
 		Bucket:                    aws.String(bucketName),
 		Key:                       aws.String(key),
-		BypassGovernanceRetention: true,
+		VersionId:                 putResp.VersionId,
+		BypassGovernanceRetention: aws.Bool(true),
 	})
 	require.NoError(t, err)
 }
@@ -190,7 +199,7 @@ func TestRetentionBulkOperations(t *testing.T) {
 		Bucket: aws.String(bucketName),
 		Delete: &types.Delete{
 			Objects: objectsToDelete,
-			Quiet:   false,
+			Quiet:   aws.Bool(false),
 		},
 	})
 
@@ -209,10 +218,10 @@ func TestRetentionBulkOperations(t *testing.T) {
 	// Try bulk delete with bypass - should succeed
 	_, err = client.DeleteObjects(context.TODO(), &s3.DeleteObjectsInput{
 		Bucket:                    aws.String(bucketName),
-		BypassGovernanceRetention: true,
+		BypassGovernanceRetention: aws.Bool(true),
 		Delete: &types.Delete{
 			Objects: objectsToDelete,
-			Quiet:   false,
+			Quiet:   aws.Bool(false),
 		},
 	})
 	if err != nil {
@@ -246,7 +255,7 @@ func TestRetentionWithMultipartUpload(t *testing.T) {
 	uploadResp, err := client.UploadPart(context.TODO(), &s3.UploadPartInput{
 		Bucket:     aws.String(bucketName),
 		Key:        aws.String(key),
-		PartNumber: 1,
+		PartNumber: aws.Int32(1),
 		UploadId:   uploadId,
 		Body:       strings.NewReader(partContent),
 	})
@@ -261,7 +270,7 @@ func TestRetentionWithMultipartUpload(t *testing.T) {
 			Parts: []types.CompletedPart{
 				{
 					ETag:       uploadResp.ETag,
-					PartNumber: 1,
+					PartNumber: aws.Int32(1),
 				},
 			},
 		},
@@ -316,12 +325,20 @@ func TestRetentionWithMultipartUpload(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Try to delete - should fail
+	// Try simple DELETE - should succeed and create delete marker (AWS S3 behavior)
 	_, err = client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(key),
 	})
-	require.Error(t, err)
+	require.NoError(t, err, "Simple DELETE should succeed and create delete marker")
+
+	// Try DELETE with version ID - should fail due to GOVERNANCE retention
+	_, err = client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
+		Bucket:    aws.String(bucketName),
+		Key:       aws.String(key),
+		VersionId: completeResp.VersionId,
+	})
+	require.Error(t, err, "DELETE with version ID should be blocked by GOVERNANCE retention")
 }
 
 // TestRetentionExtendedAttributes tests that retention uses extended attributes correctly
@@ -415,7 +432,7 @@ func TestRetentionBucketDefaults(t *testing.T) {
 			Rule: &types.ObjectLockRule{
 				DefaultRetention: &types.DefaultRetention{
 					Mode: types.ObjectLockRetentionModeGovernance,
-					Days: 1, // 1 day default
+					Days: aws.Int32(1), // 1 day default
 				},
 			},
 		},
