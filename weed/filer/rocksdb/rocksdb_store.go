@@ -25,15 +25,14 @@ func init() {
 }
 
 type options struct {
-	opt       *gorocksdb.Options
-	bto       *gorocksdb.BlockBasedTableOptions
-	ro        *gorocksdb.ReadOptions
-	wo        *gorocksdb.WriteOptions
-	cache     *gorocksdb.Cache
-	rowCache  *gorocksdb.Cache
-	blobCache *gorocksdb.Cache
-	wbm       *gorocksdb.WriteBufferManager
-	// bbto          *gorocksdb.BlockBasedTableOptions
+	opt           *gorocksdb.Options
+	bto           *gorocksdb.BlockBasedTableOptions
+	ro            *gorocksdb.ReadOptions
+	wo            *gorocksdb.WriteOptions
+	cache         *gorocksdb.Cache
+	rowCache      *gorocksdb.Cache
+	blobCache     *gorocksdb.Cache
+	wbm           *gorocksdb.WriteBufferManager
 	cacheSizeInMB uint64
 }
 
@@ -72,7 +71,6 @@ func (opt *options) close() {
 		opt.cache.Destroy()
 		opt.rowCache.Destroy()
 		opt.blobCache.Destroy()
-		// opt.bbto.Destroy()
 		opt.wbm.Destroy()
 	}
 
@@ -105,19 +103,21 @@ func (store *RocksDBStore) initialize(dir string) (err error) {
 	// also avoid expired data stored in highest level never get compacted
 	store.opt.SetLevelCompactionDynamicLevelBytes(true)
 	store.opt.SetCompactionFilter(NewTTLFilter())
-	store.opt.SetMaxBackgroundJobs(16)
+	store.opt.SetMaxBackgroundJobs(8) ///default 2
 	// store.opt.SetMaxBackgroundCompactions(2)
 	// store.opt.SetMaxBackgroundFlushes(2)
 
-	store.opt.SetWriteBufferSize(128 * 1024 * 1024) // 128MB
-	store.opt.SetMaxWriteBufferNumber(8)            // 4 memtable
+	store.opt.SetWriteBufferSize(64 << 20) // default 64
+	store.opt.SetMaxWriteBufferNumber(4)   //default 2
+	store.opt.SetMaxFileOpeningThreads(64) //default 16
+	// 4 memtable
 	store.opt.SetLevelCompactionDynamicLevelBytes(true)
-	store.opt.SetLevel0FileNumCompactionTrigger(8)    // 8 file ở L0
-	store.opt.SetTargetFileSizeBase(64 * 1024 * 1024) // 64MB mỗi file
+	store.opt.SetLevel0FileNumCompactionTrigger(8) // 8 file ở L0
+	store.opt.SetTargetFileSizeBase(32 << 20)      // default 1.25MB
 	// https://github.com/tecbot/gorocksdb/issues/132
-	// store.bto.SetFilterPolicy(gorocksdb.NewBloomFilterFull(5))
-
 	store.bto.SetFilterPolicy(gorocksdb.NewBloomFilter(16))
+	// store.bto.SetAllowConcurrentMemtableWrites(true)
+
 	store.bto.SetCacheIndexAndFilterBlocks(true)
 	store.bto.SetPinL0FilterAndIndexBlocksInCache(true)
 	// store.bto.SetBlockSize(4096)
@@ -212,7 +212,7 @@ func (store *RocksDBStore) DeleteFolderChildren(ctx context.Context, fullpath we
 
 	ro := gorocksdb.NewDefaultReadOptions()
 	defer ro.Destroy()
-	ro.SetFillCache(true)
+	ro.SetFillCache(false)
 
 	iter := store.db.NewIterator(ro)
 	defer iter.Close()
