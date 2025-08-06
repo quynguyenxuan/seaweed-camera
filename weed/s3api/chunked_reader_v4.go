@@ -108,12 +108,11 @@ func (iam *IdentityAccessManagement) calculateSeedSignature(r *http.Request) (cr
 	if err != nil {
 		return nil, "", "", time.Time{}, s3err.ErrMalformedDate
 	}
-
 	// Query string.
 	queryStr := req.URL.Query().Encode()
 
 	// Get canonical request.
-	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, payload, queryStr, req.URL.Path, req.Method, r.Header)
+	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, payload, queryStr, req.URL.Path, req.Method)
 
 	// Get string to sign from canonical request.
 	stringToSign := getStringToSign(canonicalRequest, date, signV4Values.Credential.getScope())

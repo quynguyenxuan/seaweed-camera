@@ -2,20 +2,25 @@ package types
 
 import (
 	"time"
+
+	"github.com/seaweedfs/seaweedfs/weed/admin/topology"
 )
 
 // ClusterInfo contains cluster information for task detection
 type ClusterInfo struct {
-	Servers      []*VolumeServerInfo
-	TotalVolumes int
-	TotalServers int
-	LastUpdated  time.Time
+	Servers        []*VolumeServerInfo
+	TotalVolumes   int
+	TotalServers   int
+	LastUpdated    time.Time
+	ActiveTopology *topology.ActiveTopology // Added for destination planning in detection
 }
 
 // VolumeHealthMetrics contains health information about a volume (simplified)
 type VolumeHealthMetrics struct {
 	VolumeID         uint32
 	Server           string
+	DiskType         string // Disk type (e.g., "hdd", "ssd") or disk path (e.g., "/data1")
+	DiskId           uint32 // ID of the disk in Store.Locations array
 	Collection       string
 	Size             uint64
 	DeletedBytes     uint64

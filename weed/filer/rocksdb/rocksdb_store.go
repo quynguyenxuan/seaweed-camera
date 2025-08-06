@@ -57,7 +57,6 @@ func (opt *options) init() {
 		opt.wbm = gorocksdb.NewWriteBufferManager(int(opt.cacheSizeInMB)*1024*1024, true)
 		opt.opt.SetWriteBufferManager(opt.wbm)
 	}
-
 }
 
 func (opt *options) close() {
@@ -65,7 +64,6 @@ func (opt *options) close() {
 	opt.bto.Destroy()
 	opt.ro.Destroy()
 	opt.wo.Destroy()
-
 	//QUYNGUYEN detroy cache
 	if opt.cacheSizeInMB > 0 {
 		opt.cache.Destroy()
@@ -73,7 +71,6 @@ func (opt *options) close() {
 		opt.blobCache.Destroy()
 		opt.wbm.Destroy()
 	}
-
 }
 
 type RocksDBStore struct {
@@ -120,11 +117,11 @@ func (store *RocksDBStore) initialize(dir string) (err error) {
 
 	store.bto.SetCacheIndexAndFilterBlocks(true)
 	store.bto.SetPinL0FilterAndIndexBlocksInCache(true)
-	// store.bto.SetBlockSize(4096)
+	// https://github.com/tecbot/gorocksdb/issues/132
+	store.bto.SetFilterPolicy(gorocksdb.NewBloomFilterFull(8))
 	store.opt.SetBlockBasedTableFactory(store.bto)
-	store.opt.SetPrefixExtractor(gorocksdb.NewFixedPrefixTransform(md5.Size))
-
 	// store.opt.EnableStatistics()
+
 	store.db, err = gorocksdb.OpenDb(store.opt, dir)
 
 	return
@@ -241,7 +238,6 @@ func enumerate(iter *gorocksdb.Iterator, prefix, lastKey []byte, includeLastKey 
 		iter.Seek(lastKey)
 	}
 
-	// glog.V(0).Infof("enumerate %s lastKey %v includeLastKey %t limit %d", string(lastKey), includeLastKey, limit)
 	i := int64(0)
 	for iter.Valid() {
 
@@ -253,11 +249,6 @@ func enumerate(iter *gorocksdb.Iterator, prefix, lastKey []byte, includeLastKey 
 		}
 
 		key := iter.Key().Data()
-		// glog.V(0).Infoln("enumerate2 ", string(key), "prefix:", string(prefix), "key:", key, "valid", iter.ValidForPrefix(prefix)) //, getNameFromKey(prefix), "name: ", getNameFromKey(key), "contain: ", strings.HasPrefix(getNameFromKey(key), getNameFromKey(prefix)))
-
-		// if !iter.ValidForPrefix(prefix) {
-		// 	break
-		// }
 
 		if !bytes.HasPrefix(key, prefix) {
 			break
@@ -293,7 +284,6 @@ func (store *RocksDBStore) ListDirectoryEntries(ctx context.Context, dirPath wee
 }
 
 func (store *RocksDBStore) ListDirectoryPrefixedEntries(ctx context.Context, dirPath weed_util.FullPath, startFileName string, includeStartFile bool, limit int64, prefix string, eachEntryFunc filer.ListEachEntryFunc) (lastFileName string, err error) {
-	// glog.V(0).Infoln("ListDirectoryPrefixedEntries ", string(dirPath), "prefix:", string(prefix)) //, getNameFromKey(prefix), "name: ", getNameFromKey(key), "contain: ", strings.HasPrefix(getNameFromKey(key), getNameFromKey(prefix)))
 
 	directoryPrefix := genDirectoryKeyPrefix(dirPath, prefix)
 	lastFileStart := directoryPrefix

@@ -3,7 +3,9 @@ package maintenance
 import (
 	"time"
 
+	"github.com/seaweedfs/seaweedfs/weed/admin/topology"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
 	"github.com/seaweedfs/seaweedfs/weed/worker/tasks"
 	"github.com/seaweedfs/seaweedfs/weed/worker/types"
 )
@@ -16,6 +18,12 @@ type MaintenanceIntegration struct {
 	// Bridge to existing system
 	maintenanceQueue  *MaintenanceQueue
 	maintenancePolicy *MaintenancePolicy
+
+	// Pending operations tracker
+	pendingOperations *PendingOperations
+
+	// Active topology for task detection and target selection
+	activeTopology *topology.ActiveTopology
 
 	// Type conversion maps
 	taskTypeMap    map[types.TaskType]MaintenanceTaskType
@@ -31,7 +39,11 @@ func NewMaintenanceIntegration(queue *MaintenanceQueue, policy *MaintenancePolic
 		uiRegistry:        tasks.GetGlobalUIRegistry(),    // Use global UI registry with auto-registered UI providers
 		maintenanceQueue:  queue,
 		maintenancePolicy: policy,
+		pendingOperations: NewPendingOperations(),
 	}
+
+	// Initialize active topology with 10 second recent task window
+	integration.activeTopology = topology.NewActiveTopology(10)
 
 	// Initialize type conversion maps
 	integration.initializeTypeMaps()
@@ -96,7 +108,7 @@ func (s *MaintenanceIntegration) registerAllTasks() {
 	s.buildTaskTypeMappings()
 
 	// Configure tasks from policy
-	s.configureTasksFromPolicy()
+	s.ConfigureTasksFromPolicy()
 
 	registeredTaskTypes := make([]string, 0, len(s.taskTypeMap))
 	for _, maintenanceTaskType := range s.taskTypeMap {
@@ -105,8 +117,8 @@ func (s *MaintenanceIntegration) registerAllTasks() {
 	glog.V(1).Infof("Registered tasks: %v", registeredTaskTypes)
 }
 
-// configureTasksFromPolicy dynamically configures all registered tasks based on the maintenance policy
-func (s *MaintenanceIntegration) configureTasksFromPolicy() {
+// ConfigureTasksFromPolicy dynamically configures all registered tasks based on the maintenance policy
+func (s *MaintenanceIntegration) ConfigureTasksFromPolicy() {
 	if s.maintenancePolicy == nil {
 		return
 	}
@@ -143,7 +155,7 @@ func (s *MaintenanceIntegration) configureDetectorFromPolicy(taskType types.Task
 		// Convert task system type to maintenance task type for policy lookup
 		maintenanceTaskType, exists := s.taskTypeMap[taskType]
 		if exists {
-			enabled := s.maintenancePolicy.IsTaskEnabled(maintenanceTaskType)
+			enabled := IsTaskEnabled(s.maintenancePolicy, maintenanceTaskType)
 			basicDetector.SetEnabled(enabled)
 			glog.V(3).Infof("Set enabled=%v for detector %s", enabled, taskType)
 		}
@@ -172,14 +184,14 @@ func (s *MaintenanceIntegration) configureSchedulerFromPolicy(taskType types.Tas
 
 	// Set enabled status if scheduler supports it
 	if enableableScheduler, ok := scheduler.(interface{ SetEnabled(bool) }); ok {
-		enabled := s.maintenancePolicy.IsTaskEnabled(maintenanceTaskType)
+		enabled := IsTaskEnabled(s.maintenancePolicy, maintenanceTaskType)
 		enableableScheduler.SetEnabled(enabled)
 		glog.V(3).Infof("Set enabled=%v for scheduler %s", enabled, taskType)
 	}
 
 	// Set max concurrent if scheduler supports it
 	if concurrentScheduler, ok := scheduler.(interface{ SetMaxConcurrent(int) }); ok {
-		maxConcurrent := s.maintenancePolicy.GetMaxConcurrent(maintenanceTaskType)
+		maxConcurrent := GetMaxConcurrent(s.maintenancePolicy, maintenanceTaskType)
 		if maxConcurrent > 0 {
 			concurrentScheduler.SetMaxConcurrent(maxConcurrent)
 			glog.V(3).Infof("Set max concurrent=%d for scheduler %s", maxConcurrent, taskType)
@@ -193,12 +205,22 @@ func (s *MaintenanceIntegration) configureSchedulerFromPolicy(taskType types.Tas
 
 // ScanWithTaskDetectors performs a scan using the task system
 func (s *MaintenanceIntegration) ScanWithTaskDetectors(volumeMetrics []*types.VolumeHealthMetrics) ([]*TaskDetectionResult, error) {
+	// Note: ActiveTopology gets updated from topology info instead of volume metrics
+	glog.V(2).Infof("Processed %d volume metrics for task detection", len(volumeMetrics))
+
+	// Filter out volumes with pending operations to avoid duplicates
+	filteredMetrics := s.pendingOperations.FilterVolumeMetricsExcludingPending(volumeMetrics)
+
+	glog.V(1).Infof("Scanning %d volumes (filtered from %d) excluding pending operations",
+		len(filteredMetrics), len(volumeMetrics))
+
 	var allResults []*TaskDetectionResult
 
 	// Create cluster info
 	clusterInfo := &types.ClusterInfo{
-		TotalVolumes: len(volumeMetrics),
-		LastUpdated:  time.Now(),
+		TotalVolumes:   len(filteredMetrics),
+		LastUpdated:    time.Now(),
+		ActiveTopology: s.activeTopology, // Provide ActiveTopology for destination planning
 	}
 
 	// Run detection for each registered task type
@@ -209,17 +231,30 @@ func (s *MaintenanceIntegration) ScanWithTaskDetectors(volumeMetrics []*types.Vo
 
 		glog.V(2).Infof("Running detection for task type: %s", taskType)
 
-		results, err := detector.ScanForTasks(volumeMetrics, clusterInfo)
+		results, err := detector.ScanForTasks(filteredMetrics, clusterInfo)
 		if err != nil {
 			glog.Errorf("Failed to scan for %s tasks: %v", taskType, err)
 			continue
 		}
 
-		// Convert results to existing system format
+		// Convert results to existing system format and check for conflicts
 		for _, result := range results {
 			existingResult := s.convertToExistingFormat(result)
 			if existingResult != nil {
-				allResults = append(allResults, existingResult)
+				// Double-check for conflicts with pending operations
+				opType := s.mapMaintenanceTaskTypeToPendingOperationType(existingResult.TaskType)
+				if !s.pendingOperations.WouldConflictWithPending(existingResult.VolumeID, opType) {
+					// All task types should now have TypedParams populated during detection phase
+					if existingResult.TypedParams == nil {
+						glog.Warningf("Task %s for volume %d has no typed parameters - skipping (task parameter creation may have failed)",
+							existingResult.TaskType, existingResult.VolumeID)
+						continue
+					}
+					allResults = append(allResults, existingResult)
+				} else {
+					glog.V(2).Infof("Skipping task %s for volume %d due to conflict with pending operation",
+						existingResult.TaskType, existingResult.VolumeID)
+				}
 			}
 		}
 
@@ -227,6 +262,11 @@ func (s *MaintenanceIntegration) ScanWithTaskDetectors(volumeMetrics []*types.Vo
 	}
 
 	return allResults, nil
+}
+
+// UpdateTopologyInfo updates the volume shard tracker with topology information for empty servers
+func (s *MaintenanceIntegration) UpdateTopologyInfo(topologyInfo *master_pb.TopologyInfo) error {
+	return s.activeTopology.UpdateTopology(topologyInfo)
 }
 
 // convertToExistingFormat converts task results to existing system format using dynamic mapping
@@ -241,53 +281,66 @@ func (s *MaintenanceIntegration) convertToExistingFormat(result *types.TaskDetec
 
 	existingPriority, exists := s.priorityMap[result.Priority]
 	if !exists {
-		glog.Warningf("Unknown priority %d, defaulting to normal", result.Priority)
+		glog.Warningf("Unknown priority %s, defaulting to normal", result.Priority)
 		existingPriority = PriorityNormal
 	}
 
 	return &TaskDetectionResult{
-		TaskType:   existingType,
-		VolumeID:   result.VolumeID,
-		Server:     result.Server,
-		Collection: result.Collection,
-		Priority:   existingPriority,
-		Reason:     result.Reason,
-		Parameters: result.Parameters,
-		ScheduleAt: result.ScheduleAt,
+		TaskType:    existingType,
+		VolumeID:    result.VolumeID,
+		Server:      result.Server,
+		Collection:  result.Collection,
+		Priority:    existingPriority,
+		Reason:      result.Reason,
+		TypedParams: result.TypedParams,
+		ScheduleAt:  result.ScheduleAt,
 	}
 }
 
 // CanScheduleWithTaskSchedulers determines if a task can be scheduled using task schedulers with dynamic type conversion
 func (s *MaintenanceIntegration) CanScheduleWithTaskSchedulers(task *MaintenanceTask, runningTasks []*MaintenanceTask, availableWorkers []*MaintenanceWorker) bool {
+	glog.Infof("DEBUG CanScheduleWithTaskSchedulers: Checking task %s (type: %s)", task.ID, task.Type)
+
 	// Convert existing types to task types using mapping
 	taskType, exists := s.revTaskTypeMap[task.Type]
 	if !exists {
-		glog.V(2).Infof("Unknown task type %s for scheduling, falling back to existing logic", task.Type)
+		glog.Infof("DEBUG CanScheduleWithTaskSchedulers: Unknown task type %s for scheduling, falling back to existing logic", task.Type)
 		return false // Fallback to existing logic for unknown types
 	}
+
+	glog.Infof("DEBUG CanScheduleWithTaskSchedulers: Mapped task type %s to %s", task.Type, taskType)
 
 	// Convert task objects
 	taskObject := s.convertTaskToTaskSystem(task)
 	if taskObject == nil {
-		glog.V(2).Infof("Failed to convert task %s for scheduling", task.ID)
+		glog.Infof("DEBUG CanScheduleWithTaskSchedulers: Failed to convert task %s for scheduling", task.ID)
 		return false
 	}
+
+	glog.Infof("DEBUG CanScheduleWithTaskSchedulers: Successfully converted task %s", task.ID)
 
 	runningTaskObjects := s.convertTasksToTaskSystem(runningTasks)
 	workerObjects := s.convertWorkersToTaskSystem(availableWorkers)
 
+	glog.Infof("DEBUG CanScheduleWithTaskSchedulers: Converted %d running tasks and %d workers", len(runningTaskObjects), len(workerObjects))
+
 	// Get the appropriate scheduler
 	scheduler := s.taskRegistry.GetScheduler(taskType)
 	if scheduler == nil {
-		glog.V(2).Infof("No scheduler found for task type %s", taskType)
+		glog.Infof("DEBUG CanScheduleWithTaskSchedulers: No scheduler found for task type %s", taskType)
 		return false
 	}
 
-	return scheduler.CanScheduleNow(taskObject, runningTaskObjects, workerObjects)
+	glog.Infof("DEBUG CanScheduleWithTaskSchedulers: Found scheduler for task type %s", taskType)
+
+	canSchedule := scheduler.CanScheduleNow(taskObject, runningTaskObjects, workerObjects)
+	glog.Infof("DEBUG CanScheduleWithTaskSchedulers: Scheduler decision for task %s: %v", task.ID, canSchedule)
+
+	return canSchedule
 }
 
 // convertTaskToTaskSystem converts existing task to task system format using dynamic mapping
-func (s *MaintenanceIntegration) convertTaskToTaskSystem(task *MaintenanceTask) *types.Task {
+func (s *MaintenanceIntegration) convertTaskToTaskSystem(task *MaintenanceTask) *types.TaskInput {
 	// Convert task type using mapping
 	taskType, exists := s.revTaskTypeMap[task.Type]
 	if !exists {
@@ -303,21 +356,21 @@ func (s *MaintenanceIntegration) convertTaskToTaskSystem(task *MaintenanceTask) 
 		priority = types.TaskPriorityNormal
 	}
 
-	return &types.Task{
-		ID:         task.ID,
-		Type:       taskType,
-		Priority:   priority,
-		VolumeID:   task.VolumeID,
-		Server:     task.Server,
-		Collection: task.Collection,
-		Parameters: task.Parameters,
-		CreatedAt:  task.CreatedAt,
+	return &types.TaskInput{
+		ID:          task.ID,
+		Type:        taskType,
+		Priority:    priority,
+		VolumeID:    task.VolumeID,
+		Server:      task.Server,
+		Collection:  task.Collection,
+		TypedParams: task.TypedParams,
+		CreatedAt:   task.CreatedAt,
 	}
 }
 
 // convertTasksToTaskSystem converts multiple tasks
-func (s *MaintenanceIntegration) convertTasksToTaskSystem(tasks []*MaintenanceTask) []*types.Task {
-	var result []*types.Task
+func (s *MaintenanceIntegration) convertTasksToTaskSystem(tasks []*MaintenanceTask) []*types.TaskInput {
+	var result []*types.TaskInput
 	for _, task := range tasks {
 		converted := s.convertTaskToTaskSystem(task)
 		if converted != nil {
@@ -328,8 +381,8 @@ func (s *MaintenanceIntegration) convertTasksToTaskSystem(tasks []*MaintenanceTa
 }
 
 // convertWorkersToTaskSystem converts workers to task system format using dynamic mapping
-func (s *MaintenanceIntegration) convertWorkersToTaskSystem(workers []*MaintenanceWorker) []*types.Worker {
-	var result []*types.Worker
+func (s *MaintenanceIntegration) convertWorkersToTaskSystem(workers []*MaintenanceWorker) []*types.WorkerData {
+	var result []*types.WorkerData
 	for _, worker := range workers {
 		capabilities := make([]types.TaskType, 0, len(worker.Capabilities))
 		for _, cap := range worker.Capabilities {
@@ -342,7 +395,7 @@ func (s *MaintenanceIntegration) convertWorkersToTaskSystem(workers []*Maintenan
 			}
 		}
 
-		result = append(result, &types.Worker{
+		result = append(result, &types.WorkerData{
 			ID:            worker.ID,
 			Address:       worker.Address,
 			Capabilities:  capabilities,
@@ -406,4 +459,31 @@ func (s *MaintenanceIntegration) GetAllTaskStats() []*types.TaskStats {
 	}
 
 	return stats
+}
+
+// mapMaintenanceTaskTypeToPendingOperationType converts a maintenance task type to a pending operation type
+func (s *MaintenanceIntegration) mapMaintenanceTaskTypeToPendingOperationType(taskType MaintenanceTaskType) PendingOperationType {
+	switch taskType {
+	case MaintenanceTaskType("balance"):
+		return OpTypeVolumeBalance
+	case MaintenanceTaskType("erasure_coding"):
+		return OpTypeErasureCoding
+	case MaintenanceTaskType("vacuum"):
+		return OpTypeVacuum
+	case MaintenanceTaskType("replication"):
+		return OpTypeReplication
+	default:
+		// For other task types, assume they're volume operations
+		return OpTypeVolumeMove
+	}
+}
+
+// GetPendingOperations returns the pending operations tracker
+func (s *MaintenanceIntegration) GetPendingOperations() *PendingOperations {
+	return s.pendingOperations
+}
+
+// GetActiveTopology returns the active topology for task detection
+func (s *MaintenanceIntegration) GetActiveTopology() *topology.ActiveTopology {
+	return s.activeTopology
 }

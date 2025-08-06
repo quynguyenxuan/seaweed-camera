@@ -1,12 +1,14 @@
 package maintenance
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	"github.com/seaweedfs/seaweedfs/weed/worker"
 	"github.com/seaweedfs/seaweedfs/weed/worker/tasks"
 	"github.com/seaweedfs/seaweedfs/weed/worker/types"
 
@@ -130,13 +132,13 @@ func NewMaintenanceWorkerService(workerID, address, adminServer string) *Mainten
 		currentTasks:  make(map[string]*MaintenanceTask),
 		stopChan:      make(chan struct{}),
 		taskExecutors: make(map[MaintenanceTaskType]TaskExecutor),
-		taskRegistry:  tasks.GetGlobalRegistry(), // Use global registry with auto-registered tasks
+		taskRegistry:  tasks.GetGlobalTaskRegistry(), // Use global registry with auto-registered tasks
 	}
 
 	// Initialize task executor registry
 	worker.initializeTaskExecutors()
 
-	glog.V(1).Infof("Created maintenance worker with %d registered task types", len(worker.taskRegistry.GetSupportedTypes()))
+	glog.V(1).Infof("Created maintenance worker with %d registered task types", len(worker.taskRegistry.GetAll()))
 
 	return worker
 }
@@ -145,19 +147,16 @@ func NewMaintenanceWorkerService(workerID, address, adminServer string) *Mainten
 func (mws *MaintenanceWorkerService) executeGenericTask(task *MaintenanceTask) error {
 	glog.V(2).Infof("Executing generic task %s: %s for volume %d", task.ID, task.Type, task.VolumeID)
 
+	// Validate that task has proper typed parameters
+	if task.TypedParams == nil {
+		return fmt.Errorf("task %s has no typed parameters - task was not properly planned (insufficient destinations)", task.ID)
+	}
+
 	// Convert MaintenanceTask to types.TaskType
 	taskType := types.TaskType(string(task.Type))
 
-	// Create task parameters
-	taskParams := types.TaskParams{
-		VolumeID:   task.VolumeID,
-		Server:     task.Server,
-		Collection: task.Collection,
-		Parameters: task.Parameters,
-	}
-
 	// Create task instance using the registry
-	taskInstance, err := mws.taskRegistry.CreateTask(taskType, taskParams)
+	taskInstance, err := mws.taskRegistry.Get(taskType).Create(task.TypedParams)
 	if err != nil {
 		return fmt.Errorf("failed to create task instance: %w", err)
 	}
@@ -166,7 +165,7 @@ func (mws *MaintenanceWorkerService) executeGenericTask(task *MaintenanceTask) e
 	mws.updateTaskProgress(task.ID, 5)
 
 	// Execute the task
-	err = taskInstance.Execute(taskParams)
+	err = taskInstance.Execute(context.Background(), task.TypedParams)
 	if err != nil {
 		return fmt.Errorf("task execution failed: %w", err)
 	}
@@ -396,10 +395,19 @@ func NewMaintenanceWorkerCommand(workerID, address, adminServer string) *Mainten
 
 // Run starts the maintenance worker as a standalone service
 func (mwc *MaintenanceWorkerCommand) Run() error {
-	// Generate worker ID if not provided
+	// Generate or load persistent worker ID if not provided
 	if mwc.workerService.workerID == "" {
-		hostname, _ := os.Hostname()
-		mwc.workerService.workerID = fmt.Sprintf("worker-%s-%d", hostname, time.Now().Unix())
+		// Get current working directory for worker ID persistence
+		wd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get working directory: %w", err)
+		}
+
+		workerID, err := worker.GenerateOrLoadWorkerID(wd)
+		if err != nil {
+			return fmt.Errorf("failed to generate or load worker ID: %w", err)
+		}
+		mwc.workerService.workerID = workerID
 	}
 
 	// Start the worker service
