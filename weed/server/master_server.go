@@ -257,14 +257,6 @@ func (ms *MasterServer) proxyToLeader(f http.HandlerFunc) http.HandlerFunc {
 		// proxy to leader
 		glog.V(4).Infoln("proxying to leader", raftServerLeader)
 		proxy := httputil.NewSingleHostReverseProxy(targetUrl)
-		director := proxy.Director
-		proxy.Director = func(req *http.Request) {
-			actualHost, err := security.GetActualRemoteHost(req)
-			if err == nil {
-				req.Header.Set("HTTP_X_FORWARDED_FOR", actualHost)
-			}
-			director(req)
-		}
 		proxy.Transport = util_http.GetGlobalHttpClient().GetClientTransport()
 		proxy.ServeHTTP(w, r)
 	}
