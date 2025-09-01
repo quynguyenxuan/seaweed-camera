@@ -39,16 +39,12 @@ import (
 	//QUYNGUYEN
 	"fmt"
 
+	cred "github.com/seaweedfs/seaweedfs/weed/credential"
+
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
-type SessionTokenPayload struct {
-	Exp       int64  `json:"exp"`
-	Iat       int64  `json:"iat,omitempty"`
-	AccessKey string `json:"accessKey,omitempty"`
-}
-
-func parseSessionToken(tokenString string, secret string) (*SessionTokenPayload, error) {
+func parseSessionToken(tokenString string, secret string) (*cred.SessionTokenPayload, error) {
 	// Phân tích token với HS512
 	token, err := jwt.ParseWithClaims(tokenString, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		// Kiểm tra thuật toán
@@ -74,7 +70,7 @@ func parseSessionToken(tokenString string, secret string) (*SessionTokenPayload,
 	}
 
 	// Chuyển claims thành SessionTokenPayload
-	payload := &SessionTokenPayload{
+	payload := &cred.SessionTokenPayload{
 		Exp:       int64((*claims)["exp"].(float64)), // Chuyển float64 thành int64
 		Iat:       int64((*claims)["iat"].(float64)),
 		AccessKey: (*claims)["accessKey"].(string),
@@ -83,7 +79,7 @@ func parseSessionToken(tokenString string, secret string) (*SessionTokenPayload,
 	return payload, nil
 }
 
-func validateSessionToken(token string, targetPayload SessionTokenPayload) bool {
+func validateSessionToken(token string, targetPayload cred.SessionTokenPayload) bool {
 	payload, err := parseSessionToken(token, emptySHA256)
 	// fmt.Println("validateSessionToken2", payload.Exp, targetPayload.Exp)
 
@@ -95,7 +91,7 @@ func validateSessionToken(token string, targetPayload SessionTokenPayload) bool 
 	if payload.AccessKey != targetPayload.AccessKey {
 		return false
 	}
-	// if math.Abs(float64(payload.Exp-targetPayload.Exp)) > 5 {
+	// if payload.Exp > targetPayload.Exp {
 	// 	return false
 	// }
 	return true
@@ -387,6 +383,13 @@ func (iam *IdentityAccessManagement) doesPresignedSignatureMatch(hashedPayload s
 	if !found {
 		return nil, s3err.ErrInvalidAccessKeyID
 	}
+	//QUYNGUYEN add
+	// Check expiration and delete if expired
+	if foundCred.Expiration > 0 && time.Now().UTC().Unix() > int64(foundCred.Expiration) {
+		iam.credentialManager.DeleteUser(r.Context(), identity.Name)
+		return nil, s3err.ErrInvalidAccessKeyID
+	}
+	//QUYNGUYEN end
 
 	// Check permissions
 	bucket, object := s3_constants.GetBucketAndObject(r)
@@ -399,7 +402,7 @@ func (iam *IdentityAccessManagement) doesPresignedSignatureMatch(hashedPayload s
 	if e != nil {
 		return nil, s3err.ErrMalformedDate
 	}
-
+	//QUYNGUYEN add
 	sessionToken := query.Get("X-Amz-Security-Token")
 
 	// Check expiration
@@ -417,7 +420,7 @@ func (iam *IdentityAccessManagement) doesPresignedSignatureMatch(hashedPayload s
 		//QUYNGUYEN add check session token
 		if sessionToken != "" {
 			// fmt.Println("validateSessionToken1", pSignValues.Expires, pSignValues.Date)
-			if !validateSessionToken(sessionToken, SessionTokenPayload{AccessKey: credHeader.accessKey, Exp: expirationTime.Unix()}) {
+			if !validateSessionToken(sessionToken, cred.SessionTokenPayload{AccessKey: credHeader.accessKey, Exp: expirationTime.Unix()}) {
 				return nil, s3err.ErrExpiredPresignRequest
 			}
 		}

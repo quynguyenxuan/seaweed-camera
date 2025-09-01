@@ -70,21 +70,29 @@ type CredentialStore interface {
 
 // AccessKeyInfo represents access key information with metadata
 type AccessKeyInfo struct {
-	AccessKey string    `json:"accessKey"`
-	SecretKey string    `json:"secretKey"`
-	Username  string    `json:"username"`
-	CreatedAt time.Time `json:"createdAt"`
+	AccessKey  string    `json:"accessKey"`
+	SecretKey  string    `json:"secretKey"`
+	Username   string    `json:"username"`
+	CreatedAt  time.Time `json:"createdAt"`
+	Expiration uint64    `json:"expiration"`
 }
 
 // UserCredentials represents a user's credentials and metadata
 type UserCredentials struct {
-	Username    string               `json:"username"`
+	Username string `json:"username"`
+	// SourceUser  string               `json:"sourceUser"`
 	Email       string               `json:"email"`
 	Account     *iam_pb.Account      `json:"account,omitempty"`
 	Credentials []*iam_pb.Credential `json:"credentials"`
 	Actions     []string             `json:"actions"`
 	CreatedAt   time.Time            `json:"createdAt"`
 	UpdatedAt   time.Time            `json:"updatedAt"`
+}
+
+type SessionTokenPayload struct {
+	Exp       int64  `json:"exp"`
+	Iat       int64  `json:"iat,omitempty"`
+	AccessKey string `json:"accessKey,omitempty"`
 }
 
 // PolicyManager interface for managing IAM policies

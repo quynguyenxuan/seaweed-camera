@@ -2,11 +2,14 @@ version: '3.9'
 
 services:
   master:
-    image: chrislusf/seaweedfs:rocksdb_local_dev2
-    command: '-v=2 master -ip=master -volumeSizeLimitMB=100 -volumePreallocate=false'   # use a remote dev image
+    image: chrislusf/rocksdb_dev_env
+    # entrypoint: 'sleep 10000'   # use a remote dev image
+
+    entrypoint: '/app/weed -v=1 master -ip=master -volumeSizeLimitMB=100 -volumePreallocate=false'   # use a remote dev image
     ports:
       - 9333:9333
       - 19333:19333
+    # working_dir: /app 
     environment:
       - TZ=Asia/Ho_Chi_Minh
       - VOLUME_SPLIT_IN_SECONDS=60
@@ -14,13 +17,28 @@ services:
       
     # command: "master -ip=master"
     volumes:
+      # - ./tmp/weed:/usr/bin/weed
+      - ./tmp:/app:rw
+  admin:
+    image: chrislusf/rocksdb_dev_env
+    entrypoint: '/app/weed -v=1 admin -port=23646 -port.grpc=33646 -masters="master:9333"'   # use a remote dev image
+    ports:
+      - 23646:23646
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - VOLUME_SPLIT_IN_SECONDS=60
+      - VOLUME_DELETION_INTERVAL_MILLISECONDS=300
+      
+    # command: "master -ip=master"
+    volumes:
+      # - ./tmp/weed:/usr/bin/weed
       - ./tmp:/app
   volume:
-    image: chrislusf/seaweedfs:rocksdb_local_dev2      # use a remote dev image
+    image: chrislusf/rocksdb_dev_env      # use a remote dev image
     ports:
       - 8080:8080
       - 18080:18080
-    command: '-v=2 volume -mserver="master:9333" -port=8080 -ip=volume -dir=/mnt/v1  -max=0'
+    entrypoint: '/app/weed -v=1 volume -mserver="master:9333" -port=8080 -ip=volume  -max=0 -dir=/mnt/volume'
     # -index=leveldbLarge
     environment:
       - TZ=Asia/Ho_Chi_Minh
@@ -28,59 +46,65 @@ services:
       - INDEX_CACHE_IN_MB=64
       - VOLUME_DELETION_INTERVAL_MILLISECONDS=300
     volumes:
+      # - ./tmp/weed:/usr/bin/weed
       - ./tmp:/app
-      - ~/seaweedfsv1:/mnt/v1
+      - ~/seaweedfsv1:/mnt/volume
       
     depends_on:
       - master
   filer:
-    image: chrislusf/seaweedfs:rocksdb_local_dev2      # use a remote dev image
+    image: chrislusf/rocksdb_dev_env      # use a remote dev image
     ports:
       - 8888:8888
       - 18888:18888
-    command: '-v=2 filer -master="master:9333" -ip.bind=0.0.0.0'
+      - 8333:8333
+      - 8111:8111
+    entrypoint: '/app/weed -v=5 filer -s3 -iam -master="master:9333" -ip.bind=0.0.0.0'
     volumes:
       - ./filer.toml:/etc/seaweedfs/filer.toml
       - ./s3.json:/etc/seaweedfs/s3.json
+      # - ./tmp/weed:/usr/bin/weed
       - ./tmp:/app
-      - ~/filer/rocksdb1:/mnt/rocksdb
+
+      # - ~/filer/rocksdb1:/mnt/rocksdb
     environment:
       - TZ=Asia/Ho_Chi_Minh
       - STORE_CACHE_IN_MB=64
     depends_on:
       - master
       - volume
-  filer2:
-    image: chrislusf/seaweedfs:rocksdb_local_dev2 # use a remote dev image
-    ports:
-      - 8887:8888
-      - 18887:18888
-    command: '-v=2 filer -master="master:9333" -ip.bind=0.0.0.0'
-    volumes:
-      - ./filer.toml:/etc/seaweedfs/filer.toml
-      - ./s3.json:/etc/seaweedfs/s3.json
-      - ./tmp:/app
-      - ~/filer/rocksdb2:/mnt/rocksdb
-    environment:
-      - TZ=Asia/Ho_Chi_Minh
-    depends_on:
-      - master
-      - volume
-  s3:
-    image: chrislusf/seaweedfs:rocksdb_local_dev2 # use a remote dev image
-    ports:
-      - 8333:8333
-    command: '-v=2 s3 -filer="filer:8888" -ip.bind=0.0.0.0'
-    environment:
-      - TZ=Asia/Ho_Chi_Minh
-    volumes:
-      - ./filer.toml:/etc/seaweedfs/filer.toml
-      - ./s3.json:/etc/seaweedfs/s3.json
-      - ./tmp:/app
-    depends_on:
-      - master
-      - volume
-      - filer
+  # filer2:
+  #   image: chrislusf/rocksdb_dev_env # use a remote dev image
+  #   ports:
+  #     - 8887:8888
+  #     - 18887:18888
+  #   command: '/app/weed -v=1 filer  -s3 -iam -master="master:9333" -ip.bind=0.0.0.0'
+  #   volumes:
+  #     - ./filer.toml:/etc/seaweedfs/filer.toml
+  #     - ./s3.json:/etc/seaweedfs/s3.json
+  #     - ./bin:/app
+  #     # - ~/filer/rocksdb2:/mnt/rocksdb
+  #   environment:
+  #     - TZ=Asia/Ho_Chi_Minh
+  #   depends_on:
+  #     - master
+  #     - volume
+  # s3:
+  #   image: chrislusf/rocksdb_dev_env # use a remote dev image
+  #   ports:
+  #     - 8333:8333
+  #   entrypoint: '/app/weed -v=1 s3 -filer="filer:8888" -ip.bind=0.0.0.0'
+  #   environment:
+  #     - TZ=Asia/Ho_Chi_Minh
+  #   volumes:
+  #     - ./filer.toml:/etc/seaweedfs/filer.toml
+  #     - ./s3.json:/etc/seaweedfs/s3.json
+  #     # - ./tmp/weed:/usr/bin/weed
+  #     - ./tmp:/app
+  #   depends_on:
+  #     - master
+  #     - volume
+  #     - filer
   # webdav:
   #   image: chrislusf/seaweedfs:dev # use a remote dev image
   #   ports:

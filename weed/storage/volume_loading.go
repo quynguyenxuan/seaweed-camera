@@ -65,15 +65,31 @@ func (v *Volume) load(alsoLoadIndex bool, createDatIfMissing bool, needleMapKind
 		var dataFile *os.File
 		if canWrite {
 			dataFile, err = os.OpenFile(v.FileName(".dat"), os.O_RDWR|os.O_CREATE, 0644)
+			//QUYNGUYEN add
+			if err != nil {
+				return fmt.Errorf("cannot load volume data  %s: %v", v.FileName(".dat"), err)
+			}
+			//QUYNGUYEN end
 		} else {
 			glog.V(0).Infof("opening %s in READONLY mode", v.FileName(".dat"))
 			dataFile, err = os.Open(v.FileName(".dat"))
+			//QUYNGUYEN add
+			if err != nil {
+				return fmt.Errorf("cannot load volume data %s: %v", v.FileName(".dat"), err)
+			}
+			//QUYNGUYEN end
 			v.noWriteOrDelete = true
 		}
 		v.lastModifiedTsSeconds = uint64(modifiedTime.Unix())
 		if fileSize >= super_block.SuperBlockSize {
 			alreadyHasSuperBlock = true
 		}
+		//QUYNGUYEN add
+		_, err := dataFile.Stat()
+		if err != nil {
+			return fmt.Errorf("cannot load volume data %s: %v", v.FileName(".dat"), err)
+		}
+		//QUYNGUYEN end
 		v.DataBackend = backend.NewDiskFile(dataFile)
 	} else {
 		if createDatIfMissing {

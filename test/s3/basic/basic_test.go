@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
@@ -24,6 +25,11 @@ func init() {
 		Region:     aws.String("us-west-2"),
 		Endpoint:   aws.String("localhost:8333"),
 		DisableSSL: aws.Bool(true),
+		Credentials: credentials.NewStaticCredentials(
+			"some_access_key1",
+			"some_secret_key1",
+			"",
+		),
 	})
 	if err != nil {
 		exitErrorf("create session, %v", err)
@@ -36,7 +42,7 @@ func init() {
 func TestCreateBucket(t *testing.T) {
 
 	input := &s3.CreateBucketInput{
-		Bucket: aws.String("theBucket"),
+		Bucket: aws.String(Bucket),
 	}
 
 	result, err := svc.CreateBucket(input)
@@ -67,7 +73,7 @@ func TestPutObject(t *testing.T) {
 	input := &s3.PutObjectInput{
 		ACL:    aws.String("authenticated-read"),
 		Body:   aws.ReadSeekCloser(strings.NewReader("filetoupload")),
-		Bucket: aws.String("theBucket"),
+		Bucket: aws.String(Bucket),
 		Key:    aws.String("exampleobject"),
 	}
 
@@ -129,7 +135,7 @@ func exitErrorf(msg string, args ...interface{}) {
 }
 
 const (
-	Bucket = "theBucket"
+	Bucket = "the-bucket"
 	object = "foo/bar"
 	Data   = "<data>"
 )

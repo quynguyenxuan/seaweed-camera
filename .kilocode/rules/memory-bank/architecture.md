@@ -4,6 +4,7 @@ SeaweedFS sử dụng mô hình kiến trúc phân tán với các thành phần
 
 - **Master Server**: Quản lý metadata, bao gồm vị trí của các volume và trạng thái của hệ thống. Nó xử lý các yêu cầu từ filer và đảm bảo tính nhất quán.
 - **Filer Server**: Xử lý các hoạt động file system như tạo, đọc, ghi, và xóa file. Nó tương tác với master để lấy metadata và với volume server để lưu trữ dữ liệu.
+    - **Khởi tạo Filer Server**: Filer Server được khởi tạo trong hàm `NewFilerServer` trong tệp `weed/server/filer_server.go`. Hàm này được gọi từ hàm `startFiler` trong tệp `weed/command/filer.go`.
 - **Volume Server**: Lưu trữ dữ liệu thực tế dưới dạng volume, cho phép mở rộng ngang và replication để tăng độ tin cậy.
     - **Cơ chế ghi file**:
         1.  **Tiếp nhận yêu cầu**: Yêu cầu ghi file (dưới dạng một `needle`) được gửi đến `Volume Server`.

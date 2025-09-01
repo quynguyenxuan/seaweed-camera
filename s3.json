@@ -20,15 +20,15 @@
           "List",
           "Tagging",
           "Write",
-            "WriteAcp"
+          "WriteAcp"
         ]
       },
       {
-        "name": "minioadmin1",
+        "name": "admin",
         "credentials": [
           {
-            "accessKey": "5_test-public_accid",
-            "secretKey": "WGdv7-UdOLiDFbzOa6C2MG3TKy8P"
+            "accessKey": "some_access_key1",
+            "secretKey": "some_secret_key1"
           }
         ],
         "actions": [

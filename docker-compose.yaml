@@ -19,18 +19,18 @@ services:
       - GOTOOLCHAIN=auto
     # depends_on:
     #   - redis
-    ports:
-      - 9333:9333
-      - 8233:8333
-      - 8080:8080
-      - 8111:8111
-      - 8888:8888 
+    # ports:
+    #   - 9333:9333
+    #   - 8233:8333
+    #   - 8085:8080
+    #   - 8111:8111
+    #   - 8888:8888 
     working_dir: /app
     volumes:
       - .:/app/
-      - ~/seaweedfs:/mnt/seaweedfs:rshared
-      - ./filer.toml:/etc/seaweedfs/filer.toml
-      - ./s3.json:/etc/seaweedfs/s3.json
+      # - ~/seaweedfs:/mnt/seaweedfs:rshared
+      # - ./filer.toml:/etc/seaweedfs/filer.toml
+      # - ./s3.json:/etc/seaweedfs/s3.json
       # - ~/rocksdb:/mnt/rocksdb
     networks:
       - net

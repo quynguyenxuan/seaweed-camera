@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/sts"
 )
 
 type CommonResponse struct {
@@ -77,6 +78,31 @@ type CreateAccessKeyResponse struct {
 	CreateAccessKeyResult struct {
 		AccessKey iam.AccessKey `xml:"AccessKey"`
 	} `xml:"CreateAccessKeyResult"`
+}
+
+type AssumeRoleResponse struct {
+	CommonResponse
+	XMLName          xml.Name `xml:"https://sts.amazonaws.com/doc/2011-06-15/ AssumeRoleResponse"`
+	AssumeRoleResult struct {
+		Credentials     sts.Credentials     `xml:"Credentials"`
+		AssumedRoleUser sts.AssumedRoleUser `xml:"AssumedRoleUser"`
+	} `xml:"AssumeRoleResult"`
+}
+
+type GetSessionTokenResponse struct {
+	CommonResponse
+	XMLName          xml.Name `xml:"https://sts.amazonaws.com/doc/2011-06-15/ GetSessionTokenResponse"`
+	AssumeRoleResult struct {
+		Credentials sts.Credentials `xml:"Credentials"`
+	} `xml:"GetSessionTokenResult"`
+}
+type GetFederationTokenResponse struct {
+	CommonResponse
+	XMLName          xml.Name `xml:"https://sts.amazonaws.com/doc/2011-06-15/ GetFederationTokenResponse"`
+	AssumeRoleResult struct {
+		Credentials   sts.Credentials   `xml:"Credentials"`
+		FederatedUser sts.FederatedUser `xml:"FederatedUser"`
+	} `xml:"GetFederationTokenResult"`
 }
 
 type PutUserPolicyResponse struct {

@@ -105,8 +105,8 @@ var cmdAdmin = &Command{
     - Workers fall back to insecure connections if TLS is unavailable
 
   Configuration File:
-    - The security.toml file is read from ".", "$HOME/.seaweedfs/", 
-      "/usr/local/etc/seaweedfs/", or "/etc/seaweedfs/", in that order
+    - The security.toml file is read from ".", "$HOME/.sunfs/", 
+      "/usr/local/etc/sunfs/", or "/etc/sunfs/", in that order
     - Generate example security.toml: weed scaffold -config=security
 
 `,

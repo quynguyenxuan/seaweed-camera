@@ -26,7 +26,7 @@ func (a *AuthHandlers) ShowLogin(c *gin.Context) {
 
 	// Render login template
 	c.Header("Content-Type", "text/html")
-	loginComponent := layout.LoginForm(c, "SeaweedFS Admin", errorMessage)
+	loginComponent := layout.LoginForm(c, "Minio Admin", errorMessage)
 	err := loginComponent.Render(c.Request.Context(), c.Writer)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to render login template: " + err.Error()})

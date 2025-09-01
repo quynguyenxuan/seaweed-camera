@@ -1,0 +1,12 @@
+{
+  "Rules": [
+    {
+      "ID": "ExpireAfter30Days",
+      "Prefix": "",
+      "Status": "Enabled",
+      "Expiration": {
+        "Days": 30
+      }
+    }
+  ]
+}

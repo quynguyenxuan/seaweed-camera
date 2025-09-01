@@ -44,9 +44,9 @@ func LoadConfiguration(configFileName string, required bool) (loaded bool) {
 	viper.SetConfigName(configFileName)                                   // name of config file (without extension)
 	viper.AddConfigPath(ResolvePath(ConfigurationFileDirectory.String())) // path to look for the config file in
 	viper.AddConfigPath(".")                                              // optionally look for config in the working directory
-	viper.AddConfigPath("$HOME/.seaweedfs")                               // call multiple times to add many search paths
-	viper.AddConfigPath("/usr/local/etc/seaweedfs/")                      // search path for bsd-style config directory in
-	viper.AddConfigPath("/etc/seaweedfs/")                                // path to look for the config file in
+	viper.AddConfigPath("$HOME/.sunfs")                                   // call multiple times to add many search paths
+	viper.AddConfigPath("/usr/local/etc/sunfs/")                          // search path for bsd-style config directory in
+	viper.AddConfigPath("/etc/sunfs/")                                    // path to look for the config file in
 
 	if err := viper.MergeInConfig(); err != nil { // Handle errors reading the config file
 		if strings.Contains(err.Error(), "Not Found") {
@@ -55,7 +55,7 @@ func LoadConfiguration(configFileName string, required bool) (loaded bool) {
 			glog.Fatalf("Reading %s: %v", viper.ConfigFileUsed(), err)
 		}
 		if required {
-			glog.Fatalf("Failed to load %s.toml file from current directory, or $HOME/.seaweedfs/, or /etc/seaweedfs/"+
+			glog.Fatalf("Failed to load %s.toml file from current directory, or $HOME/.sunfs/, or /etc/sunfs/"+
 				"\n\nPlease use this command to generate the default %s.toml file\n"+
 				"    weed scaffold -config=%s -output=.\n\n\n",
 				configFileName, configFileName, configFileName)

@@ -5,7 +5,16 @@ ADMIN_DIR = weed/admin
 
 SOURCE_DIR = .
 debug ?= 0
-
+AIR = ~/go/bin/air
+CLEANUP_CMD = echo "🧹 Cleaning up..." && kill  $(lsof -t -i :2345) && kill  $(lsof -t -i :9333)  || true
+dev:
+	docker-compose -f docker-compose.yaml up -d
+	watchexec -r -w ./tmp/weed -- docker-compose -f seaweedfs-dev-compose.yml restart
+server-dev:
+	$(AIR)
+# 	dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient  exec $(AIR)
+# 	@kill  $(lsof -t -i :2345)
+	 
 all: install
 
 install: admin-generate

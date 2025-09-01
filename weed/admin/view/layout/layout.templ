@@ -26,7 +26,7 @@ templ Layout(c *gin.Context, content templ.Component) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SeaweedFS Admin</title>
+    <title>Minio Admin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     
@@ -46,7 +46,7 @@ templ Layout(c *gin.Context, content templ.Component) {
             <div class="container-fluid">
                 <a class="navbar-brand fw-bold" href="/admin">
                     <i class="fas fa-server me-2"></i>
-                    SeaweedFS Admin
+                    Minio Admin
                     <span class="badge bg-warning text-dark ms-2">ALPHA</span>
                 </a>
                 
@@ -320,7 +320,7 @@ templ Layout(c *gin.Context, content templ.Component) {
     <footer class="footer mt-auto py-3 bg-light">
         <div class="container-fluid text-center">
             <small class="text-muted">
-                &copy; {fmt.Sprintf("%d", time.Now().Year())} SeaweedFS Admin v{version.VERSION_NUMBER}
+                &copy; {fmt.Sprintf("%d", time.Now().Year())} Minio Admin v{version.VERSION_NUMBER}
                 if !strings.Contains(version.VERSION, "enterprise") {
                     <span class="mx-2">•</span>
                     <a href="https://seaweedfs.com" target="_blank" class="text-decoration-none">

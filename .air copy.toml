@@ -7,31 +7,31 @@ tmp_dir = "tmp"
  #"-filer.port=8868" "-s3.port=8323"
   # args_bin = ["-v=1","server", "-volume.max=250", "-dir=/mnt/seaweedfs",  "-master.volumeSizeLimitMB=100", "-master.port=9333", "-filer.filerGroup=default", "-s3", "-s3.config","/etc/seaweedfs/s3.json", '-iam']
   # args_bin = ["-rf", "./tmp/main", "./tmp/weed", "&&", "chmod", "+x", "./tmp/weed", "&&", "sleep", "10000" ]
-  # args_bin = [ "debug_server" ]
+  args_bin = [ "10000" ]
 
   # args_bin = ["docker-compose", "-f", "seaweedfs-dev-compose.yml", "restart"]
   # bin = "/usr/bin/cp"
-  # bin = "/usr/bin/dlv"
-  cmd = "pkill -9 dlv "
+  bin = "/usr/bin/sleep"
+  cmd = "go build -o ./tmp/weed -tags=5BytesOffset,rocksdb -buildvcs=false ./weed"
   delay = 3000
   # exclude_dir = ["assets", "tmp", "vendor", "testdata"]
   exclude_file = []
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
   follow_symlink = false
-  full_bin = "dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient  exec /usr/bin/go run ./weed -- server -iam -filer  -s3 -s3.config=/mnt/nvme0n1p6/seaweedfs385/s3.json -volume.max=0 -master.volumeSizeLimitMB=100 -volume.preStopSeconds=1"
+  full_bin = ""
   include_dir = ["weed"]
   include_ext = ["go", "tpl", "tmpl", "html"]
   include_file = []
-  kill_delay = "3s"
+  kill_delay = "0s"
   log = "build-errors.log"
   poll = false
   poll_interval = 0
-  post_cmd = ["kill  $(lsof -t -i :9333)", "kill  $(lsof -t -i :2345)"]
+  post_cmd = []
   pre_cmd = []
   rerun = false
   rerun_delay = 500
-  send_interrupt = true
+  send_interrupt = false
   stop_on_error = false
 
 [color]

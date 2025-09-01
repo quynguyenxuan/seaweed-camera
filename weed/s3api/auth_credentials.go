@@ -3,11 +3,13 @@ package s3api
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/filer"
@@ -81,8 +83,9 @@ var (
 )
 
 type Credential struct {
-	AccessKey string
-	SecretKey string
+	AccessKey  string
+	SecretKey  string
+	Expiration uint64
 }
 
 // "Permission": "FULL_CONTROL"|"WRITE"|"WRITE_ACP"|"READ"|"READ_ACP"
@@ -332,6 +335,31 @@ func (iam *IdentityAccessManagement) isEnabled() bool {
 	return iam.isAuthEnabled
 }
 
+func (iam *IdentityAccessManagement) CleanExpiredAccessKey() error {
+	iam.m.RLock()
+	defer iam.m.RUnlock()
+	for _, ident := range iam.identities {
+
+		for _, credential := range ident.Credentials {
+			if int64(credential.Expiration) < time.Now().Unix() {
+				if len(ident.Credentials) > 1 && ident.Account == nil {
+					err := iam.credentialManager.DeleteAccessKey(context.Background(), ident.Name, credential.AccessKey)
+					if err != nil {
+						glog.V(1).Infof("could not delete accessKey %s %v", credential.AccessKey, err)
+					}
+				}
+				if len(ident.Credentials) == 1 && ident.Account == nil {
+					err := iam.credentialManager.DeleteUser(context.Background(), ident.Name)
+					if err != nil {
+						glog.V(1).Infof("could not delete user %s %v", ident.Name, err)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (iam *IdentityAccessManagement) lookupByAccessKey(accessKey string) (identity *Identity, cred *Credential, found bool) {
 	iam.m.RLock()
 	defer iam.m.RUnlock()
@@ -375,6 +403,7 @@ func (iam *IdentityAccessManagement) GetAccountIdByEmail(email string) string {
 
 func (iam *IdentityAccessManagement) Auth(f http.HandlerFunc, action Action) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Iam auth")
 		if !iam.isEnabled() {
 			f(w, r)
 			return
@@ -390,6 +419,8 @@ func (iam *IdentityAccessManagement) Auth(f http.HandlerFunc, action Action) htt
 			f(w, r)
 			return
 		}
+		log.Println("Iam auth2", errCode)
+
 		s3err.WriteErrorResponse(w, r, errCode)
 	}
 }

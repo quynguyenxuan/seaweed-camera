@@ -65,6 +65,7 @@ type UpdateUserPoliciesRequest struct {
 type AccessKeyInfo struct {
 	AccessKey string    `json:"access_key"`
 	SecretKey string    `json:"secret_key"`
+	Expiration time.Time `json:"expiration"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

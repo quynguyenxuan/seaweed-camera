@@ -19,7 +19,7 @@ import (
 
 const (
 	DirectoryEtcRoot      = "/etc/"
-	DirectoryEtcSeaweedFS = "/etc/seaweedfs"
+	DirectoryEtcSeaweedFS = "/etc/sunfs"
 	DirectoryEtcRemote    = "/etc/remote"
 	FilerConfName         = "filer.conf"
 	IamConfigDirectory    = "/etc/iam"

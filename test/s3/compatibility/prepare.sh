@@ -2,4 +2,4 @@
 
 set -ex
 
-docker build  --progress=plain  -t s3tests .
+docker build  --network=host --progress=plain  -t s3tests .

@@ -21,7 +21,7 @@ recursive_delete = false
 [leveldb2]
 # local on disk, mostly for simple single-machine setup, fairly scalable
 # faster than previous leveldb, recommended.
-enabled = false
+enabled = true
 dir = "./filerldb2"                    # directory to store level db files
 
 [leveldb3]
@@ -33,7 +33,7 @@ dir = "./filerldb3"                    # directory to store level db files
 [rocksdb]
 # local on disk, similar to leveldb
 # since it is using a C wrapper, you need to install rocksdb and build it by yourself
-enabled = true
+enabled = false
 dir = "/mnt/rocksdb"                    # directory to store rocksdb files
 
 [sqlite]

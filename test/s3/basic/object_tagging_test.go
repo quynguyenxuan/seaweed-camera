@@ -12,8 +12,8 @@ import (
 func TestObjectTagging(t *testing.T) {
 
 	input := &s3.PutObjectInput{
-		Bucket: aws.String("theBucket"),
-		Key:    aws.String("testDir/testObject"),
+		Bucket: aws.String(Bucket),
+		Key:    aws.String(object),
 	}
 
 	svc.PutObject(input)
@@ -86,16 +86,19 @@ func clearTags() {
 func TestObjectTaggingWithEncodedValues(t *testing.T) {
 	// Test for URL encoded tag values
 	input := &s3.PutObjectInput{
-		Bucket: aws.String("theBucket"),
-		Key:    aws.String("testDir/testObjectWithEncodedTags"),
+		Bucket: aws.String(Bucket),
+		Key:    aws.String(object),
+		Body:   strings.NewReader(Data),
 	}
 
-	svc.PutObject(input)
-
+	_, err := svc.PutObject(input)
+	if err != nil {
+		t.Fatalf("Failed to put object: %v", err)
+	}
 	// Set tags with encoded values (simulating what would happen with timestamps containing spaces and colons)
-	_, err := svc.PutObjectTagging(&s3.PutObjectTaggingInput{
-		Bucket: aws.String("theBucket"),
-		Key:    aws.String("testDir/testObjectWithEncodedTags"),
+	_, err = svc.PutObjectTagging(&s3.PutObjectTaggingInput{
+		Bucket: aws.String(Bucket),
+		Key:    aws.String(object),
 		Tagging: &s3.Tagging{
 			TagSet: []*s3.Tag{
 				{
@@ -116,8 +119,8 @@ func TestObjectTaggingWithEncodedValues(t *testing.T) {
 
 	// Get tags back and verify they are properly decoded
 	response, err := svc.GetObjectTagging(&s3.GetObjectTaggingInput{
-		Bucket: aws.String("theBucket"),
-		Key:    aws.String("testDir/testObjectWithEncodedTags"),
+		Bucket: aws.String(Bucket),
+		Key:    aws.String(object),
 	})
 
 	if err != nil {
@@ -144,8 +147,8 @@ func TestObjectTaggingWithEncodedValues(t *testing.T) {
 
 	// Clean up
 	svc.DeleteObjectTagging(&s3.DeleteObjectTaggingInput{
-		Bucket: aws.String("theBucket"),
-		Key:    aws.String("testDir/testObjectWithEncodedTags"),
+		Bucket: aws.String(Bucket),
+		Key:    aws.String(object),
 	})
 }
 
@@ -156,7 +159,7 @@ func TestObjectUploadWithEncodedTags(t *testing.T) {
 	// (like spaces, colons, slashes) sent during object upload are not URL decoded
 	// This tests the fix in filer_server_handlers_write_autochunk.go
 
-	objectKey := "testDir/testObjectUploadWithTags"
+	objectKey := object
 
 	// Upload object with tags that contain special characters that would be URL encoded
 	// The AWS SDK will automatically URL encode these when sending the X-Amz-Tagging header
@@ -165,7 +168,7 @@ func TestObjectUploadWithEncodedTags(t *testing.T) {
 	// - Empty values
 	// - Complex special characters
 	_, err := svc.PutObject(&s3.PutObjectInput{
-		Bucket:  aws.String("theBucket"),
+		Bucket:  aws.String(Bucket),
 		Key:     aws.String(objectKey),
 		Body:    aws.ReadSeekCloser(strings.NewReader("test content")),
 		Tagging: aws.String("Timestamp=2025-07-16 14:40:39&Path=/tmp/file.txt&Description=A test file with spaces&Equation=x=y+1&EmptyValue=&Complex=A%20tag%20with%20%26%20%3D%20chars"),
@@ -177,7 +180,7 @@ func TestObjectUploadWithEncodedTags(t *testing.T) {
 
 	// Get the tags back to verify they were properly URL decoded during upload
 	response, err := svc.GetObjectTagging(&s3.GetObjectTaggingInput{
-		Bucket: aws.String("theBucket"),
+		Bucket: aws.String(Bucket),
 		Key:    aws.String(objectKey),
 	})
 
@@ -219,7 +222,7 @@ func TestObjectUploadWithEncodedTags(t *testing.T) {
 
 	// Clean up
 	_, err = svc.DeleteObject(&s3.DeleteObjectInput{
-		Bucket: aws.String("theBucket"),
+		Bucket: aws.String(Bucket),
 		Key:    aws.String(objectKey),
 	})
 	if err != nil {

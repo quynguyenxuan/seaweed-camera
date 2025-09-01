@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +23,8 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3err"
 
 	"github.com/aws/aws-sdk-go/service/iam"
+	jwt "github.com/golang-jwt/jwt/v5"
+	cred "github.com/seaweedfs/seaweedfs/weed/credential"
 )
 
 const (
@@ -112,6 +116,126 @@ func StringWithCharset(length int, charset string) string {
 	return string(b)
 }
 
+// QUYNGUYEN ADD
+func (iama *IamApiServer) GetActionsFromPolicy(policyName string) (actions []string, err error) {
+	policies := Policies{}
+	policyLock.Lock()
+	defer policyLock.Unlock()
+	err = iama.s3ApiConfig.GetPolicies(&policies)
+	if err != nil {
+		glog.V(1).Infof("Error getting policies: %v", err)
+	}
+	if policyDocument, exists := policies.Policies[policyName]; exists {
+		actions, err = GetActions(&policyDocument)
+		if err != nil {
+			glog.V(1).Infof("Error getting actions: %v", err)
+		}
+	}
+	return actions, err
+}
+
+func (iama *IamApiServer) GetActionsFromRoleArn(roleArn string) (actions []string, err error) {
+	if roleArn == "" {
+		return nil, errors.New("Role ARN is empty")
+	}
+	lastIndex := strings.LastIndex(roleArn, "/")
+	policyName := ""
+	if lastIndex != -1 {
+		policyName = roleArn[lastIndex+1:]
+		fmt.Println("Policy Name:", policyName)
+	} else {
+		fmt.Println("Invalid ARN format")
+	}
+	if policyName != "" {
+		actions, err = iama.GetActionsFromPolicy(policyName)
+	}
+	return actions, err
+}
+func (iama *IamApiServer) AssumeRole(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp AssumeRoleResponse) {
+	// const { Action, Version, RoleArn, RoleSessionName, DurationSeconds, Policy, Name } = body
+	// testPayload := "Action=AssumeRole&RoleArn=arn:aws:iam::123456789012:role/TestRole&RoleSessionName=test&Version=2011-06-15"
+	sourceUserName := values.Get("UserName")
+	glog.Infof("AssumeRole1: %s", sourceUserName)
+
+	accessKeyId := StringWithCharset(21, charsetUpper)
+
+	userName := fmt.Sprintf("%s:%s", sourceUserName, accessKeyId)
+	log.Printf("AssumeRole2: %s", userName)
+	roleSessionName := values.Get("RoleSessionName")
+	roleArn := values.Get("RoleArn")
+	actions, err := iama.GetActionsFromRoleArn(roleArn)
+	if err != nil {
+		glog.V(1).Infof("Error getting actions: %v", err)
+	}
+
+	var durationSeconds uint64 = 0
+	if num, err := strconv.ParseUint(values.Get("DurationSeconds"), 10, 64); err == nil {
+		durationSeconds = num
+	}
+	expiration := time.Now().Add(time.Second * time.Duration(durationSeconds))
+	payload := cred.SessionTokenPayload{
+		Exp:       expiration.Unix(), // Hết hạn sau 24 giờ
+		AccessKey: accessKeyId,
+	}
+
+	// Khóa bí mật (nên lưu trong biến môi trường hoặc file cấu hình an toàn)
+	secret := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+	// Gọi hàm để tạo JWT
+	sessionToken, _ := CreateSessionToken(payload, secret)
+	assumeRoleId := fmt.Sprintf("ARID-%s", StringWithCharset(14, charset))
+
+	// status := iam.StatusTypeActive
+	secretAccessKey := StringWithCharset(42, charset)
+	resp.AssumeRoleResult.Credentials.AccessKeyId = &accessKeyId
+	resp.AssumeRoleResult.Credentials.SecretAccessKey = &secretAccessKey
+	resp.AssumeRoleResult.Credentials.Expiration = &expiration
+	resp.AssumeRoleResult.Credentials.SessionToken = &sessionToken
+	resp.AssumeRoleResult.AssumedRoleUser.Arn = &roleArn
+	resp.AssumeRoleResult.AssumedRoleUser.AssumedRoleId = &assumeRoleId
+	changed := false
+	for _, ident := range s3cfg.Identities {
+		if roleSessionName == ident.Name {
+			ident.Credentials = append(ident.Credentials,
+				&iam_pb.Credential{AccessKey: accessKeyId, SecretKey: secretAccessKey, Expiration: uint64(expiration.Unix())})
+			ident.Actions = actions
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		s3cfg.Identities = append(s3cfg.Identities,
+			&iam_pb.Identity{
+				Name:    roleSessionName,
+				Actions: actions,
+				Credentials: []*iam_pb.Credential{
+					{
+						AccessKey:  accessKeyId,
+						SecretKey:  secretAccessKey,
+						Expiration: uint64(expiration.Unix()),
+					},
+				},
+			},
+		)
+	}
+	return resp
+}
+
+// func (iama *IamApiServer) GetSessionToken(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp ListUsersResponse) {
+// 	for _, ident := range s3cfg.Identities {
+// 		resp.ListUsersResult.Users = append(resp.ListUsersResult.Users, &iam.User{UserName: &ident.Name})
+// 	}
+// 	return resp
+// }
+// func (iama *IamApiServer) GetFederationToken(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp ListUsersResponse) {
+// 	for _, ident := range s3cfg.Identities {
+// 		resp.ListUsersResult.Users = append(resp.ListUsersResult.Users, &iam.User{UserName: &ident.Name})
+// 	}
+// 	return resp
+// }
+
+//QUYNGUYEN end
+
 func (iama *IamApiServer) ListUsers(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp ListUsersResponse) {
 	for _, ident := range s3cfg.Identities {
 		resp.ListUsersResult.Users = append(resp.ListUsersResult.Users, &iam.User{UserName: &ident.Name})
@@ -127,6 +251,11 @@ func (iama *IamApiServer) ListAccessKeys(s3cfg *iam_pb.S3ApiConfiguration, value
 			continue
 		}
 		for _, cred := range ident.Credentials {
+			//QUYNGUYEN add to avoid STS key
+			if cred.Expiration > 0 {
+				continue
+			}
+			//QUYNGUYEN end
 			resp.ListAccessKeysResult.AccessKeyMetadata = append(resp.ListAccessKeysResult.AccessKeyMetadata,
 				&iam.AccessKeyMetadata{UserName: &ident.Name, AccessKeyId: &cred.AccessKey, Status: &status},
 			)
@@ -137,6 +266,14 @@ func (iama *IamApiServer) ListAccessKeys(s3cfg *iam_pb.S3ApiConfiguration, value
 
 func (iama *IamApiServer) CreateUser(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp CreateUserResponse) {
 	userName := values.Get("UserName")
+	//QUYNGUYEN add to fix duplicate user
+	for _, ident := range s3cfg.Identities {
+		if userName == ident.Name {
+			resp.CreateUserResult.User.UserName = &userName
+			return resp
+		}
+	}
+	//QUYNGUYEN end
 	resp.CreateUserResult.User.UserName = &userName
 	s3cfg.Identities = append(s3cfg.Identities, &iam_pb.Identity{Name: userName})
 	return resp
@@ -384,6 +521,28 @@ func (iama *IamApiServer) CreateAccessKey(s3cfg *iam_pb.S3ApiConfiguration, valu
 	return resp
 }
 
+func CreateSessionToken(payload cred.SessionTokenPayload, secret string) (string, error) {
+	// Create a new JWT with HS512 algorithm
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, jwt.MapClaims{
+		"accessKey": payload.AccessKey,
+		"exp":       payload.Exp,
+		"iat":       payload.Iat,
+	})
+
+	// Set the header explicitly
+	token.Header["alg"] = "HS512"
+	token.Header["typ"] = "JWT"
+
+	// Sign the token with the secret
+	tokenString, err := token.SignedString([]byte(secret))
+	if err != nil {
+		glog.Infof("Error creating custom SessionToken: %v", err)
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
 func (iama *IamApiServer) DeleteAccessKey(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp DeleteAccessKeyResponse) {
 	userName := values.Get("UserName")
 	accessKeyId := values.Get("AccessKeyId")
@@ -447,6 +606,16 @@ func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {
 	var iamError *IamError
 	changed := true
 	switch r.Form.Get("Action") {
+	case "AssumeRole":
+		handleImplicitUsername(r, values)
+		response = iama.AssumeRole(s3cfg, values)
+	// case "GetSessionToken":
+	// 	handleImplicitUsername(r, values)
+	// 	response = iama.AssumeRole(s3cfg, values)
+	// changed = false
+	// case "GetFederationToken":
+	// 	response = iama.GetFederationToken(s3cfg, values)
+	// 	changed = false
 	case "ListUsers":
 		response = iama.ListUsers(s3cfg, values)
 		changed = false

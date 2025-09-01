@@ -18,7 +18,7 @@ func (s *AdminServer) ShowLogin(c *gin.Context) {
 
 	// For now, return a simple login form as JSON
 	c.HTML(http.StatusOK, "login.html", gin.H{
-		"title": "SeaweedFS Admin Login",
+		"title": "Minio Admin Login",
 		"error": c.Query("error"),
 	})
 }

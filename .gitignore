@@ -127,3 +127,5 @@ test/s3/versioning/weed-test.log
 /docker/admin_integration/data
 docker/agent_pub_record
 docker/admin_integration/weed-local
+
+__debug_bin**

@@ -29,7 +29,7 @@ message Identity {
 message Credential {
     string access_key = 1;
     string secret_key = 2;
-    // uint64 expiration = 3;
+    uint64 expiration = 3;
     // bool is_disabled = 4;
 }
 

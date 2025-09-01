@@ -34,7 +34,7 @@ type S3TestConfig struct {
 
 // Default test configuration - should match test_config.json
 var defaultConfig = &S3TestConfig{
-	Endpoint:      "http://127.0.0.1:8000", // Use explicit IPv4 address
+	Endpoint:      "http://127.0.0.1:8333", // Use explicit IPv4 address
 	AccessKey:     "some_access_key1",
 	SecretKey:     "some_secret_key1",
 	Region:        "us-east-1",

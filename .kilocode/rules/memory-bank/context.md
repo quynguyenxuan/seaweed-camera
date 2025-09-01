@@ -1,6 +1,6 @@
 # Current Context
 
-Dự án đang tập trung vào việc khởi tạo Memory Bank cho SeaweedFS, một dự án Go lang dành cho lưu trữ S3. Các cuộc thảo luận gần đây liên quan đến việc gỡ lỗi prefix search trong RocksDB và cấu hình S3. Memory Bank hiện chỉ có brief.md, và chúng ta đang tạo các file mới để lưu trữ ngữ cảnh.
+Dự án đang sử dụng SeaweedFS version 3.96, một dự án Go lang dành cho lưu trữ S3. Các cuộc thảo luận gần đây liên quan đến việc gỡ lỗi prefix search trong RocksDB và cấu hình S3. Memory Bank hiện chỉ có brief.md, và chúng ta đang tạo các file mới để lưu trữ ngữ cảnh.
 
 Các thay đổi gần đây đã được thực hiện để tối ưu hóa hiệu suất ghi vào Volume Server:
 - **Tăng kích thước buffer `fsync`**: Đã tăng ngưỡng kích thước buffer trước khi thực hiện `fsync` từ 4MB lên 16MB trong `weed/storage/volume_write.go` để giảm tần suất ghi vật lý xuống đĩa.
@@ -13,3 +13,6 @@ Việc sử dụng `NeedleMapKindMemory` cho thấy `needle map` không phải l
 **Trạng thái hiện tại**: Đã tối ưu hóa hiệu suất ghi. Đã tạo nhiều `DiskLocation` nhưng tốc độ ghi không cải thiện, cho thấy vấn đề có thể nằm ở việc phân phối tải ghi trên các `Volume` để tận dụng CPU đa luồng.
 **Thay đổi gần đây**: Tăng kích thước buffer `fsync` và dung lượng `asyncRequestsChan`.
 **Bước tiếp theo**: Để tận dụng tối đa CPU đa luồng, giải pháp chính là đảm bảo các yêu cầu ghi được phân phối rộng rãi trên nhiều `Volume` khác nhau. Điều này có thể đạt được bằng cách tăng số lượng `Volume` đang hoạt động và kiểm tra/tăng mức độ song song hóa của ứng dụng client. Giám sát phân phối tải ghi sẽ giúp xác định hiệu quả của giải pháp này.
+
+**Thông tin bổ sung**: 
+- Filer Server được khởi tạo trong hàm `NewFilerServer` trong tệp `weed/server/filer_server.go`. Hàm này được gọi từ hàm `startFiler` trong tệp `weed/command/filer.go`.

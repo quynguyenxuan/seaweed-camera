@@ -2338,6 +2338,7 @@ function createAccessKeysManagementContent(accessKeys) {
                         <th>Access Key</th>
                         <th>Secret Key</th>
                         <th>Created</th>
+                        <th>Expiration</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -2357,6 +2358,8 @@ function createAccessKeysManagementContent(accessKeys) {
                                 </button>
                             </td>
                             <td>${new Date(key.created_at).toLocaleDateString()}</td>
+                            <td>${new Date(key.expiration).toLocaleDateString()}</td>
+
                             <td>
                                 <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteAccessKey('${key.access_key}')">
                                     <i class="fas fa-trash"></i>
@@ -2486,6 +2489,12 @@ function showNewAccessKeyModal(accessKeyData) {
                 <button class="btn btn-outline-secondary" onclick="copyToClipboard('${accessKeyData.secret_key}')">
                     <i class="fas fa-copy"></i>
                 </button>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label"><strong>Expiration:</strong></label>
+            <div class="input-group">
+                <input type="datetime" class="form-control" value="${accessKeyData.expiration}">
             </div>
         </div>
     `;
