@@ -1,4 +1,4 @@
-FROM chrislusf/rocksdb_dev_env as builder
+FROM chrislusf/seaweedfs:rocksdb_v10.5.1_seaweedfs_3.97 as builder
 
 # build SeaweedFS
 RUN mkdir -p /go/src/github.com/seaweedfs/

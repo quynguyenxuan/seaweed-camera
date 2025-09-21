@@ -16,3 +16,4 @@ Việc sử dụng `NeedleMapKindMemory` cho thấy `needle map` không phải l
 
 **Thông tin bổ sung**: 
 - Filer Server được khởi tạo trong hàm `NewFilerServer` trong tệp `weed/server/filer_server.go`. Hàm này được gọi từ hàm `startFiler` trong tệp `weed/command/filer.go`.
+- **Lưu ý quan trọng**: Nhiều Volume Server KHÔNG ĐƯỢC PHÉP dùng chung một thư mục lưu trữ (`dir`). Mỗi Volume Server phải sử dụng các thư mục riêng biệt.
