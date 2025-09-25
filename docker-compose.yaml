@@ -2,17 +2,17 @@ version: '3.7'
 services:
   go-api:
     hostname: go-api
-    container_name: go-api
+    # container_name: go-api
     # image: xuanquynguyen/seaweedfs:1.13-rocksdb_3.90
     # command:  ["-v=1","server", "-volume.max=250", "-dir=/mnt/seaweedfs",  "-master.volumeSizeLimitMB=100", "-master.port=9221", "-filer.filerGroup=default", "-s3", "-s3.config","/etc/seaweedfs/s3.json", '-iam']
     
     # network_mode: "host"
     image: cosmtrek/air
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile.rocksdb_large_local_dev
-      network: "host"
-    restart: always
+    # build:
+    #   context: .
+    #   dockerfile: ./docker/Dockerfile.rocksdb_large_local_dev
+    #   network: "host"
+    # restart: always
     environment:
       - TZ=Asia/Ho_Chi_Minh
       - VOLUME_SPLIT_IN_SECONDS=60
