@@ -57,7 +57,7 @@ func (ms *MasterServer) UnRegisterUuids(ip string, port int) {
 	defer ms.Topo.UuidAccessLock.Unlock()
 	key := fmt.Sprintf("%s:%d", ip, port)
 	delete(ms.Topo.UuidMap, key)
-	glog.V(0).Infof("remove volume server %v, online volume server: %v", key, ms.Topo.UuidMap)
+	glog.V(0).Infof("remove volume server %v, online %d volume server: %v", key, len(ms.Topo.UuidMap), ms.Topo.UuidMap)
 }
 
 func (ms *MasterServer) SendHeartbeat(stream master_pb.Seaweed_SendHeartbeatServer) error {
@@ -87,7 +87,7 @@ func (ms *MasterServer) SendHeartbeat(stream master_pb.Seaweed_SendHeartbeatServ
 			// if the volume server disconnects and reconnects quickly
 			//  the unregister and register can race with each other
 			ms.Topo.UnRegisterDataNode(dn)
-			glog.V(0).Infof("unregister disconnected volume server %s:%d", dn.Ip, dn.Port)
+			glog.V(0).Infof("unregister disconnected volume server %s %s:%d", dn.PublicUrl, dn.Ip, dn.Port)
 			ms.UnRegisterUuids(dn.Ip, dn.Port)
 
 			if ms.Topo.IsLeader() && (len(message.DeletedVids) > 0 || len(message.DeletedEcVids) > 0) {

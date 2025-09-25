@@ -289,9 +289,14 @@ func (iam *IdentityAccessManagement) doesSignatureMatch(hashedPayload string, r 
 			return identity, errCode
 		}
 	}
-
+	//QUYNGUYEN add
+	urlPath := req.URL.Path
+	if forwardedPath := req.Header.Get("X-Forwarded-Path"); forwardedPath != "" {
+		urlPath = forwardedPath
+	}
+	//QUYNGUYEN end
 	// Try normal signature verification (without prefix)
-	errCode = iam.verifySignatureWithPath(extractedSignedHeaders, hashedPayload, queryStr, req.URL.Path, req.Method, foundCred.SecretKey, t, signV4Values, req.Header)
+	errCode = iam.verifySignatureWithPath(extractedSignedHeaders, hashedPayload, queryStr, urlPath, req.Method, foundCred.SecretKey, t, signV4Values)
 	if errCode == s3err.ErrNone {
 		return identity, errCode
 	}
@@ -300,12 +305,7 @@ func (iam *IdentityAccessManagement) doesSignatureMatch(hashedPayload string, r 
 }
 
 // verifySignatureWithPath verifies signature with a given path (used for both normal and prefixed paths).
-func (iam *IdentityAccessManagement) verifySignatureWithPath(extractedSignedHeaders http.Header, hashedPayload, queryStr, urlPath, method, secretKey string, t time.Time, signV4Values signValues, header http.Header) s3err.ErrorCode {
-	//QUYNGUYEN add
-	if forwardedPath := header.Get("X-Forwarded-Path"); forwardedPath != "" {
-		urlPath = forwardedPath
-	}
-	//QUYNGUYEN end
+func (iam *IdentityAccessManagement) verifySignatureWithPath(extractedSignedHeaders http.Header, hashedPayload, queryStr, urlPath, method, secretKey string, t time.Time, signV4Values signValues) s3err.ErrorCode {
 	// Get canonical request.
 	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, hashedPayload, queryStr, urlPath, method)
 

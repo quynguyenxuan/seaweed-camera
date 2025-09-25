@@ -1,0 +1,9 @@
+# FROM amazoncorretto:25.0.0-alpine
+FROM eclipse-temurin:21-alpine
+# RUN apt-get update && apt-get install -y bash jq
+
+RUN apk add --no-cache bash jq curl
+RUN mkdir -p /app/bin
+RUN wget -c --tries=5 --timeout=30 https://github.com/keycloak/keycloak/releases/download/26.3.4/keycloak-26.3.4.tar.gz; tar -xzf keycloak-26.3.4.tar.gz -C /app;
+RUN rm -rf keycloak-26.3.4.tar.gz
+ENV PATH="${PATH}:/app/keycloak-26.3.4/bin"
