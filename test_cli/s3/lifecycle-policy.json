@@ -1,13 +1,13 @@
 {
   "Rules": [
     {
-      "ID": "ExpireAllObjectsAfter30Days",
+      "ID": "ExpireAllObjectsAfter1Days",
       "Filter": {
         "Prefix": ""
       },
       "Status": "Enabled",
       "Expiration": {
-        "Days": 30
+        "Days": 1
       }
     }
   ]

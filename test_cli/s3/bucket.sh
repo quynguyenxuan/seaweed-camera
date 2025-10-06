@@ -11,7 +11,7 @@
 # * GetBucketCors
 # * PutBucketCors
 # * DeleteBucketCors
-bash source ../.env
+. ../.env
 export AWS_ACCESS_KEY_ID="some_access_key1"
 export AWS_SECRET_ACCESS_KEY="some_secret_key1"
 # PutBucket

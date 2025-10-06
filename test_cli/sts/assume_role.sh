@@ -1,5 +1,5 @@
 #!/bin/bash
-bash source ../.env
+. ../.env
 #!/bin/bash
 # quick-sts.sh - Script ngắn gọn tạo Role, AssumeRole và lưu profile
 

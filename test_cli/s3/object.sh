@@ -1,4 +1,4 @@
-bash source ../.env
+. ../.env
 // Object operations
 # * PutObject
 # * GetObject
