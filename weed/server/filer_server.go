@@ -253,4 +253,13 @@ func (fs *FilerServer) Reload() {
 	util.LoadConfiguration("security", false)
 	v := util.GetViper()
 	fs.filerGuard.UpdateWhiteList(util.StringSplit(v.GetString("guard.white_list"), ","))
+	//QUYNGUYEN add to reload filer store when dir change
+	isFresh := fs.filer.LoadConfiguration(v)
+	if isFresh {
+		glog.V(0).Infof("%s bootstrap from peers %+v", fs.option.Host, existingNodes)
+		if err := fs.filer.MaybeBootstrapFromOnePeer(fs.option.Host, existingNodes, startFromTime); err != nil {
+			glog.Fatalf("%s bootstrap from %+v: %v", fs.option.Host, existingNodes, err)
+		}
+	}
+	//QUYNGUYEN end
 }
