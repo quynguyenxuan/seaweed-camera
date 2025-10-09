@@ -116,7 +116,7 @@ require (
 	modernc.org/b v1.0.0 // indirect
 	modernc.org/mathutil v1.7.1
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.38.2
+	modernc.org/sqlite v1.39.0
 	modernc.org/strutil v1.2.1
 )
 
@@ -150,7 +150,7 @@ require (
 	github.com/parquet-go/parquet-go v0.25.1
 	github.com/pkg/sftp v1.13.9
 	github.com/rabbitmq/amqp091-go v1.10.0
-	github.com/rclone/rclone v1.71.0
+	github.com/rclone/rclone v1.71.1
 	github.com/rdleal/intervalst v1.5.0
 	github.com/redis/go-redis/v9 v9.12.1
 	github.com/schollz/progressbar/v3 v3.18.0
@@ -159,7 +159,7 @@ require (
 	github.com/tikv/client-go/v2 v2.0.7
 	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.5.0
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.113.5
-	go.etcd.io/etcd/client/pkg/v3 v3.6.4
+	go.etcd.io/etcd/client/pkg/v3 v3.6.5
 	go.uber.org/atomic v1.11.0
 	golang.org/x/sync v0.17.0
 	golang.org/x/tools/godoc v0.1.0-deprecated
