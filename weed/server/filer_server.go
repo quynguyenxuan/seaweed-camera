@@ -256,6 +256,8 @@ func (fs *FilerServer) Reload() {
 	//QUYNGUYEN add to reload filer store when dir change
 	isFresh := fs.filer.LoadConfiguration(v)
 	if isFresh {
+		existingNodes := fs.filer.ListExistingPeerUpdates(context.Background())
+		startFromTime := time.Now().Add(-filer.LogFlushInterval)
 		glog.V(0).Infof("%s bootstrap from peers %+v", fs.option.Host, existingNodes)
 		if err := fs.filer.MaybeBootstrapFromOnePeer(fs.option.Host, existingNodes, startFromTime); err != nil {
 			glog.Fatalf("%s bootstrap from %+v: %v", fs.option.Host, existingNodes, err)

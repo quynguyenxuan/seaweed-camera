@@ -98,11 +98,9 @@ func (vs *VolumeServer) heartbeat() {
 }
 
 func (vs *VolumeServer) StopHeartbeat() (isAlreadyStopping bool) {
-	//QUYNGUYEN alway stop
-	// if !vs.isHeartbeating {
-	// 	return true
-	// }
-	//QUYNGUYEN end
+	if !vs.isHeartbeating {
+		return true
+	}
 	vs.isHeartbeating = false
 	close(vs.stopChan)
 	return false

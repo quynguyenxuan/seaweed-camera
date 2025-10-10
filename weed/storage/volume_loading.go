@@ -133,7 +133,10 @@ func (v *Volume) load(alsoLoadIndex bool, createDatIfMissing bool, needleMapKind
 		}
 		// check volume idx files
 		if err := v.checkIdxFile(); err != nil {
-			glog.Fatalf("check volume idx file %s: %v", v.FileName(".idx"), err)
+			//QUNGUYEN avoid missing idx
+			// glog.Fatalf("check volume idx file %s: %v", v.FileName(".idx"), err)
+			return fmt.Errorf("check volume idx file %s: %v", v.FileName(".idx"), err)
+			//QUYNGUYEN end
 		}
 		var indexFile *os.File
 		if v.noWriteOrDelete {

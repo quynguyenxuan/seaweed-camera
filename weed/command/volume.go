@@ -292,14 +292,19 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 	stopChan := make(chan bool)
 	grace.OnInterrupt(func() {
 		fmt.Println("volume server has been killed")
-
+		//QUYNGUYEN alway stop
+		volumeServer.StopHeartbeat()
+		volumeServer.SetStopping()
+		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
+		time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
 		// Stop heartbeats
-		if !volumeServer.StopHeartbeat() {
-			volumeServer.SetStopping()
-			glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
-			time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
-		}
-
+		// if !volumeServer.StopHeartbeat() {
+		// 	volumeServer.SetStopping()
+		// 	glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
+		// 	time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
+		// }
+		glog.V(0).Infof("Shutting down volume server")
+		//QUYNGUYEN end
 		shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
 		stopChan <- true
 	})
