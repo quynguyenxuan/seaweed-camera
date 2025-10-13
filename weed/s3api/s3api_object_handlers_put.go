@@ -20,8 +20,8 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3err"
 	"github.com/seaweedfs/seaweedfs/weed/security"
 	weed_server "github.com/seaweedfs/seaweedfs/weed/server"
-	"github.com/seaweedfs/seaweedfs/weed/util/constants"
 	stats_collect "github.com/seaweedfs/seaweedfs/weed/stats"
+	"github.com/seaweedfs/seaweedfs/weed/util/constants"
 )
 
 // Object lock validation errors
@@ -385,6 +385,9 @@ func filerErrorToS3Error(errString string) s3err.ErrorCode {
 	switch {
 	case errString == constants.ErrMsgBadDigest:
 		return s3err.ErrBadDigest
+	case strings.Contains(errString, "context canceled") || strings.Contains(errString, "code = Canceled"):
+		// Client canceled the request, return client error not server error
+		return s3err.ErrInvalidRequest
 	case strings.HasPrefix(errString, "existing ") && strings.HasSuffix(errString, "is a directory"):
 		return s3err.ErrExistingObjectIsDirectory
 	case strings.HasSuffix(errString, "is a file"):
