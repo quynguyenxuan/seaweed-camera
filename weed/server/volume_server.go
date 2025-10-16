@@ -157,14 +157,7 @@ func (vs *VolumeServer) LoadNewVolumes() {
 
 func (vs *VolumeServer) Shutdown() {
 	glog.V(0).Infoln("Shutting down volume server...")
-
-	const storeCloseTimeout = 30 * time.Second
-	if err := util.Execute(func() error { vs.store.Close(); return nil }, storeCloseTimeout); err != nil {
-		glog.Warningf("Store close failed: %v", err)
-	} else {
-		glog.V(0).Infoln("Store closed successfully.")
-	}
-
+	util.RunWithTimeout(func() error { vs.store.Close(); return nil }, 2*time.Second)
 	glog.V(0).Infoln("Shut down successfully!")
 }
 

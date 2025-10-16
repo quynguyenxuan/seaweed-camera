@@ -293,10 +293,8 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 	grace.OnInterrupt(func() {
 		fmt.Println("volume server has been killed")
 		//QUYNGUYEN alway stop
-		util.Execute(func() error {
-			volumeServer.StopHeartbeat()
-			volumeServer.SetStopping()
-		}, 5*time.Second)
+		util.RunWithTimeout(func() error { volumeServer.StopHeartbeat(); return nil }, 1*time.Second)
+		util.RunWithTimeout(func() error { volumeServer.SetStopping(); return nil }, 2*time.Second)
 		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
 		time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
 		// Stop heartbeats
@@ -313,6 +311,8 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 
 	select {
 	case <-stopChan:
+		return
+	default:
 	}
 
 }
@@ -333,7 +333,8 @@ func shutdown(publicHttpDown httpdown.Server, clusterHttpServer httpdown.Server,
 	}
 
 	glog.V(0).Infof("graceful stop gRPC ...")
-	grpcS.GracefulStop()
+	// grpcS.GracefulStop()
+	util.RunWithTimeout(func() error { grpcS.GracefulStop(); return nil }, 2*time.Second)
 
 	volumeServer.Shutdown()
 

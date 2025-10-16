@@ -5,17 +5,21 @@ import (
 	"time"
 )
 
-// Execute executes a function that returns an error with a specified timeout.
-func Execute(fn func() error, timeout time.Duration) error {
-	done := make(chan error, 1)
+func RunWithTimeout(fn func() error, timeout time.Duration) error {
+	errCh := make(chan error, 1)
+
 	go func() {
-		done <- fn()
+		defer close(errCh)
+		errCh <- fn()
 	}()
 
 	select {
-	case err := <-done:
+	case err, ok := <-errCh:
+		if !ok {
+			return fmt.Errorf("channel closed")
+		}
 		return err
 	case <-time.After(timeout):
-		return fmt.Errorf("operation timed out after %v", timeout)
+		return fmt.Errorf("timeout after %v", timeout)
 	}
 }
