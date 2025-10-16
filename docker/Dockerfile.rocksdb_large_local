@@ -10,8 +10,8 @@ RUN ls -al /go/src/github.com/seaweedfs/ && \
   # && export LDFLAGS="-X github.com/seaweedfs/seaweedfs/weed/util/version.COMMIT=$(git rev-parse --short HEAD)" \
   # && go install -tags "5BytesOffset rocksdb" -ldflags "-extldflags -static ${LDFLAGS}"
 
-FROM alpine:3.22.2 AS pkg
-RUN apk add fuse snappy gflags tmux nfs-utils
+FROM alpine:3.22.1 AS pkg
+RUN apk add fuse snappy gflags tmux nfs-utils rsync inotify-tools
 
 FROM pkg AS final
 LABEL author="Chris Lu"

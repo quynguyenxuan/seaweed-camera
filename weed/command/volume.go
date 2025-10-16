@@ -293,8 +293,10 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 	grace.OnInterrupt(func() {
 		fmt.Println("volume server has been killed")
 		//QUYNGUYEN alway stop
-		volumeServer.StopHeartbeat()
-		volumeServer.SetStopping()
+		util.Execute(func() error {
+			volumeServer.StopHeartbeat()
+			volumeServer.SetStopping()
+		}, 5*time.Second)
 		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
 		time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
 		// Stop heartbeats
