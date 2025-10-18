@@ -106,6 +106,14 @@ func (vs *VolumeServer) StopHeartbeat() (isAlreadyStopping bool) {
 	return false
 }
 
+// QUYNGUYEN add
+func (vs *VolumeServer) ForceStopHeartbeat() (isAlreadyStopping bool) {
+	vs.isHeartbeating = false
+	close(vs.stopChan)
+	// time.Sleep(2 * time.Second)
+	return false
+}
+
 func (vs *VolumeServer) doHeartbeat(masterAddress pb.ServerAddress, grpcDialOption grpc.DialOption, sleepInterval time.Duration) (newLeader pb.ServerAddress, err error) {
 	return vs.doHeartbeatWithRetry(masterAddress, grpcDialOption, sleepInterval, 0)
 }
@@ -309,4 +317,67 @@ func (vs *VolumeServer) doHeartbeatWithRetry(masterAddress pb.ServerAddress, grp
 			return
 		}
 	}
+}
+
+func (vs *VolumeServer) LastHeartbeat() {
+	glog.V(0).Infof("Volume server start with seed master nodes: %v", vs.SeedMasterNodes)
+	vs.store.SetDataCenter(vs.dataCenter)
+	vs.store.SetRack(vs.rack)
+
+	grpcDialOption := security.LoadClientTLS(util.GetViper(), "grpc.volume")
+
+	var newLeader pb.ServerAddress
+	for _, master := range vs.SeedMasterNodes {
+		if newLeader != "" {
+			// the new leader may actually is the same master
+			// need to wait a bit before adding itself
+			time.Sleep(3 * time.Second)
+			master = newLeader
+		}
+		vs.store.MasterAddress = master
+		vs.doLastHeartbeat(master, grpcDialOption)
+	}
+}
+func (vs *VolumeServer) doLastHeartbeat(masterAddress pb.ServerAddress, grpcDialOption grpc.DialOption) (err error) {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	grpcConnection, err := pb.GrpcDial(ctx, masterAddress.ToGrpcAddress(), false, grpcDialOption)
+	if err != nil {
+		return fmt.Errorf("fail to dial %s : %v", masterAddress, err)
+	}
+	defer grpcConnection.Close()
+
+	client := master_pb.NewSeaweedClient(grpcConnection)
+	stream, err := client.SendHeartbeat(ctx)
+	if err != nil {
+		glog.V(0).Infof("SendHeartbeat to %s: %v", masterAddress, err)
+		return err
+	}
+	glog.V(0).Infof("Heartbeat to: %v", masterAddress)
+	vs.currentMaster = masterAddress
+
+	dataCenter := vs.store.GetDataCenter()
+	rack := vs.store.GetRack()
+	ip := vs.store.Ip
+	port := uint32(vs.store.Port)
+
+	var volumeMessages []*master_pb.VolumeInformationMessage
+	emptyBeat := &master_pb.Heartbeat{
+		Ip:           ip,
+		Port:         port,
+		PublicUrl:    vs.store.PublicUrl,
+		MaxFileKey:   uint64(0),
+		DataCenter:   dataCenter,
+		Rack:         rack,
+		Volumes:      volumeMessages,
+		HasNoVolumes: len(volumeMessages) == 0,
+	}
+	glog.V(1).Infof("volume server %s:%d stops and deletes all volumes", vs.store.Ip, vs.store.Port)
+	if err = stream.Send(emptyBeat); err != nil {
+		glog.V(0).Infof("Volume Server Failed to update to master %s: %v", masterAddress, err)
+		return err
+	}
+	return
 }

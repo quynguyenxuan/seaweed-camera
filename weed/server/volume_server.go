@@ -148,6 +148,8 @@ func NewVolumeServer(adminMux, publicMux *http.ServeMux, ip string,
 func (vs *VolumeServer) SetStopping() {
 	glog.V(0).Infoln("Stopping volume server...")
 	vs.store.SetStopping()
+	glog.V(0).Infoln("Stopping volume server successfully!")
+
 }
 
 func (vs *VolumeServer) LoadNewVolumes() {
@@ -157,7 +159,7 @@ func (vs *VolumeServer) LoadNewVolumes() {
 
 func (vs *VolumeServer) Shutdown() {
 	glog.V(0).Infoln("Shutting down volume server...")
-	util.RunWithTimeout(func() error { vs.store.Close(); return nil }, 2*time.Second)
+	vs.store.Close()
 	glog.V(0).Infoln("Shut down successfully!")
 }
 

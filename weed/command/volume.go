@@ -293,8 +293,9 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 	grace.OnInterrupt(func() {
 		fmt.Println("volume server has been killed")
 		//QUYNGUYEN alway stop
-		util.RunWithTimeout(func() error { volumeServer.StopHeartbeat(); return nil }, 1*time.Second)
-		util.RunWithTimeout(func() error { volumeServer.SetStopping(); return nil }, 2*time.Second)
+		util.RunWithTimeout(func() error { volumeServer.ForceStopHeartbeat(); return nil }, 1*time.Second)
+		util.RunWithTimeout(func() error { volumeServer.LastHeartbeat(); return nil }, 2*time.Second)
+		// util.RunWithTimeout(func() error { volumeServer.SetStopping(); return nil }, 2*time.Second)
 		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
 		time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
 		// Stop heartbeats
@@ -311,8 +312,6 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 
 	select {
 	case <-stopChan:
-		return
-	default:
 	}
 
 }
@@ -322,23 +321,22 @@ func shutdown(publicHttpDown httpdown.Server, clusterHttpServer httpdown.Server,
 	// firstly, stop the public http service to prevent from receiving new user request
 	if nil != publicHttpDown {
 		glog.V(0).Infof("stop public http server ... ")
-		if err := publicHttpDown.Stop(); err != nil {
+		if err := util.RunWithTimeout(func() error { return publicHttpDown.Stop() }, 3*time.Second); err != nil {
 			glog.Warningf("stop the public http server failed, %v", err)
 		}
 	}
 
 	glog.V(0).Infof("graceful stop cluster http server ... ")
-	if err := clusterHttpServer.Stop(); err != nil {
+	if err := util.RunWithTimeout(func() error { return clusterHttpServer.Stop() }, 3*time.Second); err != nil {
 		glog.Warningf("stop the cluster http server failed, %v", err)
 	}
 
 	glog.V(0).Infof("graceful stop gRPC ...")
 	// grpcS.GracefulStop()
 	util.RunWithTimeout(func() error { grpcS.GracefulStop(); return nil }, 2*time.Second)
-
-	volumeServer.Shutdown()
-
+	util.RunWithTimeout(func() error { volumeServer.Shutdown(); return nil }, 10*time.Second)
 	pprof.StopCPUProfile()
+	os.Exit(0)
 
 }
 
