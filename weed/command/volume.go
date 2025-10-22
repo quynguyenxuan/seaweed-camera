@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	httppprof "net/http/pprof"
@@ -293,9 +294,15 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 	grace.OnInterrupt(func() {
 		fmt.Println("volume server has been killed")
 		//QUYNGUYEN alway stop
-		util.RunWithTimeout(func() error { volumeServer.ForceStopHeartbeat(); return nil }, 1*time.Second)
-		util.RunWithTimeout(func() error { volumeServer.LastHeartbeat(); return nil }, 2*time.Second)
-		// util.RunWithTimeout(func() error { volumeServer.SetStopping(); return nil }, 2*time.Second)
+		volumeServer.StopHeartbeat()
+		// glog.Fatalf("Force stop volume server")
+
+		// util.RunWithTimeout(func() error { volumeServer.LastHeartbeat(); return nil }, 2*time.Second)
+		err := util.RunWithContextTimeout(func(ctx context.Context) error { volumeServer.SetStopping(); return nil }, 10*time.Second)
+		if err != nil {
+			glog.Warningf("Stop volume server failed %v", err)
+			// glog.Fatalf("Force stop volume server")
+		}
 		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
 		time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
 		// Stop heartbeats
@@ -307,6 +314,13 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 		glog.V(0).Infof("Shutting down volume server")
 		//QUYNGUYEN end
 		shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
+		if err == nil {
+			err = util.RunWithContextTimeout(func(ctx context.Context) error { volumeServer.Shutdown(); return nil }, 10*time.Second)
+			if err != nil {
+				glog.Warningf("Shutdown volume server failed %v", err)
+			}
+		}
+
 		stopChan <- true
 	})
 
@@ -321,22 +335,19 @@ func shutdown(publicHttpDown httpdown.Server, clusterHttpServer httpdown.Server,
 	// firstly, stop the public http service to prevent from receiving new user request
 	if nil != publicHttpDown {
 		glog.V(0).Infof("stop public http server ... ")
-		if err := util.RunWithTimeout(func() error { return publicHttpDown.Stop() }, 3*time.Second); err != nil {
+		if err := publicHttpDown.Stop(); err != nil {
 			glog.Warningf("stop the public http server failed, %v", err)
 		}
 	}
 
 	glog.V(0).Infof("graceful stop cluster http server ... ")
-	if err := util.RunWithTimeout(func() error { return clusterHttpServer.Stop() }, 3*time.Second); err != nil {
+	if err := clusterHttpServer.Stop(); err != nil {
 		glog.Warningf("stop the cluster http server failed, %v", err)
 	}
 
 	glog.V(0).Infof("graceful stop gRPC ...")
-	// grpcS.GracefulStop()
-	util.RunWithTimeout(func() error { grpcS.GracefulStop(); return nil }, 2*time.Second)
-	util.RunWithTimeout(func() error { volumeServer.Shutdown(); return nil }, 10*time.Second)
+	grpcS.GracefulStop()
 	pprof.StopCPUProfile()
-	os.Exit(0)
 
 }
 

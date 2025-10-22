@@ -29,6 +29,9 @@ full_install: admin-generate
 server: install
 	weed -v 0 server -s3 -filer -filer.maxMB=64 -volume.max=0 -master.volumeSizeLimitMB=100 -volume.preStopSeconds=1 -s3.port=8000 -s3.allowEmptyFolder=false -s3.allowDeleteBucketNotEmpty=true -s3.config=./docker/compose/s3.json -metricsPort=9324
 
+server1: 
+	go run ./weed/main.go -v 0 server -s3 -filer -filer.maxMB=64 -volume.max=0 -master.volumeSizeLimitMB=100 -volume.preStopSeconds=1 -s3.port=8000 -s3.allowEmptyFolder=false -s3.allowDeleteBucketNotEmpty=true -s3.config=./docker/compose/s3.json -metricsPort=9324
+
 benchmark: install warp_install
 	pkill weed || true
 	pkill warp || true
@@ -78,3 +81,29 @@ admin-fmt:
 admin-help:
 	@echo "Admin component help..."
 	@cd $(ADMIN_DIR) && $(MAKE) help
+server-docker:
+	docker run --rm \
+	-v "./:/app" \
+	-w /app \
+	-p 9333:9333 \
+	-p 19333:19333 \
+	--name seaweedfs \
+	golang:1.24 \
+	go run /app/weed/weed.go \
+	-v 0 server -s3 -filer.maxMB=64 -volume.max=0 \
+	-master.volumeSizeLimitMB=100 \
+	-volume.preStopSeconds=1 \
+	-master.defaultReplication=000 \
+	-volume.dir=/mnt/dc1/volumes/volume_12/v2 
+
+server-volume:
+	docker run --rm \
+	-v "./:/app" \
+	-w /app \
+	--name seaweedfs-volume \
+	golang:1.24 \
+	go run /app/weed/weed.go \
+	-v 0 volume \
+	-max=0 \
+	-preStopSeconds=1 \
+	-dir=/mnt/dc1/volumes/volume_12/v3 \

@@ -1,5 +1,9 @@
  
 
+warp put --duration=1h      --host=localhost:8334     --obj.size=1M     --obj.randsize=false     --obj.nametemplate="bbb_%d%s_$(date +'%y%m%d%H%M%S')_2343234234.m3u8"     --bucket=aaa     --concurrent=1000     --noprefix     --noclear     --prefix=aaa
+
+go run weed.go -v=1  volume -dir=/mnt/dc1/volumes/volume_12/v2 -preStopSeconds=3 -max=1
+
 do_put() {
     go run /mnt/nvme0n1p6/warp put --duration=1s \
     --host=127.0.0.1:8233 \

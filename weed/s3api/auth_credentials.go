@@ -439,7 +439,7 @@ func (iam *IdentityAccessManagement) GetAccountIdByEmail(email string) string {
 
 func (iam *IdentityAccessManagement) Auth(f http.HandlerFunc, action Action) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Iam auth")
+		// log.Println("Iam auth")
 		if !iam.isEnabled() {
 			f(w, r)
 			return

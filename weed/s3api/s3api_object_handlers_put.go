@@ -135,7 +135,7 @@ func (s3a *S3ApiServer) PutObjectHandler(w http.ResponseWriter, r *http.Request)
 		versioningEnabled := (versioningState == s3_constants.VersioningEnabled)
 		versioningConfigured := (versioningState != "")
 
-		glog.V(0).Infof("PutObjectHandler: bucket=%s, object=%s, versioningState='%s', versioningEnabled=%v, versioningConfigured=%v", bucket, object, versioningState, versioningEnabled, versioningConfigured)
+		// glog.V(0).Infof("PutObjectHandler: bucket=%s, object=%s, versioningState='%s', versioningEnabled=%v, versioningConfigured=%v", bucket, object, versioningState, versioningEnabled, versioningConfigured)
 
 		// Validate object lock headers before processing
 		if err := s3a.validateObjectLockHeaders(r, versioningEnabled); err != nil {

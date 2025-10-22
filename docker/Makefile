@@ -43,8 +43,8 @@ build_rocksdb_local: build_rocksdb_dev_env
 	cd .. ; docker build --network=host  -t chrislusf/seaweedfs:rocksdb_local -f docker/Dockerfile.rocksdb_large_local .
 
 build_rocksdb_local_sun: build_rocksdb_dev_env
-	cd .. ; docker build --network=host -t xuanquynguyen/sunfs:1.0.15-rocksdb_3.97 -f docker/Dockerfile.rocksdb_large_local .
-	docker push xuanquynguyen/sunfs:1.0.15-rocksdb_3.97
+	cd .. ; docker build --network=host -t xuanquynguyen/sunfs:1.0.22-rocksdb_3.97 -f docker/Dockerfile.rocksdb_large_local .
+	docker push xuanquynguyen/sunfs:1.0.22-rocksdb_3.97
 
 build_keycload_setup: 
 	docker build --network=host -t xuanquynguyen/keycloak_setup:1.0.4 -f Dockerfile.keycloak_setup .
@@ -148,3 +148,5 @@ certstrap:
 	certstrap --depot-path compose/tls sign --CA "SeaweedFS CA" master01.dev || true
 	certstrap --depot-path compose/tls sign --CA "SeaweedFS CA" filer01.dev || true
 	certstrap --depot-path compose/tls sign --CA "SeaweedFS CA" client01.dev || true
+
+
