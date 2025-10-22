@@ -50,7 +50,7 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12
 	github.com/karlseguin/ccache/v2 v2.0.8
-	github.com/klauspost/compress v1.18.0
+	github.com/klauspost/compress v1.18.1
 	github.com/klauspost/reedsolomon v1.12.5
 	github.com/kurin/blazer v0.5.3
 	github.com/linxGnu/grocksdb v1.10.1
@@ -96,13 +96,13 @@ require (
 	gocloud.dev v0.43.0
 	gocloud.dev/pubsub/natspubsub v0.43.0
 	gocloud.dev/pubsub/rabbitpubsub v0.43.0
-	golang.org/x/crypto v0.42.0
+	golang.org/x/crypto v0.43.0
 	golang.org/x/exp v0.0.0-20250811191247-51f88131bc50
-	golang.org/x/image v0.30.0
-	golang.org/x/net v0.44.0
+	golang.org/x/image v0.32.0
+	golang.org/x/net v0.45.0
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/sys v0.36.0
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/sys v0.37.0
+	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/tools v0.37.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/api v0.247.0
@@ -129,7 +129,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.31.3
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.10
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.3
-	github.com/cockroachdb/cockroachdb-parser v0.25.2
 	github.com/cognusion/imaging v1.0.2
 	github.com/fluent/fluent-logger-golang v1.10.1
 	github.com/getsentry/sentry-go v0.35.3
@@ -152,7 +151,7 @@ require (
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/rclone/rclone v1.71.1
 	github.com/rdleal/intervalst v1.5.0
-	github.com/redis/go-redis/v9 v9.14.0
+	github.com/redis/go-redis/v9 v9.14.1
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/shirou/gopsutil/v4 v4.25.9
 	github.com/tarantool/go-tarantool/v2 v2.4.0
@@ -401,6 +400,7 @@ require (
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/samber/lo v1.51.0 // indirect
+	github.com/seaweedfs/cockroachdb-parser v0.0.0-20251021184156-909763b17138
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/smartystreets/goconvey v1.8.1 // indirect
 	github.com/sony/gobreaker v1.0.0 // indirect
@@ -445,7 +445,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.20.0 // indirect
-	golang.org/x/term v0.35.0 // indirect
+	golang.org/x/term v0.36.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250818200422-3122310a409c // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
@@ -463,5 +463,8 @@ require (
 	storj.io/picobuf v0.0.4 // indirect
 	storj.io/uplink v1.13.1 // indirect
 )
+
+// Use the seaweedfs fork of cockroachdb-parser to fix cross-platform build issues
+replace github.com/cockroachdb/cockroachdb-parser => github.com/seaweedfs/cockroachdb-parser v0.0.0-20251021182748-d0c58c67297e
 
 // replace github.com/seaweedfs/raft => /Users/chrislu/go/src/github.com/seaweedfs/raft
