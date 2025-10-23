@@ -6,6 +6,7 @@ import (
 	"net/http"
 	httppprof "net/http/pprof"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -278,13 +279,15 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 	var publicHttpDown httpdown.Server
 	if v.isSeparatedPublicPort() {
 		publicHttpDown = v.startPublicHttpService(publicVolumeMux)
-		if nil == publicHttpDown {
-			glog.Fatalf("start public http service failed")
-		}
+		// if nil == publicHttpDown {
+		// 	glog.Fatalf("start public http service failed")
+		// }
 	}
 
 	// starting the cluster http server
 	clusterHttpServer := v.startClusterHttpService(volumeMux)
+
+	defer shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
 
 	grace.OnReload(volumeServer.LoadNewVolumes)
 	grace.OnReload(volumeServer.Reload)
@@ -292,35 +295,24 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 	stopChan := make(chan bool)
 	grace.OnInterrupt(func() {
 		fmt.Println("volume server has been killed")
-		//QUYNGUYEN alway stop
-		volumeServer.StopHeartbeat()
-		// glog.Fatalf("Force stop volume server")
-		time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
 
-		shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
-
-		// util.RunWithTimeout(func() error { volumeServer.LastHeartbeat(); return nil }, 2*time.Second)
-		err := util.RunWithContextTimeout(func(ctx context.Context) error { volumeServer.SetStopping(); return nil }, 10*time.Second)
-		if err != nil {
-			glog.Warningf("Stop volume server failed %v", err)
-			// glog.Fatalf("Force stop volume server")
-		}
 		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
 		// Stop heartbeats
-		// if !volumeServer.StopHeartbeat() {
-		// 	volumeServer.SetStopping()
-		// 	glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
-		// 	time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
-		// }
+		volumeServer.StopHeartbeat()
+		err := util.RunWithContextTimeout(func(ctx context.Context) error { volumeServer.SetStopping(); return nil }, 10*time.Second)
+		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
+		time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
+
+		if err == nil {
+			err = util.RunWithContextTimeout(func(ctx context.Context) error { volumeServer.Shutdown(); return nil }, 11*time.Second)
+		}
+		if err != nil {
+			glog.Warningf("Shutdown volume server failed %v", err)
+		}
 		glog.V(0).Infof("Shutting down volume server")
+
 		//QUYNGUYEN end
 		// shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
-		if err == nil {
-			err = util.RunWithContextTimeout(func(ctx context.Context) error { volumeServer.Shutdown(); return nil }, 10*time.Second)
-			if err != nil {
-				glog.Warningf("Shutdown volume server failed %v", err)
-			}
-		}
 
 		stopChan <- true
 	})
@@ -328,7 +320,6 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 	select {
 	case <-stopChan:
 	}
-
 }
 
 func shutdown(publicHttpDown httpdown.Server, clusterHttpServer httpdown.Server, grpcS *grpc.Server, volumeServer *weed_server.VolumeServer) {
@@ -342,14 +333,16 @@ func shutdown(publicHttpDown httpdown.Server, clusterHttpServer httpdown.Server,
 	}
 
 	glog.V(0).Infof("graceful stop cluster http server ... ")
-	if err := clusterHttpServer.Stop(); err != nil {
-		glog.Warningf("stop the cluster http server failed, %v", err)
+	if nil != clusterHttpServer {
+		if err := clusterHttpServer.Stop(); err != nil {
+			glog.Warningf("stop the cluster http server failed, %v", err)
+		}
 	}
 
 	glog.V(0).Infof("graceful stop gRPC ...")
-	util.RunWithContextTimeout(func(ctx context.Context) error { grpcS.GracefulStop(); return nil }, 10*time.Second)
-
-	// pprof.StopCPUProfile()
+	grpcS.GracefulStop()
+	pprof.StopCPUProfile()
+	glog.V(0).Infof("graceful stop gRPC completed")
 
 }
 
@@ -410,7 +403,7 @@ func (v VolumeServerOptions) startClusterHttpService(handler http.Handler) httpd
 	if e != nil {
 		glog.Fatalf("Volume server listener error:%v", e)
 	}
-	//QUYNGUYEN decrease timeout to 10 seconds
+	// QUYNGUYEN decrease timeout to 10 seconds
 	httpDown := httpdown.HTTP{
 		KillTimeout: 10 * time.Second, //time.Minute,
 		StopTimeout: 10 * time.Second,

@@ -4,13 +4,14 @@
 package grace
 
 import (
-	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"os"
 	"os/signal"
 	"reflect"
 	"runtime"
 	"sync"
 	"syscall"
+
+	"github.com/seaweedfs/seaweedfs/weed/glog"
 )
 
 var signalChan chan os.Signal
@@ -48,10 +49,10 @@ func init() {
 					func() {
 						defer func() {
 							if r := recover(); r != nil {
-								glog.Errorf("interrupt hook panic: %v", r)
+								glog.Warningf("interrupt hook panic: %v", r)
 							}
 						}()
-						glog.V(4).Infof("exec interrupt hook func name:%s", GetFunctionName(hook))
+						glog.V(0).Infof("exec interrupt hook func name:%s", GetFunctionName(hook))
 						hook()
 					}()
 				}

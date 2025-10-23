@@ -43,8 +43,8 @@ build_rocksdb_local: build_rocksdb_dev_env
 	cd .. ; docker build --network=host  -t chrislusf/seaweedfs:rocksdb_local -f docker/Dockerfile.rocksdb_large_local .
 
 build_rocksdb_local_sun: build_rocksdb_dev_env
-	cd .. ; docker build --network=host -t xuanquynguyen/sunfs:1.0.26-rocksdb_3.98 -f docker/Dockerfile.rocksdb_large_local .
-	docker push xuanquynguyen/sunfs:1.0.26-rocksdb_3.98
+	cd .. ; docker build --network=host -t xuanquynguyen/sunfs:1.0.30-rocksdb_3.98 -f docker/Dockerfile.rocksdb_large_local .
+	docker push xuanquynguyen/sunfs:1.0.30-rocksdb_3.98
 
 build_keycload_setup: 
 	docker build --network=host -t xuanquynguyen/keycloak_setup:1.0.4 -f Dockerfile.keycloak_setup .

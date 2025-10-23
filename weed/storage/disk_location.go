@@ -484,7 +484,21 @@ func (l *DiskLocation) LocalVolumesLen() int {
 	return count
 }
 
+func (l *DiskLocation) IsAvailable() bool {
+	if dir, e := filepath.Abs(l.Directory); e == nil {
+		s := stats.NewDiskStatus(dir)
+		if s.All != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (l *DiskLocation) SetStopping() {
+	// Nếu không có volume nào đang có thì không thực hiện việc đóng
+	if len(l.volumes) == 0 || !l.IsAvailable() {
+		return
+	}
 	l.volumesLock.Lock()
 	for _, v := range l.volumes {
 		v.SyncToDisk()
@@ -495,6 +509,10 @@ func (l *DiskLocation) SetStopping() {
 }
 
 func (l *DiskLocation) Close() {
+	// Nếu không có volume nào đang có thì không thực hiện việc đóng
+	if len(l.volumes) == 0 || !l.IsAvailable() {
+		return
+	}
 	l.volumesLock.Lock()
 	for _, v := range l.volumes {
 		v.Close()

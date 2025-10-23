@@ -5,6 +5,7 @@
 package httpdown
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/facebookgo/stats"
+	"github.com/seaweedfs/seaweedfs/weed/util"
 )
 
 const (
@@ -94,20 +96,21 @@ func (h HTTP) Serve(s *http.Server, l net.Listener) Server {
 		oldConnState: s.ConnState,
 		listener:     l,
 		server:       s,
-		serveDone:    make(chan struct{}),
-		serveErr:     make(chan error, 1),
-		new:          make(chan net.Conn),
-		active:       make(chan net.Conn),
-		idle:         make(chan net.Conn),
-		closed:       make(chan net.Conn),
-		stop:         make(chan chan struct{}),
-		kill:         make(chan chan struct{}),
-		certFile:     h.CertFile,
-		keyFile:      h.KeyFile,
+		//Quynguyen
+		// serveDone:    make(chan struct{}),
+		// serveErr:     make(chan error, 1),
+		// new:          make(chan net.Conn),
+		// active:       make(chan net.Conn),
+		// idle:         make(chan net.Conn),
+		// closed:       make(chan net.Conn),
+		// stop:         make(chan chan struct{}),
+		// kill:         make(chan chan struct{}),
+		certFile: h.CertFile,
+		keyFile:  h.KeyFile,
 	}
 	s.ConnState = ss.connState
-	go ss.manage()
-	go ss.serve()
+	// go ss.manage()
+	// go ss.serve()
 	return ss
 }
 
@@ -299,6 +302,15 @@ func (s *server) serve() {
 }
 
 func (s *server) Wait() error {
+	//Quynguyen add
+
+	if s.certFile == "" && s.keyFile == "" {
+		return s.server.Serve(s.listener)
+	} else {
+		return s.server.ServeTLS(s.listener, s.certFile, s.keyFile)
+	}
+	//Quynguyen end
+
 	if err := <-s.serveErr; !isUseOfClosedError(err) {
 		return err
 	}
@@ -306,6 +318,12 @@ func (s *server) Wait() error {
 }
 
 func (s *server) Stop() error {
+	s.server.SetKeepAlivesEnabled(false)
+	return util.RunWithContextTimeout(func(ctx context.Context) error {
+		s.server.Shutdown(ctx)
+		return nil
+	}, s.killTimeout)
+
 	s.stopOnce.Do(func() {
 		defer stats.BumpTime(s.stats, "stop.time").End()
 		stats.BumpSum(s.stats, "stop", 1)

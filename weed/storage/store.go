@@ -74,6 +74,7 @@ type Store struct {
 	NewEcShardsChan     chan master_pb.VolumeEcShardInformationMessage
 	DeletedEcShardsChan chan master_pb.VolumeEcShardInformationMessage
 	isStopping          bool
+	isClosing           bool //QUYNGUYEN add
 }
 
 func (s *Store) String() (str string) {
@@ -471,7 +472,32 @@ func (s *Store) deleteExpiredEcVolumes() (ecShards, deleted []*master_pb.VolumeE
 	return
 }
 
+func (s *Store) IsAvailable() bool {
+	if len(s.Locations) == 0 {
+		return false
+	}
+	if s.isStopping {
+		return false
+	}
+	availableCount := 0
+	for _, location := range s.Locations {
+		if location.IsAvailable() {
+			availableCount++
+		}
+	}
+	if availableCount == 0 {
+		return false
+	}
+	return true
+
+}
+
 func (s *Store) SetStopping() {
+	//QUYNGUYEN check if the store is already stopping
+	if s.isStopping {
+		return
+	}
+	//QUYNGUYEN end
 	s.isStopping = true
 	for _, location := range s.Locations {
 		location.SetStopping()
@@ -485,6 +511,12 @@ func (s *Store) LoadNewVolumes() {
 }
 
 func (s *Store) Close() {
+	//QUYNGUYEN check if the store is already closing
+	if s.isClosing {
+		return
+	}
+	//QUYNGUYEN end
+	s.isClosing = true
 	for _, location := range s.Locations {
 		location.Close()
 	}
