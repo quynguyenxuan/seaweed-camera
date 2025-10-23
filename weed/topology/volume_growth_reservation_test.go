@@ -81,14 +81,15 @@ func TestVolumeGrowth_ReservationBasedAllocation(t *testing.T) {
 		}
 
 		// Simulate successful volume creation
-		// Must acquire lock before accessing children map to prevent race condition
-		dn.Lock()
+		// Acquire lock briefly to access children map, then release before updating
+		dn.RLock()
 		disk := dn.children[NodeId(types.HardDriveType.String())].(*Disk)
+		dn.RUnlock()
+
 		deltaDiskUsage := &DiskUsageCounts{
 			volumeCount: 1,
 		}
 		disk.UpAdjustDiskUsageDelta(types.HardDriveType, deltaDiskUsage)
-		dn.Unlock()
 
 		// Release reservation after successful creation
 		reservation.releaseAllReservations()
@@ -138,6 +139,7 @@ func TestVolumeGrowth_ConcurrentAllocationPreventsRaceCondition(t *testing.T) {
 	const concurrentRequests = 10
 	var wg sync.WaitGroup
 	var successCount, failureCount atomic.Int32
+	var commitMutex sync.Mutex // Ensures atomic commit of volume creation + reservation release
 
 	for i := 0; i < concurrentRequests; i++ {
 		wg.Add(1)
@@ -155,18 +157,23 @@ func TestVolumeGrowth_ConcurrentAllocationPreventsRaceCondition(t *testing.T) {
 
 				// Simulate completion: increment volume count BEFORE releasing reservation
 				if reservation != nil {
+					commitMutex.Lock()
+
 					// First, increment the volume count to reflect the created volume
-					// Must acquire lock before accessing children map to prevent race condition
-					dn.Lock()
+					// Acquire lock briefly to access children map, then release before updating
+					dn.RLock()
 					disk := dn.children[NodeId(types.HardDriveType.String())].(*Disk)
+					dn.RUnlock()
+
 					deltaDiskUsage := &DiskUsageCounts{
 						volumeCount: 1,
 					}
 					disk.UpAdjustDiskUsageDelta(types.HardDriveType, deltaDiskUsage)
-					dn.Unlock()
 
 					// Then release the reservation
 					reservation.releaseAllReservations()
+
+					commitMutex.Unlock()
 				}
 			}
 		}(i)
