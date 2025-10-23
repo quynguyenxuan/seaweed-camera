@@ -32,7 +32,7 @@ func init() {
 		syscall.SIGHUP,
 		syscall.SIGINT,
 		syscall.SIGTERM,
-		// syscall.SIGQUIT,
+		syscall.SIGQUIT,
 	)
 	go func() {
 		for s := range signalChan {
@@ -45,8 +45,15 @@ func init() {
 			} else {
 				interruptHookLock.RLock()
 				for _, hook := range interruptHooks {
-					glog.V(4).Infof("exec interrupt hook func name:%s", GetFunctionName(hook))
-					hook()
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								glog.Errorf("interrupt hook panic: %v", r)
+							}
+						}()
+						glog.V(4).Infof("exec interrupt hook func name:%s", GetFunctionName(hook))
+						hook()
+					}()
 				}
 				interruptHookLock.RUnlock()
 				os.Exit(0)

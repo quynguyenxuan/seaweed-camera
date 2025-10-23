@@ -6,7 +6,6 @@ import (
 	"net/http"
 	httppprof "net/http/pprof"
 	"os"
-	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -306,6 +305,10 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 			glog.Warningf("Stop volume server failed %v", err)
 			// glog.Fatalf("Force stop volume server")
 		}
+		//Check volume server is stopped by check the isHeartbeating
+		for volumeServer.isHeartbeating {
+			time.Sleep(1 * time.Second)
+		}
 		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
 		// Stop heartbeats
 		// if !volumeServer.StopHeartbeat() {
@@ -349,7 +352,7 @@ func shutdown(publicHttpDown httpdown.Server, clusterHttpServer httpdown.Server,
 
 	glog.V(0).Infof("graceful stop gRPC ...")
 	grpcS.GracefulStop()
-	pprof.StopCPUProfile()
+	// pprof.StopCPUProfile()
 
 }
 
