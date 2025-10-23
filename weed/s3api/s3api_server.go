@@ -147,17 +147,23 @@ func NewS3ApiServerWithStore(router *mux.Router, option *S3ApiServerOption, expl
 
 	s3ApiServer.registerRouter(router)
 	//QUY NGUYEN add
-	go func() {
-		time.Sleep(60 * time.Second)
-		for {
-			err := s3ApiServer.iam.CleanExpiredAccessKey()
-			if err != nil {
-				glog.V(1).Infof("Error clean expired access key: %v", err)
-			}
-			time.Sleep(15 * time.Second) // Đợi 15 giây trước khi chạy lại
-		}
-	}()
+	// go func() {
+	// 	time.Sleep(60 * time.Second)
+	// 	for {
+	// 		err := s3ApiServer.iam.CleanExpiredAccessKey()
+	// 		if err != nil {
+	// 			glog.V(1).Infof("Error clean expired access key: %v", err)
+	// 		}
+	// 		time.Sleep(15 * time.Second) // Đợi 15 giây trước khi chạy lại
+	// 	}
+	// }()
 	//QUYNGUYEN end
+
+	// Initialize the global SSE-S3 key manager with filer access
+	if err := InitializeGlobalSSES3KeyManager(s3ApiServer); err != nil {
+		return nil, fmt.Errorf("failed to initialize SSE-S3 key manager: %w", err)
+	}
+
 	go s3ApiServer.subscribeMetaEvents("s3", startTsNs, filer.DirectoryEtcRoot, []string{option.BucketsPath})
 	return s3ApiServer, nil
 }

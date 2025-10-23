@@ -296,6 +296,9 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 		//QUYNGUYEN alway stop
 		volumeServer.StopHeartbeat()
 		// glog.Fatalf("Force stop volume server")
+		time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
+
+		shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
 
 		// util.RunWithTimeout(func() error { volumeServer.LastHeartbeat(); return nil }, 2*time.Second)
 		err := util.RunWithContextTimeout(func(ctx context.Context) error { volumeServer.SetStopping(); return nil }, 10*time.Second)
@@ -304,7 +307,6 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 			// glog.Fatalf("Force stop volume server")
 		}
 		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
-		time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
 		// Stop heartbeats
 		// if !volumeServer.StopHeartbeat() {
 		// 	volumeServer.SetStopping()
@@ -313,7 +315,7 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 		// }
 		glog.V(0).Infof("Shutting down volume server")
 		//QUYNGUYEN end
-		shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
+		// shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
 		if err == nil {
 			err = util.RunWithContextTimeout(func(ctx context.Context) error { volumeServer.Shutdown(); return nil }, 10*time.Second)
 			if err != nil {
