@@ -303,11 +303,10 @@ func (s *server) serve() {
 
 func (s *server) Wait() error {
 	//Quynguyen add
-
-	if s.certFile == "" && s.keyFile == "" {
-		return s.server.Serve(s.listener)
-	} else {
+	if s.certFile != "" && s.keyFile != "" {
 		return s.server.ServeTLS(s.listener, s.certFile, s.keyFile)
+	} else {
+		return s.server.Serve(s.listener)
 	}
 	//Quynguyen end
 

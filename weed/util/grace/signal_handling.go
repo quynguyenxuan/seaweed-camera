@@ -33,7 +33,7 @@ func init() {
 		syscall.SIGHUP,
 		syscall.SIGINT,
 		syscall.SIGTERM,
-		syscall.SIGQUIT,
+		// syscall.SIGQUIT,
 	)
 	go func() {
 		for s := range signalChan {

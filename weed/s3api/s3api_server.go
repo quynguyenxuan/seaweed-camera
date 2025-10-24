@@ -144,7 +144,7 @@ func NewS3ApiServerWithStore(router *mux.Router, option *S3ApiServerOption, expl
 			},
 		}
 	}
-
+	// s3ApiServer.iamIntegration.iamManager.AssumeRoleWithCredentials(s3ApiServer.credentialManager)
 	s3ApiServer.registerRouter(router)
 	//QUY NGUYEN add
 	// go func() {

@@ -433,6 +433,10 @@ func (iama *IamApiServer) CreateAccessKey(s3cfg *iam_pb.S3ApiConfiguration, valu
 	return resp
 }
 
+// func (iama *IamApiServer) AssumeRole(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp CreateAccessKeyResponse) {
+// 	return resp
+// }
+
 func CreateSessionToken(payload cred.SessionTokenPayload, secret string) (string, error) {
 	// Create a new JWT with HS512 algorithm
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, jwt.MapClaims{
@@ -583,6 +587,13 @@ func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {
 			writeIamErrorResponse(w, r, iamError)
 			return
 		}
+	// case "AssumeRole":
+	// 	// gọi iam_manager asumerole ở đây
+	// 	iama.AssumeRole(s3cfg, values)
+	// 	if response, iamError = iama.AssumeRole(s3cfg, values); iamError != nil {
+	// 		writeIamErrorResponse(w, r, iamError)
+	// 		return
+	// 	}
 	default:
 		errNotImplemented := s3err.GetAPIError(s3err.ErrNotImplemented)
 		errorResponse := ErrorResponse{}

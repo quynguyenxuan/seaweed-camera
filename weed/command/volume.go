@@ -279,15 +279,17 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 	var publicHttpDown httpdown.Server
 	if v.isSeparatedPublicPort() {
 		publicHttpDown = v.startPublicHttpService(publicVolumeMux)
-		// if nil == publicHttpDown {
-		// 	glog.Fatalf("start public http service failed")
-		// }
+		if nil == publicHttpDown {
+			glog.Fatalf("start public http service failed")
+		}
 	}
 
 	// starting the cluster http server
 	clusterHttpServer := v.startClusterHttpService(volumeMux)
-
-	defer shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
+	if nil == clusterHttpServer {
+		glog.Fatalf("start cluster http service failed")
+	}
+	// defer shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
 
 	grace.OnReload(volumeServer.LoadNewVolumes)
 	grace.OnReload(volumeServer.Reload)
@@ -310,9 +312,9 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 			glog.Warningf("Shutdown volume server failed %v", err)
 		}
 		glog.V(0).Infof("Shutting down volume server")
+		shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
 
 		//QUYNGUYEN end
-		// shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
 
 		stopChan <- true
 	})
