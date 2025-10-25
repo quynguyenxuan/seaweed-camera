@@ -37,7 +37,7 @@ type Server interface {
 
 	// Stop stops the listener. It will block until all connections have been
 	// closed.
-	Stop() error
+	Stop(force bool) error //Quynguyen add
 }
 
 // HTTP defines the configuration for serving a http.Server. Multiple calls to
@@ -316,13 +316,26 @@ func (s *server) Wait() error {
 	return nil
 }
 
-func (s *server) Stop() error {
+func (s *server) Close() error {
 	s.server.SetKeepAlivesEnabled(false)
 	return util.RunWithContextTimeout(func(ctx context.Context) error {
-		s.server.Shutdown(ctx)
-		return nil
+		return s.server.Close()
+	}, s.killTimeout)
+}
+
+func (s *server) Stop(force bool) error {
+	s.server.SetKeepAlivesEnabled(false)
+	err := util.RunWithContextTimeout(func(ctx context.Context) error {
+		if force {
+			return s.server.Close()
+		}
+		return s.server.Shutdown(ctx)
 	}, s.killTimeout)
 
+	if !force && err != nil {
+		return s.server.Close()
+	}
+	return err
 	s.stopOnce.Do(func() {
 		defer stats.BumpTime(s.stats, "stop.time").End()
 		stats.BumpSum(s.stats, "stop", 1)

@@ -149,7 +149,9 @@ func (vs *VolumeServer) SetStopping() {
 	glog.V(0).Infoln("Stopping volume server...")
 	vs.store.SetStopping()
 	glog.V(0).Infoln("Stopping volume server successfully!")
-
+}
+func (vs *VolumeServer) IsStoreAvailable() bool {
+	return vs.store.IsAvailable()
 }
 
 func (vs *VolumeServer) LoadNewVolumes() {

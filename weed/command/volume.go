@@ -301,6 +301,9 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
 		// Stop heartbeats
 		volumeServer.StopHeartbeat()
+		// Shutdown volume server before stopping volume dir
+		shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
+
 		err := util.RunWithContextTimeout(func(ctx context.Context) error { volumeServer.SetStopping(); return nil }, 10*time.Second)
 		glog.V(0).Infof("stop send heartbeat and wait %d seconds until shutdown ...", *v.preStopSeconds)
 		time.Sleep(time.Duration(*v.preStopSeconds) * time.Second)
@@ -312,7 +315,6 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 			glog.Warningf("Shutdown volume server failed %v", err)
 		}
 		glog.V(0).Infof("Shutting down volume server")
-		shutdown(publicHttpDown, clusterHttpServer, grpcS, volumeServer)
 
 		//QUYNGUYEN end
 
@@ -325,24 +327,28 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 }
 
 func shutdown(publicHttpDown httpdown.Server, clusterHttpServer httpdown.Server, grpcS *grpc.Server, volumeServer *weed_server.VolumeServer) {
-
+	isStoreAvailable := volumeServer.IsStoreAvailable()
 	// firstly, stop the public http service to prevent from receiving new user request
 	if nil != publicHttpDown {
 		glog.V(0).Infof("stop public http server ... ")
-		if err := publicHttpDown.Stop(); err != nil {
+		if err := publicHttpDown.Stop(!isStoreAvailable); err != nil {
 			glog.Warningf("stop the public http server failed, %v", err)
 		}
 	}
 
 	glog.V(0).Infof("graceful stop cluster http server ... ")
 	if nil != clusterHttpServer {
-		if err := clusterHttpServer.Stop(); err != nil {
+		if err := clusterHttpServer.Stop(!isStoreAvailable); err != nil {
 			glog.Warningf("stop the cluster http server failed, %v", err)
 		}
 	}
 
 	glog.V(0).Infof("graceful stop gRPC ...")
-	grpcS.GracefulStop()
+	if isStoreAvailable {
+		grpcS.GracefulStop()
+	} else {
+		grpcS.Stop()
+	}
 	pprof.StopCPUProfile()
 	glog.V(0).Infof("graceful stop gRPC completed")
 

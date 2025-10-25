@@ -483,13 +483,10 @@ func (s *Store) IsAvailable() bool {
 	for _, location := range s.Locations {
 		if location.IsAvailable() {
 			availableCount++
+			return true
 		}
 	}
-	if availableCount == 0 {
-		return false
-	}
-	return true
-
+	return false
 }
 
 func (s *Store) SetStopping() {
