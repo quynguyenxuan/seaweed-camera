@@ -414,7 +414,7 @@ func ListenAndServe(s *http.Server, hd *HTTP) error {
 		}
 	case <-signals:
 		signal.Stop(signals)
-		if err := hs.Stop(); err != nil {
+		if err := hs.Stop(false); err != nil {
 			return err
 		}
 		if err := <-waiterr; err != nil {
