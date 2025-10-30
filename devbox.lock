@@ -53,6 +53,54 @@
         }
       }
     },
+    "goose-cli@latest": {
+      "last_modified": "2025-10-07T08:41:47Z",
+      "resolved": "github:NixOS/nixpkgs/bce5fe2bb998488d8e7e7856315f90496723793c#goose-cli",
+      "source": "devbox-search",
+      "version": "1.6.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/f6wcgwzw2wfqlylrw7fd2i5yqpppjqw0-goose-cli-1.6.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/f6wcgwzw2wfqlylrw7fd2i5yqpppjqw0-goose-cli-1.6.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/605kjirm8y96ipsxj63jr7ba3fnaajdh-goose-cli-1.6.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/605kjirm8y96ipsxj63jr7ba3fnaajdh-goose-cli-1.6.0"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/bv0wl5q0xcjn8h729fvc14myr47hnrlk-goose-cli-1.6.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/bv0wl5q0xcjn8h729fvc14myr47hnrlk-goose-cli-1.6.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ski2md4mzr4fb7fip0jj33frnilf5ndj-goose-cli-1.6.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/ski2md4mzr4fb7fip0jj33frnilf5ndj-goose-cli-1.6.0"
+        }
+      }
+    },
     "protobuf": {
       "resolved": "github:NixOS/nixpkgs/1666250dbe4141e4ca8aaf89b40a3a51c2e36144?narHash=sha256-sImk6SJQASDLQo8l%2B0zWWaBgg7TueLS6lTvdH5pBZpo%3D#protobuf",
       "source": "nixpkg"
