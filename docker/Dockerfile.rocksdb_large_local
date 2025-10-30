@@ -21,8 +21,9 @@ COPY --from=builder /go/src/github.com/seaweedfs/seaweedfs/docker/filer_rocksdb.
 COPY --from=builder /go/src/github.com/seaweedfs/seaweedfs/docker/entrypoint.sh /entrypoint.sh
 
 # Install dependencies and create non-root user
-# RUN addgroup -g 1000 seaweed && \
-#     adduser -D -u 1000 -g seaweed seaweed
+RUN addgroup -g 1000 seaweed && \
+    adduser -D -u 1000 -G seaweed seaweed
+
 # volume server gprc port
 EXPOSE 18080
 # volume server http port
@@ -42,15 +43,16 @@ EXPOSE 7333
 
 # Create data directory and set proper ownership for seaweed user
 RUN mkdir -p /data/filer_rocksdb && \
+    chown -R seaweed:seaweed /data && \
+    chown -R seaweed:seaweed /etc/seaweedfs && \
     chmod 755 /entrypoint.sh
 
 VOLUME /data
 
 WORKDIR /data
 
-# chown -R seaweed:seaweed /data && \
 
 # Switch to non-root user
-# USER seaweed
+USER seaweed
 
 ENTRYPOINT ["/entrypoint.sh"]
