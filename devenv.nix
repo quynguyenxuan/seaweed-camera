@@ -1,25 +1,40 @@
 { pkgs, lib, config, inputs, ... }:
+let
+  # Định nghĩa npm packages cần cài toàn cục
+  myNpmPackages = with pkgs.nodePackages; [
+    "@google/gemini-cli"   # gemini-cli
+    typescript             # ví dụ thêm
+  ];
 
+in
 {
+  name = "SeaweedFS";
   # https://devenv.sh/basics/
   env.GREET = "devenv";
 
   # https://devenv.sh/packages/
   packages = [ pkgs.git ];
 
-  # https://devenv.sh/languages/
-  # languages.rust.enable = true;
-
-  # https://devenv.sh/processes/
-  # processes.dev.exec = "${lib.getExe pkgs.watchexec} -n -- ls -la";
-
-  # https://devenv.sh/services/
-  # services.postgres.enable = true;
+  languages.go.enable = true;
 
   # https://devenv.sh/scripts/
   scripts.hello.exec = ''
     echo hello from $GREET
   '';
+
+  scripts.devenv-init.exec = ''
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+    bash ~/.nvm/nvm.sh
+    nvm install 24
+    npm install -g @google/gemini-cli
+    gemini --version
+    npm i -g @openai/codex
+    codex --version
+    npm i -g opencode-web@latest
+    npm install -g @qwen-code/qwen-code@latest
+    qwen --version
+  '';
+
 
   # https://devenv.sh/basics/
   enterShell = ''
@@ -42,5 +57,4 @@
   # https://devenv.sh/git-hooks/
   # git-hooks.hooks.shellcheck.enable = true;
 
-  # See full reference at https://devenv.sh/reference/options/
 }
