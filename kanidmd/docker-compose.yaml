@@ -1,0 +1,19 @@
+services:
+  kanidmd:
+    container_name: kanidmd
+    restart: unless-stopped
+    image: docker.io/kanidm/server:latest
+    ports:
+      - "4443:8443"
+      - "3636:3636"
+    volumes:
+      - kanidmd:/data
+      - ./server.toml:/data/server.toml
+    networks:
+      - kanidmd-network
+networks:
+  kanidmd-network:
+    driver: bridge
+volumes:
+  kanidmd:
+    driver: local

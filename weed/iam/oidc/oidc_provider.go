@@ -235,6 +235,7 @@ func (p *OIDCProvider) getUserInfoWithToken(ctx context.Context, userID, accessT
 
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "GET", userInfoUri, nil)
+	glog.V(0).Infof("QUYNGUYEN Creating UserInfo request to %s %v", userInfoUri, err)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create UserInfo request: %v", err)
 	}
@@ -477,6 +478,7 @@ func (p *OIDCProvider) fetchJWKS(ctx context.Context) error {
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", jwksURL, nil)
+	glog.V(0).Infof("QUYNGUYEN Creating JWKS request to %s %v", jwksURL, err)
 	if err != nil {
 		return fmt.Errorf("failed to create JWKS request: %v", err)
 	}
