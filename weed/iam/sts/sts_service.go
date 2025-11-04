@@ -149,6 +149,25 @@ type AssumeRoleWithCredentialsRequest struct {
 
 	// DurationSeconds is the duration of the role session (optional)
 	DurationSeconds *int64 `json:"DurationSeconds,omitempty"`
+
+	//QUYNGUYEN add
+	// Policy is an optional session policy (optional)
+	Policy *string `json:"Policy,omitempty"`
+}
+
+// AssumeRoleRequest represents a request to assume a role using existing IAM credentials
+type AssumeRoleRequest struct {
+	// RoleArn is the ARN of the role to assume
+	RoleArn string `json:"RoleArn"`
+
+	// RoleSessionName is a name for the assumed role session
+	RoleSessionName string `json:"RoleSessionName"`
+
+	// DurationSeconds is the duration of the role session (optional)
+	DurationSeconds *int64 `json:"DurationSeconds,omitempty"`
+
+	// Policy is an optional session policy (optional)
+	Policy *string `json:"Policy,omitempty"`
 }
 
 // AssumeRoleResponse represents the response from assume role operations
@@ -162,6 +181,27 @@ type AssumeRoleResponse struct {
 	// PackedPolicySize is the percentage of max policy size used (AWS compatibility)
 	PackedPolicySize *int64 `json:"PackedPolicySize,omitempty"`
 }
+
+// QUYNGUYEN add
+// GetSessionTokenRequest represents a request to get session token
+type GetSessionTokenRequest struct {
+	// DurationSeconds is the duration of the session (optional)
+	DurationSeconds *int64 `json:"DurationSeconds,omitempty"`
+
+	// SerialNumber is the identification number of the MFA device (optional)
+	SerialNumber *string `json:"SerialNumber,omitempty"`
+
+	// TokenCode is the value provided by the MFA device (optional)
+	TokenCode *string `json:"TokenCode,omitempty"`
+}
+
+// GetSessionTokenResponse represents the response from get session token operations
+type GetSessionTokenResponse struct {
+	// Credentials contains the temporary security credentials
+	Credentials *Credentials `json:"Credentials"`
+}
+
+//QUYNGUYEN end
 
 // Credentials represents temporary security credentials
 type Credentials struct {
@@ -546,6 +586,25 @@ func (s *STSService) AssumeRoleWithCredentials(ctx context.Context, request *Ass
 	}, nil
 }
 
+// QUYNGUYEN add
+// AssumeRole assumes a role using existing IAM credentials
+// This method is now completely stateless - all session information is embedded in the JWT token
+func (s *STSService) AssumeRole(ctx context.Context, request *AssumeRoleRequest) (*AssumeRoleResponse, error) {
+	if !s.initialized {
+		return nil, fmt.Errorf("STS service not initialized")
+	}
+
+	// TODO: Implement the logic for assuming a role with existing credentials.
+	// 1. Get the caller's identity from the context.
+	// 2. Validate the caller's credentials.
+	// 3. Check the trust policy of the role to see if the caller is allowed to assume it.
+	// 4. If allowed, generate and return temporary credentials.
+
+	return nil, fmt.Errorf("AssumeRole is not yet implemented")
+}
+
+//QUYNGUYEN end
+
 // ValidateSessionToken validates a session token and returns session information
 // This method is now completely stateless - all session information is extracted from the JWT token
 func (s *STSService) ValidateSessionToken(ctx context.Context, sessionToken string) (*SessionInfo, error) {
@@ -683,7 +742,7 @@ func (s *STSService) validateRoleAssumptionForWebIdentity(ctx context.Context, r
 	}
 
 	// Basic role ARN format validation
-	expectedPrefix := "arn:seaweed:iam::role/"
+	expectedPrefix := "arn:aws:iam::role/"
 	if len(roleArn) < len(expectedPrefix) || roleArn[:len(expectedPrefix)] != expectedPrefix {
 		return fmt.Errorf("invalid role ARN format: got %s, expected format: %s*", roleArn, expectedPrefix)
 	}
@@ -720,7 +779,7 @@ func (s *STSService) validateRoleAssumptionForCredentials(ctx context.Context, r
 	}
 
 	// Basic role ARN format validation
-	expectedPrefix := "arn:seaweed:iam::role/"
+	expectedPrefix := "arn:aws:iam::role/"
 	if len(roleArn) < len(expectedPrefix) || roleArn[:len(expectedPrefix)] != expectedPrefix {
 		return fmt.Errorf("invalid role ARN format: got %s, expected format: %s*", roleArn, expectedPrefix)
 	}
@@ -824,3 +883,63 @@ func (s *STSService) ExpireSessionForTesting(ctx context.Context, sessionToken s
 
 	return fmt.Errorf("manual session expiration not supported in stateless JWT system")
 }
+
+// QUYNGUYEN add
+// GetSessionToken returns temporary credentials for the current user
+func (s *STSService) GetSessionToken(ctx context.Context, request *GetSessionTokenRequest) (*GetSessionTokenResponse, error) {
+	if !s.initialized {
+		return nil, fmt.Errorf("STS service not initialized")
+	}
+
+	if request == nil {
+		return nil, fmt.Errorf("request cannot be nil")
+	}
+
+	// Validate request parameters
+	if err := s.validateGetSessionTokenRequest(request); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+
+	// Calculate session duration
+	sessionDuration := s.calculateSessionDuration(request.DurationSeconds)
+	expiresAt := time.Now().Add(sessionDuration)
+
+	// Generate session ID and temporary credentials
+	sessionId, err := GenerateSessionId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate session ID: %w", err)
+	}
+
+	credGenerator := NewCredentialGenerator()
+	tempCredentials, err := credGenerator.GenerateTemporaryCredentials(sessionId, expiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate credentials: %w", err)
+	}
+
+	// For GetSessionToken, we don't create assumed role user - just return credentials
+	return &GetSessionTokenResponse{
+		Credentials: tempCredentials,
+	}, nil
+}
+
+// validateGetSessionTokenRequest validates the GetSessionToken request
+func (s *STSService) validateGetSessionTokenRequest(request *GetSessionTokenRequest) error {
+	if request.DurationSeconds != nil {
+		if *request.DurationSeconds < 900 || *request.DurationSeconds > 129600 {
+			return fmt.Errorf("duration seconds must be between 900 and 129600 seconds")
+		}
+	}
+
+	// If SerialNumber is provided, TokenCode must also be provided
+	if request.SerialNumber != nil && request.TokenCode == nil {
+		return fmt.Errorf("TokenCode is required when SerialNumber is provided")
+	}
+
+	if request.TokenCode != nil && request.SerialNumber == nil {
+		return fmt.Errorf("SerialNumber is required when TokenCode is provided")
+	}
+
+	return nil
+}
+
+//QUYNGUYEN end

@@ -213,7 +213,7 @@ func (m *IAMManager) CreateRole(ctx context.Context, filerAddress string, roleNa
 
 	// Set role ARN if not provided
 	if roleDef.RoleArn == "" {
-		roleDef.RoleArn = fmt.Sprintf("arn:seaweed:iam::role/%s", roleName)
+		roleDef.RoleArn = fmt.Sprintf("arn:aws:iam::role/%s", roleName)
 	}
 
 	// Validate trust policy
@@ -275,6 +275,17 @@ func (m *IAMManager) AssumeRoleWithCredentials(ctx context.Context, request *sts
 	return m.stsService.AssumeRoleWithCredentials(ctx, request)
 }
 
+// QUYNGUYEN begin
+// AssumeRoleWithCredentials assumes a role using credentials (LDAP)
+func (m *IAMManager) GetSessionToken(ctx context.Context, request *sts.GetSessionTokenRequest) (*sts.GetSessionTokenResponse, error) {
+	if !m.initialized {
+		return nil, fmt.Errorf("IAM manager not initialized")
+	}
+	// Use STS service to assume the role
+	return m.stsService.GetSessionToken(ctx, request)
+}
+
+// QUYNGUYEN end
 // IsActionAllowed checks if a principal is allowed to perform an action on a resource
 func (m *IAMManager) IsActionAllowed(ctx context.Context, request *ActionRequest) (bool, error) {
 	if !m.initialized {

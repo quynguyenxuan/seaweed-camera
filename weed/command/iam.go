@@ -31,6 +31,7 @@ type IamOptions struct {
 	masters *string
 	ip      *string
 	port    *int
+	config  *string
 }
 
 func init() {

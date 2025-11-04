@@ -15,7 +15,7 @@ in
   # https://devenv.sh/packages/
   packages = [ pkgs.git ];
 
-  languages.go.enable = true;
+  # languages.go.enable = true;
 
   # https://devenv.sh/scripts/
   scripts.hello.exec = ''

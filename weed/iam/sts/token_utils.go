@@ -211,7 +211,7 @@ func GenerateAssumedRoleArn(roleArn, sessionName string) string {
 	roleName := utils.ExtractRoleNameFromArn(roleArn)
 	if roleName == "" {
 		// This should not happen if validation is done properly upstream
-		return fmt.Sprintf("arn:seaweed:sts::assumed-role/INVALID-ARN/%s", sessionName)
+		return fmt.Sprintf("arn:aws:sts::assumed-role/INVALID-ARN/%s", sessionName)
 	}
-	return fmt.Sprintf("arn:seaweed:sts::assumed-role/%s/%s", roleName, sessionName)
+	return fmt.Sprintf("arn:aws:sts::assumed-role/%s/%s", roleName, sessionName)
 }

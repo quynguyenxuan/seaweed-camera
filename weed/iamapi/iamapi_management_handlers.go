@@ -1,6 +1,7 @@
 package iamapi
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"errors"
@@ -9,11 +10,13 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	seaweedSts "github.com/seaweedfs/seaweedfs/weed/iam/sts"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/iam_pb"
 	"github.com/seaweedfs/seaweedfs/weed/s3api/policy_engine"
@@ -21,6 +24,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3err"
 
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/sts"
 	jwt "github.com/golang-jwt/jwt/v5"
 	cred "github.com/seaweedfs/seaweedfs/weed/credential"
 )
@@ -433,9 +437,214 @@ func (iama *IamApiServer) CreateAccessKey(s3cfg *iam_pb.S3ApiConfiguration, valu
 	return resp
 }
 
-// func (iama *IamApiServer) AssumeRole(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp CreateAccessKeyResponse) {
-// 	return resp
-// }
+// QUYNGUYEN add
+func (iama *IamApiServer) AssumeRoleWithWebIdentity(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp AssumeRoleWithWebIdentityResponse, err *IamError) {
+	// Parse parameters từ request
+	roleArn := values.Get("RoleArn")
+	roleSessionName := values.Get("RoleSessionName")
+	durationSecondsStr := values.Get("DurationSeconds")
+	policy := values.Get("Policy")
+	webIdentityToken := values.Get("WebIdentityToken")
+
+	// Validate required parameters
+	if roleArn == "" || roleSessionName == "" {
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("RoleArn and RoleSessionName are required"),
+		}
+		return
+	}
+
+	// Tạo AssumeRoleRequest
+	request := &seaweedSts.AssumeRoleWithWebIdentityRequest{
+		RoleArn:          roleArn,
+		RoleSessionName:  roleSessionName,
+		WebIdentityToken: webIdentityToken,
+	}
+
+	// Parse DurationSeconds nếu có
+	if durationSecondsStr != "" {
+		if durationSeconds, err := strconv.ParseInt(durationSecondsStr, 10, 64); err == nil {
+			request.DurationSeconds = &durationSeconds
+		}
+	}
+
+	// Set Policy nếu có
+	if policy != "" {
+		request.Policy = &policy
+	}
+
+	// Gọi iamManager.AssumeRole
+	ctx := context.Background()
+	iamManager := iama.iam.GetIAMManager()
+	if iamManager == nil {
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("IAM manager not initialized"),
+		}
+		return
+	}
+	assumeRoleResp, assumeRoleErr := iamManager.AssumeRoleWithWebIdentity(ctx, request)
+	if assumeRoleErr != nil {
+		glog.V(0).Infof("Error assuming role: %v", assumeRoleErr)
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("RoleArn and RoleSessionName are required"),
+		}
+
+		return
+	}
+
+	// Convert response
+	resp.AssumeRoleWithWebIdentityResult.Credentials = sts.Credentials{
+		AccessKeyId:     &assumeRoleResp.Credentials.AccessKeyId,
+		SecretAccessKey: &assumeRoleResp.Credentials.SecretAccessKey,
+		SessionToken:    &assumeRoleResp.Credentials.SessionToken,
+		Expiration:      &assumeRoleResp.Credentials.Expiration,
+	}
+	resp.AssumeRoleWithWebIdentityResult.AssumedRoleUser = sts.AssumedRoleUser{
+		AssumedRoleId: &assumeRoleResp.AssumedRoleUser.AssumedRoleId,
+		Arn:           &assumeRoleResp.AssumedRoleUser.Arn,
+	}
+	return
+}
+func (iama *IamApiServer) AssumeRoleWithCredentials(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp AssumeRoleResponse, err *IamError) {
+	// Parse parameters từ request
+	roleArn := values.Get("RoleArn")
+	roleSessionName := values.Get("RoleSessionName")
+	durationSecondsStr := values.Get("DurationSeconds")
+	policy := values.Get("Policy")
+	accessKeyId := values.Get("AccessKeyId")
+	secretAccessKey := values.Get("SecretAccessKey")
+	providerName := values.Get("ProviderName")
+
+	// Validate required parameters
+	if roleArn == "" || roleSessionName == "" {
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("RoleArn and RoleSessionName are required"),
+		}
+		return
+	}
+
+	// Tạo AssumeRoleRequest
+	request := &seaweedSts.AssumeRoleWithCredentialsRequest{
+		RoleArn:         roleArn,
+		RoleSessionName: roleSessionName,
+		Username:        accessKeyId,
+		Password:        secretAccessKey,
+	}
+
+	// Parse DurationSeconds nếu có
+	if durationSecondsStr != "" {
+		if durationSeconds, err := strconv.ParseInt(durationSecondsStr, 10, 64); err == nil {
+			request.DurationSeconds = &durationSeconds
+		}
+	}
+
+	// Set Policy nếu có
+	if policy != "" {
+		request.Policy = &policy
+	}
+
+	if providerName != "" {
+		request.ProviderName = providerName
+	} else {
+		request.ProviderName = "keycloak"
+	}
+
+	// Gọi iamManager.AssumeRole
+	ctx := context.Background()
+	iamManager := iama.iam.GetIAMManager()
+	if iamManager == nil {
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("IAM manager not initialized"),
+		}
+		return
+	}
+	assumeRoleResp, assumeRoleErr := iamManager.AssumeRoleWithCredentials(ctx, request)
+	if assumeRoleErr != nil {
+		glog.V(0).Infof("Error assuming role: %v", assumeRoleErr)
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("RoleArn and RoleSessionName are required"),
+		}
+
+		return
+	}
+
+	// Convert response
+	resp.AssumeRoleResult.Credentials = sts.Credentials{
+		AccessKeyId:     &assumeRoleResp.Credentials.AccessKeyId,
+		SecretAccessKey: &assumeRoleResp.Credentials.SecretAccessKey,
+		SessionToken:    &assumeRoleResp.Credentials.SessionToken,
+		Expiration:      &assumeRoleResp.Credentials.Expiration,
+	}
+	resp.AssumeRoleResult.AssumedRoleUser = sts.AssumedRoleUser{
+		AssumedRoleId: &assumeRoleResp.AssumedRoleUser.AssumedRoleId,
+		Arn:           &assumeRoleResp.AssumedRoleUser.Arn,
+	}
+	return
+}
+func (iama *IamApiServer) GetSessionToken(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp GetSessionTokenResponse, err *IamError) {
+	durationSecondsStr := values.Get("DurationSeconds")
+	serialNumber := values.Get("SerialNumber")
+	tokenCode := values.Get("TokenCode")
+
+	// Tạo GetSessionTokenRequest
+	request := &seaweedSts.GetSessionTokenRequest{}
+
+	// Parse DurationSeconds nếu có
+	if durationSecondsStr != "" {
+		if durationSeconds, err := strconv.ParseInt(durationSecondsStr, 10, 64); err == nil {
+			request.DurationSeconds = &durationSeconds
+		}
+	}
+
+	// Set SerialNumber và TokenCode nếu có
+	if serialNumber != "" {
+		request.SerialNumber = &serialNumber
+	}
+	if tokenCode != "" {
+		request.TokenCode = &tokenCode
+	}
+
+	ctx := context.Background()
+	iamManager := iama.iam.GetIAMManager()
+	if iamManager == nil {
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("IAM manager not initialized"),
+		}
+		return
+	}
+
+	// Gọi stsService.GetSessionToken
+	getSessionTokenResp, sessionTokenErr := iamManager.GetSessionToken(ctx, request)
+	if err != nil {
+		glog.V(0).Infof("Error assuming role: %v", sessionTokenErr)
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("RoleArn and RoleSessionName are required"),
+		}
+		return
+	}
+
+	// Convert response
+	response := GetSessionTokenResponse{}
+	if getSessionTokenResp.Credentials != nil {
+		response.GetSessionTokenResult.Credentials = sts.Credentials{
+			AccessKeyId:     &getSessionTokenResp.Credentials.AccessKeyId,
+			SecretAccessKey: &getSessionTokenResp.Credentials.SecretAccessKey,
+			SessionToken:    &getSessionTokenResp.Credentials.SessionToken,
+			Expiration:      &getSessionTokenResp.Credentials.Expiration,
+		}
+	}
+	return
+}
+
+//QUYNGUYEN end
 
 func CreateSessionToken(payload cred.SessionTokenPayload, secret string) (string, error) {
 	// Create a new JWT with HS512 algorithm
@@ -458,6 +667,8 @@ func CreateSessionToken(payload cred.SessionTokenPayload, secret string) (string
 
 	return tokenString, nil
 }
+
+//QUYNGUYEN end
 
 func (iama *IamApiServer) DeleteAccessKey(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp DeleteAccessKeyResponse) {
 	userName := values.Get("UserName")
@@ -587,13 +798,23 @@ func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {
 			writeIamErrorResponse(w, r, iamError)
 			return
 		}
-	// case "AssumeRole":
-	// 	// gọi iam_manager asumerole ở đây
-	// 	iama.AssumeRole(s3cfg, values)
-	// 	if response, iamError = iama.AssumeRole(s3cfg, values); iamError != nil {
-	// 		writeIamErrorResponse(w, r, iamError)
-	// 		return
-	// 	}
+	//QUYNGUYEN add
+	case "GetSessionToken":
+		if response, iamError = iama.GetSessionToken(s3cfg, values); iamError != nil {
+			writeIamErrorResponse(w, r, iamError)
+			return
+		}
+	case "AssumeRole":
+		if response, iamError = iama.AssumeRoleWithCredentials(s3cfg, values); iamError != nil {
+			writeIamErrorResponse(w, r, iamError)
+			return
+		}
+	case "AssumeRoleWithWebIdentity":
+		if response, iamError = iama.AssumeRoleWithWebIdentity(s3cfg, values); iamError != nil {
+			writeIamErrorResponse(w, r, iamError)
+			return
+		}
+	//QUYNGUYEN end
 	default:
 		errNotImplemented := s3err.GetAPIError(s3err.ErrNotImplemented)
 		errorResponse := ErrorResponse{}

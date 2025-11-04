@@ -41,6 +41,12 @@ func NewS3IAMIntegration(iamManager *integration.IAMManager, filerAddress string
 	}
 }
 
+// QUNGUYEN add
+func (s3iam *S3IAMIntegration) GetIAMManager() *integration.IAMManager {
+	return s3iam.iamManager
+
+}
+
 // AuthenticateJWT authenticates JWT tokens using our STS service
 func (s3iam *S3IAMIntegration) AuthenticateJWT(ctx context.Context, r *http.Request) (*IAMIdentity, s3err.ErrorCode) {
 
@@ -139,7 +145,7 @@ func (s3iam *S3IAMIntegration) AuthenticateJWT(ctx context.Context, r *http.Requ
 			parts := strings.Split(roleName, "/")
 			roleNameOnly = parts[len(parts)-1]
 		}
-		principalArn = fmt.Sprintf("arn:seaweed:sts::assumed-role/%s/%s", roleNameOnly, sessionName)
+		principalArn = fmt.Sprintf("arn:aws:sts::assumed-role/%s/%s", roleNameOnly, sessionName)
 	}
 
 	// Validate the JWT token directly using STS service (avoid circular dependency)
@@ -238,11 +244,11 @@ type MockAssumedRoleUser struct {
 // buildS3ResourceArn builds an S3 resource ARN from bucket and object
 func buildS3ResourceArn(bucket string, objectKey string) string {
 	if bucket == "" {
-		return "arn:seaweed:s3:::*"
+		return "arn:aws:s3:::*"
 	}
 
 	if objectKey == "" || objectKey == "/" {
-		return "arn:seaweed:s3:::" + bucket
+		return "arn:aws:s3:::" + bucket
 	}
 
 	// Remove leading slash from object key if present
@@ -250,7 +256,7 @@ func buildS3ResourceArn(bucket string, objectKey string) string {
 		objectKey = objectKey[1:]
 	}
 
-	return "arn:seaweed:s3:::" + bucket + "/" + objectKey
+	return "arn:aws:s3:::" + bucket + "/" + objectKey
 }
 
 // determineGranularS3Action determines the specific S3 IAM action based on HTTP request details

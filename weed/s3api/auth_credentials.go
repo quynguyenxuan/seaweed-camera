@@ -15,6 +15,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/filer"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	"github.com/seaweedfs/seaweedfs/weed/iam/integration"
 	"github.com/seaweedfs/seaweedfs/weed/kms"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/iam_pb"
@@ -409,11 +410,11 @@ func generatePrincipalArn(identityName string) string {
 	// Handle special cases
 	switch identityName {
 	case AccountAnonymous.Id:
-		return "arn:seaweed:iam::user/anonymous"
+		return "arn:aws:iam::user/anonymous"
 	case AccountAdmin.Id:
-		return "arn:seaweed:iam::user/admin"
+		return "arn:aws:iam::user/admin"
 	default:
-		return fmt.Sprintf("arn:seaweed:iam::user/%s", identityName)
+		return fmt.Sprintf("arn:aws:iam::user/%s", identityName)
 	}
 }
 
@@ -650,6 +651,20 @@ func (iam *IdentityAccessManagement) SetIAMIntegration(integration *S3IAMIntegra
 	defer iam.m.Unlock()
 	iam.iamIntegration = integration
 }
+
+// QUNGUYEN GetIAMIntegration sets the IAM integration for advanced authentication and authorization
+func (iam *IdentityAccessManagement) GetIAMIntegration() *S3IAMIntegration {
+	return iam.iamIntegration
+}
+
+func (iam *IdentityAccessManagement) GetIAMManager() *integration.IAMManager {
+	if iam.iamIntegration == nil {
+		return nil
+	}
+	return iam.iamIntegration.GetIAMManager()
+}
+
+//QUNGUYEN end
 
 // authenticateJWTWithIAM authenticates JWT tokens using the IAM integration
 func (iam *IdentityAccessManagement) authenticateJWTWithIAM(r *http.Request) (*Identity, s3err.ErrorCode) {

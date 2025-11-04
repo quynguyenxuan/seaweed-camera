@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/sts"
 )
 
 type CommonResponse struct {
@@ -103,6 +104,34 @@ type ErrorResponse struct {
 	} `xml:"Error"`
 }
 
+// QUYNGUYEN add
+type AssumeRoleResponse struct {
+	CommonResponse
+	XMLName          xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ AssumeRoleResponse"`
+	AssumeRoleResult struct {
+		Credentials     sts.Credentials     `xml:"Credentials"`
+		AssumedRoleUser sts.AssumedRoleUser `xml:"AssumedRoleUser"`
+	} `xml:"AssumeRoleResult"`
+}
+
+type AssumeRoleWithWebIdentityResponse struct {
+	CommonResponse
+	XMLName                         xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ AssumeRoleWithWebIdentityResponse"`
+	AssumeRoleWithWebIdentityResult struct {
+		Credentials     sts.Credentials     `xml:"Credentials"`
+		AssumedRoleUser sts.AssumedRoleUser `xml:"AssumedRoleUser"`
+	} `xml:"AssumeRoleWithWebIdentityResult"`
+}
+
+type GetSessionTokenResponse struct {
+	CommonResponse
+	XMLName               xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ GetSessionTokenResponse"`
+	GetSessionTokenResult struct {
+		Credentials sts.Credentials `xml:"Credentials"`
+	} `xml:"GetSessionTokenResult"`
+}
+
+// QUYNGUYEN end
 func (r *CommonResponse) SetRequestId() {
 	r.ResponseMetadata.RequestId = fmt.Sprintf("%d", time.Now().UnixNano())
 }
