@@ -2,7 +2,7 @@
 # * PutUserPolicy
 # * GetUserPolicy
 # * DeleteUserPolicy
-bash ../.env
+. ../.env
 # 1. Tạo Policy document
 # chý ý format của action khớp trong source code
 	# StatementActionAdmin    = "*"
@@ -29,6 +29,8 @@ cat > policy.json << EOF
   }]
 }
 EOF
+
+echo $AWS_IAM_ENDPOINT_URL
 
 USER_CREATED=$(aws iam create-user --user-name $USER_NAME  --endpoint-url $AWS_IAM_ENDPOINT_URL)
 echo "✅ Đã tạo user: $USER_CREATED"

@@ -7,21 +7,13 @@
   },
   "providers": [
     {
-      "name": "test-oidc",
-      "type": "mock",
-      "config": {
-        "issuer": "test-oidc-issuer",
-        "clientId": "test-oidc-client"
-      }
-    },
-    {
       "name": "keycloak",
       "type": "oidc",
       "enabled": true,
       "config": {
         "issuer": "http://localhost:8089/realms/sunfs",
         "clientId": "sunfs-s3",
-        "clientSecret": "sunfs-s3-secret",
+        "clientSecret": "3vezVrpOTvR3kLOoYu5J0j10SBj8wyGW",
         "jwksUri": "http://localhost:8089/realms/sunfs/protocol/openid-connect/certs",
         "userInfoUri": "http://localhost:8089/realms/sunfs/protocol/openid-connect/userinfo",
         "scopes": [

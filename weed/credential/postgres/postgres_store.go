@@ -91,8 +91,8 @@ func (store *PostgresStore) createTables() error {
 		CREATE TABLE IF NOT EXISTS users (
 			username VARCHAR(255) PRIMARY KEY,
 			email VARCHAR(255),
-			account_data JSONB,
-			actions JSONB,
+			account_data pg_catalog.JSONB,
+			actions pg_catalog.JSONB,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
@@ -116,7 +116,7 @@ func (store *PostgresStore) createTables() error {
 	policiesTable := `
 		CREATE TABLE IF NOT EXISTS policies (
 			name VARCHAR(255) PRIMARY KEY,
-			document JSONB NOT NULL,
+			document pg_catalog.JSONB NOT NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);

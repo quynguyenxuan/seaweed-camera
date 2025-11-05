@@ -146,7 +146,6 @@ func init() {
 	filerStartIam = cmdFiler.Flag.Bool("iam", false, "whether to start IAM service")
 	filerIamOptions.ip = cmdFiler.Flag.String("iam.ip", *f.ip, "iam server http listen ip address")
 	filerIamOptions.port = cmdFiler.Flag.Int("iam.port", 8111, "iam server http listen port")
-	// filerIamOptions.config = cmdServer.Flag.String("iam.config", "", "path to the advanced IAM config file for S3. An alias for -s3.iam.config, but with lower priority.")
 	filerStartSftp = cmdFiler.Flag.Bool("sftp", false, "whether to start the SFTP server")
 	filerSftpOptions.port = cmdFiler.Flag.Int("sftp.port", 2022, "SFTP server listen port")
 	filerSftpOptions.sshPrivateKey = cmdFiler.Flag.String("sftp.sshPrivateKey", "", "path to the SSH private key file for host authentication")
@@ -252,9 +251,6 @@ func runFiler(cmd *Command, args []string) bool {
 	if *filerStartIam {
 		filerIamOptions.filer = &filerAddress
 		filerIamOptions.masters = f.mastersString
-		if *filerS3Options.iamConfig != "" {
-			filerIamOptions.config = filerS3Options.iamConfig
-		}
 		go func(delay time.Duration) {
 			time.Sleep(delay * time.Second)
 			filerIamOptions.startIamServer()

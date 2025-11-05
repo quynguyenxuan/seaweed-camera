@@ -10,6 +10,7 @@ import (
 
 // GetPolicies retrieves all IAM policies from PostgreSQL
 func (store *PostgresStore) GetPolicies(ctx context.Context) (map[string]policy_engine.PolicyDocument, error) {
+	fmt.Println("✅ Đã lấy policies")
 	if !store.configured {
 		return nil, fmt.Errorf("store not configured")
 	}
@@ -43,6 +44,7 @@ func (store *PostgresStore) GetPolicies(ctx context.Context) (map[string]policy_
 
 // CreatePolicy creates a new IAM policy in PostgreSQL
 func (store *PostgresStore) CreatePolicy(ctx context.Context, name string, document policy_engine.PolicyDocument) error {
+	fmt.Println("✅ Đã tạo policy: ", name)
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
@@ -64,6 +66,7 @@ func (store *PostgresStore) CreatePolicy(ctx context.Context, name string, docum
 
 // UpdatePolicy updates an existing IAM policy in PostgreSQL
 func (store *PostgresStore) UpdatePolicy(ctx context.Context, name string, document policy_engine.PolicyDocument) error {
+	fmt.Println("✅ Đã cập nhật policy: ", name)
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
@@ -94,6 +97,7 @@ func (store *PostgresStore) UpdatePolicy(ctx context.Context, name string, docum
 
 // DeletePolicy deletes an IAM policy from PostgreSQL
 func (store *PostgresStore) DeletePolicy(ctx context.Context, name string) error {
+	fmt.Println("✅ Đã xóa policy: ", name)
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
@@ -117,6 +121,7 @@ func (store *PostgresStore) DeletePolicy(ctx context.Context, name string) error
 
 // GetPolicy retrieves a specific IAM policy by name from PostgreSQL
 func (store *PostgresStore) GetPolicy(ctx context.Context, name string) (*policy_engine.PolicyDocument, error) {
+	fmt.Println("✅ Đã lấy policy: ", name)
 	policies, err := store.GetPolicies(ctx)
 	if err != nil {
 		return nil, err
