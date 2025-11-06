@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/iam/providers"
 )
@@ -27,6 +28,7 @@ type OIDCProvider struct {
 	httpClient    *http.Client
 	jwksFetchedAt time.Time
 	jwksTTL       time.Duration
+	credentialManager *credential.CredentialManager
 }
 
 // OIDCConfig holds OIDC provider configuration
@@ -97,6 +99,13 @@ func (p *OIDCProvider) GetIssuer() string {
 	}
 	return p.config.Issuer
 }
+
+// QUYNGUYEN add
+func (p *OIDCProvider) SetCredentialManager(credentialManager *credential.CredentialManager) {
+	p.credentialManager = credentialManager
+}
+
+//QUYNGUYEN end
 
 // Initialize initializes the OIDC provider with configuration
 func (p *OIDCProvider) Initialize(config interface{}) error {
@@ -225,7 +234,7 @@ func (p *OIDCProvider) GetUserInfoWithToken(ctx context.Context, accessToken str
 }
 
 // getUserInfoWithToken is the internal implementation for UserInfo endpoint calls
-func (p *OIDCProvider) getUserInfoWithToken(ctx context.Context, userID, accessToken string) (*providers.ExternalIdentity, error) {
+func (p *OIDCProvider) getUserInfoWithTokenExternal(ctx context.Context, userID, accessToken string) (*providers.ExternalIdentity, error) {
 	// Determine UserInfo endpoint URL
 	userInfoUri := p.config.UserInfoUri
 	if userInfoUri == "" {
@@ -278,6 +287,33 @@ func (p *OIDCProvider) getUserInfoWithToken(ctx context.Context, userID, accessT
 	return identity, nil
 }
 
+// QUYNGUYEN add
+// getUserInfoWithToken is the internal implementation for UserInfo endpoint calls
+func (p *OIDCProvider) getUserInfoWithToken(ctx context.Context, userID, accessToken string) (*providers.ExternalIdentity, error) {
+	
+	user, err := p.credentialManager.GetUser(context.Background(), userID)
+	if err != nil {
+		return nil, err
+	}
+
+	identity := &providers.ExternalIdentity{
+		UserID:      user.Name,
+		Email:       user.GetAccount().EmailAddress,
+		DisplayName: user.GetAccount().DisplayName,
+		// Groups:      user.GetAccount().Groups,
+		// Attributes:  user.GetAccount().Attributes,
+		Provider: p.name,
+	}
+	// If userID was provided but not found in claims, use it
+	if userID != "" && identity.UserID == "" {
+		identity.UserID = userID
+	}
+
+	glog.V(3).Infof("Retrieved user info from OIDC provider: %s", identity.UserID)
+	return identity, nil
+}
+
+// QUYNGUYEN end
 // ValidateToken validates an OIDC JWT token
 func (p *OIDCProvider) ValidateToken(ctx context.Context, token string) (*providers.TokenClaims, error) {
 	if !p.initialized {
@@ -471,6 +507,7 @@ func (p *OIDCProvider) getPublicKey(ctx context.Context, kid string) (interface{
 }
 
 // fetchJWKS fetches the JWKS from the provider
+// func (p *OIDCProvider) fetchJWKSExternal(ctx context.Context) error {
 func (p *OIDCProvider) fetchJWKS(ctx context.Context) error {
 	jwksURL := p.config.JWKSUri
 	if jwksURL == "" {
@@ -501,6 +538,19 @@ func (p *OIDCProvider) fetchJWKS(ctx context.Context) error {
 	p.jwksCache = &jwks
 	p.jwksFetchedAt = time.Now()
 	glog.V(3).Infof("Fetched JWKS with %d keys from %s", len(jwks.Keys), jwksURL)
+	return nil
+}
+
+// fetchJWKS fetches the JWKS from the provider
+func (p *OIDCProvider) fetchJWKS_1(ctx context.Context) error {
+	var jwks JWKS
+	// if err := json.NewDecoder(resp.Body).Decode(&jwks); err != nil {
+	// 	return fmt.Errorf("failed to decode JWKS response: %v", err)
+	// }
+
+	p.jwksCache = &jwks
+	p.jwksFetchedAt = time.Now()
+	// glog.V(3).Infof("Fetched JWKS with %d keys from %s", len(jwks.Keys), jwksURL)
 	return nil
 }
 

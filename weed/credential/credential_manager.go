@@ -96,6 +96,14 @@ func (cm *CredentialManager) DeleteAccessKey(ctx context.Context, username strin
 	return cm.store.DeleteAccessKey(ctx, username, accessKey)
 }
 
+// QUYNGUYEN add to get from store
+// GetPolicyManager returns the policy manager
+func (cm *CredentialManager) GetPolicyManager() PolicyManager {
+	return cm.store.(PolicyManager)
+}
+
+// QUYNGUYEN end
+
 // Shutdown performs cleanup
 func (cm *CredentialManager) Shutdown() {
 	if cm.store != nil {

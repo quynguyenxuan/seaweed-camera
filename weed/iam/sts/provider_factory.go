@@ -60,6 +60,9 @@ func (f *ProviderFactory) createOIDCProvider(config *ProviderConfig) (providers.
 	if err := provider.Initialize(oidcConfig); err != nil {
 		return nil, fmt.Errorf("failed to initialize OIDC provider: %w", err)
 	}
+	//QUYNGUYEN add
+	provider.SetCredentialManager(config.CredentialManager)
+	//QUYNGUYEN end
 
 	return provider, nil
 }

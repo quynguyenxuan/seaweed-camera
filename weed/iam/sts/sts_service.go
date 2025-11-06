@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/iam/providers"
 	"github.com/seaweedfs/seaweedfs/weed/iam/utils"
@@ -110,6 +111,8 @@ type ProviderConfig struct {
 
 	// Enabled indicates if this provider should be active
 	Enabled bool `json:"enabled"`
+
+	CredentialManager *credential.CredentialManager `json:"-"`
 }
 
 // AssumeRoleWithWebIdentityRequest represents a request to assume role with web identity
@@ -585,25 +588,6 @@ func (s *STSService) AssumeRoleWithCredentials(ctx context.Context, request *Ass
 		AssumedRoleUser: assumedRoleUser,
 	}, nil
 }
-
-// QUYNGUYEN add
-// AssumeRole assumes a role using existing IAM credentials
-// This method is now completely stateless - all session information is embedded in the JWT token
-func (s *STSService) AssumeRole(ctx context.Context, request *AssumeRoleRequest) (*AssumeRoleResponse, error) {
-	if !s.initialized {
-		return nil, fmt.Errorf("STS service not initialized")
-	}
-
-	// TODO: Implement the logic for assuming a role with existing credentials.
-	// 1. Get the caller's identity from the context.
-	// 2. Validate the caller's credentials.
-	// 3. Check the trust policy of the role to see if the caller is allowed to assume it.
-	// 4. If allowed, generate and return temporary credentials.
-
-	return nil, fmt.Errorf("AssumeRole is not yet implemented")
-}
-
-//QUYNGUYEN end
 
 // ValidateSessionToken validates a session token and returns session information
 // This method is now completely stateless - all session information is extracted from the JWT token

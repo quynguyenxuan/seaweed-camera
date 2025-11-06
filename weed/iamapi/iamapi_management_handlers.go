@@ -253,16 +253,22 @@ func (iama *IamApiServer) CreatePolicy(s3cfg *iam_pb.S3ApiConfiguration, values 
 	resp.CreatePolicyResult.Policy.PolicyName = &policyName
 	resp.CreatePolicyResult.Policy.Arn = &arn
 	resp.CreatePolicyResult.Policy.PolicyId = &policyId
-	policies := Policies{}
+	// policies := Policies{}
 	policyLock.Lock()
 	defer policyLock.Unlock()
-	if err = iama.s3ApiConfig.GetPolicies(&policies); err != nil {
+	//QUYNGUYEN add to get from store
+	policyManager := iama.iam.GetCredentialManager().GetPolicyManager()
+	if err = policyManager.CreatePolicy(context.Background(), policyName, policyDocument); err != nil {
 		return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: err}
 	}
-	policies.Policies[policyName] = policyDocument
-	if err = iama.s3ApiConfig.PutPolicies(&policies); err != nil {
-		return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: err}
-	}
+	// if err = iama.s3ApiConfig.GetPolicies(&policies); err != nil {
+	// 	return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: err}
+	// }
+	// policies.Policies[policyName] = policyDocument
+	// if err = iama.s3ApiConfig.PutPolicies(&policies); err != nil {
+	// 	return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: err}
+	// }
+	//QUYNGUYEN end
 	return resp, nil
 }
 

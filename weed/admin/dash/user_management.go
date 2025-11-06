@@ -8,8 +8,88 @@ import (
 	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/credential"
+	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/pb/iam_pb"
 )
+
+// QUYNGUYEN add
+// GetObjectStoreUsersFromCredentialStore retrieves all object store users from the credential store
+func (s *AdminServer) GetObjectStoreUsersFromCredentialStore() ([]ObjectStoreUser, error) {
+	if s.credentialManager == nil {
+		return nil, fmt.Errorf("credential manager not available")
+	}
+
+	ctx := context.Background()
+
+	// Get all usernames from the credential store
+	usernames, err := s.credentialManager.ListUsers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list users: %w", err)
+	}
+
+	var users []ObjectStoreUser
+
+	// Get details for each user
+	for _, username := range usernames {
+		// Skip anonymous user
+		if username == "anonymous" {
+			continue
+		}
+
+		// Get user details using the existing GetObjectStoreUser function
+		user, err := s.GetObjectStoreUser(username)
+		if err != nil {
+			// Log the error but continue with other users
+			glog.Warningf("Failed to get user %s: %v", username, err)
+			continue
+		}
+
+		users = append(users, *user)
+	}
+
+	return users, nil
+}
+
+// GetObjectStoreUser retrieves a single object store user by username
+func (s *AdminServer) GetObjectStoreUser(username string) (*ObjectStoreUser, error) {
+	if s.credentialManager == nil {
+		return nil, fmt.Errorf("credential manager not available")
+	}
+
+	ctx := context.Background()
+
+	// Get user using credential manager
+	identity, err := s.credentialManager.GetUser(ctx, username)
+	if err != nil {
+		if err == credential.ErrUserNotFound {
+			return nil, fmt.Errorf("user %s not found", username)
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Skip anonymous user
+	if identity.Name == "anonymous" {
+		return nil, fmt.Errorf("user %s not found", username)
+	}
+
+	user := &ObjectStoreUser{
+		Username:    identity.Name,
+		Permissions: identity.Actions,
+	}
+
+	// Set email from account if available
+	if identity.Account != nil {
+		user.Email = identity.Account.EmailAddress
+	}
+
+	// Get first access key for display
+	if len(identity.Credentials) > 0 {
+		user.AccessKey = identity.Credentials[0].AccessKey
+		user.SecretKey = identity.Credentials[0].SecretKey
+	}
+
+	return user, nil
+}
 
 // CreateObjectStoreUser creates a new user using the credential manager
 func (s *AdminServer) CreateObjectStoreUser(req CreateUserRequest) (*ObjectStoreUser, error) {
