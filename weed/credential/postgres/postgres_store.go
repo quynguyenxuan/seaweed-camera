@@ -106,7 +106,10 @@ func (store *PostgresStore) createTables() error {
 			username VARCHAR(255) REFERENCES users(username) ON DELETE CASCADE,
 			access_key VARCHAR(255) UNIQUE NOT NULL,
 			secret_key VARCHAR(255) NOT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			expiration TIMESTAMP
+
 		);
 		CREATE INDEX IF NOT EXISTS idx_credentials_username ON credentials(username);
 		CREATE INDEX IF NOT EXISTS idx_credentials_access_key ON credentials(access_key);

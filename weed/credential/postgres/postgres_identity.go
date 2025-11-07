@@ -58,14 +58,16 @@ func (store *PostgresStore) LoadConfiguration(ctx context.Context) (*iam_pb.S3Ap
 
 		for credRows.Next() {
 			var accessKey, secretKey string
-			if err := credRows.Scan(&accessKey, &secretKey); err != nil {
+			var expiration uint64
+			if err := credRows.Scan(&accessKey, &secretKey, &expiration); err != nil {
 				credRows.Close()
-				return nil, fmt.Errorf("failed to scan credential row for user %s: %v", username, err)
+				return nil, fmt.Errorf("failed to scan credential row for user %s:c %v", username, err)
 			}
 
 			identity.Credentials = append(identity.Credentials, &iam_pb.Credential{
 				AccessKey: accessKey,
 				SecretKey: secretKey,
+				Expiration: expiration,
 			})
 		}
 		credRows.Close()
@@ -127,8 +129,8 @@ func (store *PostgresStore) SaveConfiguration(ctx context.Context, config *iam_p
 		// Insert credentials
 		for _, cred := range identity.Credentials {
 			_, err := tx.ExecContext(ctx,
-				"INSERT INTO credentials (username, access_key, secret_key) VALUES ($1, $2, $3)",
-				identity.Name, cred.AccessKey, cred.SecretKey)
+				"INSERT INTO credentials (username, access_key, secret_key, expiration) VALUES ($1, $2, $3, $4)",
+				identity.Name, cred.AccessKey, cred.SecretKey, cred.Expiration)
 			if err != nil {
 				return fmt.Errorf("failed to insert credential for user %s: %v", identity.Name, err)
 			}
@@ -189,8 +191,8 @@ func (store *PostgresStore) CreateUser(ctx context.Context, identity *iam_pb.Ide
 	// Insert credentials
 	for _, cred := range identity.Credentials {
 		_, err = tx.ExecContext(ctx,
-			"INSERT INTO credentials (username, access_key, secret_key) VALUES ($1, $2, $3)",
-			identity.Name, cred.AccessKey, cred.SecretKey)
+			"INSERT INTO credentials (username, access_key, secret_key, expiration) VALUES ($1, $2, $3, $4)",
+			identity.Name, cred.AccessKey, cred.SecretKey, cred.Expiration)
 		if err != nil {
 			return fmt.Errorf("failed to insert credential: %w", err)
 		}
@@ -244,13 +246,15 @@ func (store *PostgresStore) GetUser(ctx context.Context, username string) (*iam_
 
 	for rows.Next() {
 		var accessKey, secretKey string
-		if err := rows.Scan(&accessKey, &secretKey); err != nil {
+		var expiration uint64
+		if err := rows.Scan(&accessKey, &secretKey, &expiration); err != nil {
 			return nil, fmt.Errorf("failed to scan credential: %w", err)
 		}
 
 		identity.Credentials = append(identity.Credentials, &iam_pb.Credential{
 			AccessKey: accessKey,
 			SecretKey: secretKey,
+			Expiration: expiration,
 		})
 	}
 
@@ -314,8 +318,8 @@ func (store *PostgresStore) UpdateUser(ctx context.Context, username string, ide
 	// Insert new credentials
 	for _, cred := range identity.Credentials {
 		_, err = tx.ExecContext(ctx,
-			"INSERT INTO credentials (username, access_key, secret_key) VALUES ($1, $2, $3)",
-			username, cred.AccessKey, cred.SecretKey)
+			"INSERT INTO credentials (username, access_key, secret_key, expiration) VALUES ($1, $2, $3, $4)",
+			username, cred.AccessKey, cred.SecretKey, cred.Expiration)
 		if err != nil {
 			return fmt.Errorf("failed to insert credential: %w", err)
 		}
@@ -403,8 +407,8 @@ func (store *PostgresStore) CreateAccessKey(ctx context.Context, username string
 
 	// Insert credential
 	_, err = store.db.ExecContext(ctx,
-		"INSERT INTO credentials (username, access_key, secret_key) VALUES ($1, $2, $3)",
-		username, cred.AccessKey, cred.SecretKey)
+		"INSERT INTO credentials (username, access_key, secret_key, expiration) VALUES ($1, $2, $3, $4)",
+		username, cred.AccessKey, cred.SecretKey, cred.Expiration)
 	if err != nil {
 		return fmt.Errorf("failed to insert credential: %w", err)
 	}

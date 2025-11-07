@@ -276,6 +276,28 @@ func (m *IAMManager) AssumeRoleWithCredentials(ctx context.Context, request *sts
 }
 
 // QUYNGUYEN begin
+func (m *IAMManager) AssumeRole(ctx context.Context, request *sts.AssumeRoleRequest) (*sts.AssumeRoleResponse, error) {
+	if !m.initialized {
+		return nil, fmt.Errorf("IAM manager not initialized")
+	}
+
+	// Extract role name from ARN
+	roleName := utils.ExtractRoleNameFromArn(request.RoleArn)
+
+	// Get role definition
+	roleDef, err := m.roleStore.GetRole(ctx, m.getFilerAddress(), roleName)
+	if err != nil {
+		return nil, fmt.Errorf("role not found: %s", roleName)
+	}
+
+	// Validate trust policy
+	if err := m.validateTrustPolicyBasic(ctx, roleDef, request); err != nil {
+		return nil, fmt.Errorf("trust policy validation failed: %w", err)
+	}
+
+	// Use STS service to assume the role
+	return m.stsService.AssumeRole(ctx, request)
+}
 // AssumeRoleWithCredentials assumes a role using credentials (LDAP)
 func (m *IAMManager) GetSessionToken(ctx context.Context, request *sts.GetSessionTokenRequest) (*sts.GetSessionTokenResponse, error) {
 	if !m.initialized {
@@ -430,7 +452,31 @@ func (m *IAMManager) validateTrustPolicyForCredentials(ctx context.Context, role
 
 	return fmt.Errorf("trust policy does not allow credential assumption for provider: %s", request.ProviderName)
 }
+//QuyNguyen Add
+// validateTrustPolicyForCredentials validates trust policy for credential assumption
+func (m *IAMManager) validateTrustPolicyBasic(ctx context.Context, roleDef *RoleDefinition, request *sts.AssumeRoleRequest) error {
+	if roleDef.TrustPolicy == nil {
+		return fmt.Errorf("role has no trust policy")
+	}
 
+	// Check if trust policy allows credential assumption for the specific provider
+	for _, statement := range roleDef.TrustPolicy.Statement {
+		if statement.Effect == "Allow" {
+			for _, action := range statement.Action {
+				if action == "sts:AssumeRole" {
+					if principal, ok := statement.Principal.(map[string]interface{}); ok {
+						if _, ok := principal["Federated"].(string); ok {
+							return nil // Allow
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return fmt.Errorf("trust policy does not allow credential assumption for provider: %s", request.RoleSessionName)
+}
+//QuyNguyen end
 // Helper functions
 
 // ExpireSessionForTesting manually expires a session for testing purposes

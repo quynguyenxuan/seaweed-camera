@@ -520,8 +520,8 @@ func (iama *IamApiServer) AssumeRoleWithCredentials(s3cfg *iam_pb.S3ApiConfigura
 	roleSessionName := values.Get("RoleSessionName")
 	durationSecondsStr := values.Get("DurationSeconds")
 	policy := values.Get("Policy")
-	accessKeyId := values.Get("AccessKeyId")
-	secretAccessKey := values.Get("SecretAccessKey")
+	accessKeyId := values.Get("Username")
+	secretAccessKey := values.Get("Password")
 	providerName := values.Get("ProviderName")
 
 	// Validate required parameters
@@ -593,6 +593,97 @@ func (iama *IamApiServer) AssumeRoleWithCredentials(s3cfg *iam_pb.S3ApiConfigura
 	}
 	return
 }
+
+func (iama *IamApiServer) AssumeRole(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp AssumeRoleResponse, err *IamError) {
+	// Parse parameters từ request
+	roleArn := values.Get("RoleArn")
+	roleSessionName := values.Get("RoleSessionName")
+	durationSecondsStr := values.Get("DurationSeconds")
+	policy := values.Get("Policy")
+	// username := values.Get("Username")
+
+	// Validate required parameters
+	if roleArn == "" || roleSessionName == "" {
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("RoleArn and RoleSessionName are required"),
+		}
+		return
+	}
+
+	// Tạo AssumeRoleRequest
+	request := &seaweedSts.AssumeRoleRequest{
+		RoleArn:         roleArn,
+		RoleSessionName: roleSessionName,
+	}
+
+	// Set Policy nếu có
+	if policy != "" {
+		request.Policy = &policy
+	}
+	// Parse DurationSeconds nếu có
+	if durationSecondsStr != "" {
+		if durationSeconds, err := strconv.ParseInt(durationSecondsStr, 10, 64); err == nil {
+			request.DurationSeconds = &durationSeconds
+		}
+	}
+	sessionDuration := time.Duration(*request.DurationSeconds) * time.Second
+	expiresAt := time.Now().Add(sessionDuration)
+	sessionId, serr := seaweedSts.GenerateSessionId()
+	if serr != nil {
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("failed to generate credentials"),
+		}
+		return
+	}
+	credGenerator := seaweedSts.NewCredentialGenerator()
+	// tempCredentials
+	_, cerr := credGenerator.GenerateTemporaryCredentials(sessionId, expiresAt)
+	if cerr != nil {
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("failed to generate credentials"),
+		}
+		return
+	}
+
+
+	// Gọi iamManager.AssumeRole
+	ctx := context.Background()
+	iamManager := iama.iam.GetIAMManager()
+	if iamManager == nil {
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("IAM manager not initialized"),
+		}
+		return
+	}
+	assumeRoleResp, assumeRoleErr := iamManager.AssumeRole(ctx, request)
+	if assumeRoleErr != nil {
+		glog.V(0).Infof("Error assuming role: %v", assumeRoleErr)
+		err = &IamError{
+			Code:  iam.ErrCodeInvalidInputException,
+			Error: errors.New("RoleArn and RoleSessionName are required"),
+		}
+
+		return
+	}
+
+	// Convert response
+	resp.AssumeRoleResult.Credentials = sts.Credentials{
+		AccessKeyId:     &assumeRoleResp.Credentials.AccessKeyId,
+		SecretAccessKey: &assumeRoleResp.Credentials.SecretAccessKey,
+		SessionToken:    &assumeRoleResp.Credentials.SessionToken,
+		Expiration:      &assumeRoleResp.Credentials.Expiration,
+	}
+	resp.AssumeRoleResult.AssumedRoleUser = sts.AssumedRoleUser{
+		AssumedRoleId: &assumeRoleResp.AssumedRoleUser.AssumedRoleId,
+		Arn:           &assumeRoleResp.AssumedRoleUser.Arn,
+	}
+	return
+}
+
 func (iama *IamApiServer) GetSessionToken(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp GetSessionTokenResponse, err *IamError) {
 	durationSecondsStr := values.Get("DurationSeconds")
 	serialNumber := values.Get("SerialNumber")
@@ -810,12 +901,20 @@ func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {
 			writeIamErrorResponse(w, r, iamError)
 			return
 		}
-	case "AssumeRole":
+	case "AssumeRoleWithCredentials":
+		handleImplicitUsername(r, values)
 		if response, iamError = iama.AssumeRoleWithCredentials(s3cfg, values); iamError != nil {
 			writeIamErrorResponse(w, r, iamError)
 			return
 		}
+	case "AssumeRole":
+		handleImplicitUsername(r, values)
+		if response, iamError = iama.AssumeRole(s3cfg, values); iamError != nil {
+			writeIamErrorResponse(w, r, iamError)
+			return
+		}
 	case "AssumeRoleWithWebIdentity":
+		handleImplicitUsername(r, values)
 		if response, iamError = iama.AssumeRoleWithWebIdentity(s3cfg, values); iamError != nil {
 			writeIamErrorResponse(w, r, iamError)
 			return

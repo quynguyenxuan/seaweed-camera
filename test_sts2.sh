@@ -10,9 +10,9 @@ export AWS_S3_ENDPOINT_URL=http://localhost:8333
 export AWS_STS_ENDPOINT_URL=http://localhost:8111
 
 export AWS_S3_ADDRESSING_STYLE="path"
-export AWS_ACCESS_KEY_ID="Q6WBAGZ4F9P2OEPLFKWZ"
+export AWS_ACCESS_KEY_ID="TJ51H9HLA4D37B8DTC26"
 # "SX7N95SB15XMHVKJCCWNU"
-export AWS_SECRET_ACCESS_KEY="ucGD69wxHreul9by41jCjkS4l9M7agh1K89RUPdr"
+export AWS_SECRET_ACCESS_KEY="CkH2KRAcq6STPrD+2YAQO/j761Lp0WNKnkMN/rsU"
 # "tLko8YikRA9Y7CZ1L8IyuWfVZdvw6sSMFtB0NZv4k0"
 
 # export AWS_SESSION_TOKEN=$(bun run test_gen_token.ts)
@@ -69,7 +69,7 @@ export AWS_SECRET_ACCESS_KEY="ucGD69wxHreul9by41jCjkS4l9M7agh1K89RUPdr"
 # aws s3api create-bucket \
 # --bucket camera2029 \
 # --endpoint-url http://127.0.0.1:80
-# aws --endpoint http://127.0.0.1:8111 iam list-access-keys --region us-east-1 --user-name admin
+# aws --endpoint $AWS_STS_ENDPOINT_URL iam list-access-keys --region us-east-1 --user-name bob
 # aws --endpoint http://127.0.0.1:8100 --region us-east-1 s3api list-buckets
 # aws --endpoint http://127.0.0.1:8100 --region us-east-1 iam list-user-policies --user-name admin
 # aws iam get-user-policy --endpoint http://127.0.0.1:8100 --region us-east-1 --user-name admin --policy-name all
@@ -92,10 +92,11 @@ export AWS_SECRET_ACCESS_KEY="ucGD69wxHreul9by41jCjkS4l9M7agh1K89RUPdr"
 # export AWS_SECRET_ACCESS_KEY="nbgg9ehIx2mDV2ZCaPkCGExEDwhC9uMv3OIxT4OO"
 # export AWS_SESSION_TOKEN="eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NLZXkiOiJBS0lBVUxUNjFGM1BYMllEQ05MUyIsImV4cCI6MTc0OTQzOTM1MiwiaWF0IjoxNzQ5NDM4NDUyfQ.EeCLGmmrCX38xMTUIwDp607fHj4Hqzdpdb7joHGfkvZnFkr_Itu-l67cTNSCrXUzyAa-5vzJCMoHQERTyptjXw"
 
-aws iam create-access-key  --endpoint-url $AWS_STS_ENDPOINT_URL --user-name Bob2 --region us-east-1
+# aws iam create-access-key  --endpoint-url $AWS_STS_ENDPOINT_URL --user-name Bob2 --region us-east-1
 # aws iam list-access-keys --endpoint-url $AWS_STS_ENDPOINT_URL --user-name Bob --region us-east-1
 # # exit 1
-S3_ROLE=$(aws sts assume-role  --endpoint-url $AWS_STS_ENDPOINT_URL --role-arn arn:custom:iam::123456789012:role/MyRole --role-session-name my-session --region us-east-1)
+echo "STS assume role"
+S3_ROLE=$(aws sts assume-role  --endpoint-url $AWS_STS_ENDPOINT_URL --role-arn arn:aws:iam::123456789012:role/MyRole --role-session-name my-session --region us-east-1 --duration-seconds 900)
 echo "STS response ${S3_ROLE}"
 # export AWS_ACCESS_KEY_ID=$(echo "$S3_ROLE" | jq -r '.Credentials.AccessKeyId')
 # export AWS_SECRET_ACCESS_KEY=$(echo "$S3_ROLE" | jq -r '.Credentials.SecretAccessKey')
@@ -105,8 +106,8 @@ echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
 echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
 sleep 5
-# echo "Put object test.txt"
-# aws s3 cp test_sts.sh  s3://camera2024/backup/test.txt  --region us-east-1 --endpoint-url $AWS_S3_ENDPOINT_URL --checksum-algorithm SHA256
+echo "Put object test.txt"
+# aws s3 cp test_sts2.sh  s3://camera2024/backup/test.txt  --region us-east-1 --endpoint-url $AWS_S3_ENDPOINT_URL --checksum-algorithm SHA256
 # echo "Get object test.txt"
 # aws s3 cp s3://cameravttnew-day3-1/backup/test.txt ./test.txt  --region us-east-1 --endpoint-url https://s3-viettel.sunteco.cloud
 # echo "Get presigned URL"

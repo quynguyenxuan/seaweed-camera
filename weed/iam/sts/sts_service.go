@@ -589,6 +589,85 @@ func (s *STSService) AssumeRoleWithCredentials(ctx context.Context, request *Ass
 	}, nil
 }
 
+// AssumeRoleWithCredentials assumes a role using username/password credentials
+// This method is now completely stateless - all session information is embedded in the JWT token
+func (s *STSService) AssumeRole(ctx context.Context, request *AssumeRoleRequest) (*AssumeRoleResponse, error) {
+	if !s.initialized {
+		return nil, fmt.Errorf("STS service not initialized")
+	}
+
+	if request == nil {
+		return nil, fmt.Errorf("request cannot be nil")
+	}
+
+	// // Validate request parameters
+	// if err := s.validateAssumeRoleWithCredentialsRequest(request); err != nil {
+	// 	return nil, fmt.Errorf("invalid request: %w", err)
+	// }
+
+	// // 1. Get the specified provider
+	// provider, exists := s.providers[request.ProviderName]
+	// if !exists {
+	// 	return nil, fmt.Errorf("identity provider not found: %s", request.ProviderName)
+	// }
+
+	// // 2. Validate credentials with the specified provider
+	// credentials := request.Username + ":" + request.Password
+	// externalIdentity, err := provider.Authenticate(ctx, credentials)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to authenticate credentials: %w", err)
+	// }
+
+	// // 3. Check if the role exists and can be assumed (includes trust policy validation)
+	// if err := s.validateRoleAssumptionForCredentials(ctx, request.RoleArn, externalIdentity); err != nil {
+	// 	return nil, fmt.Errorf("role assumption denied: %w", err)
+	// }
+
+	// 4. Calculate session duration
+	sessionDuration := s.calculateSessionDuration(request.DurationSeconds)
+	expiresAt := time.Now().Add(sessionDuration)
+
+	// 5. Generate session ID and temporary credentials
+	sessionId, err := GenerateSessionId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate session ID: %w", err)
+	}
+
+	credGenerator := NewCredentialGenerator()
+	tempCredentials, err := credGenerator.GenerateTemporaryCredentials(sessionId, expiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate credentials: %w", err)
+	}
+
+	// 6. Create comprehensive JWT session token with all session information embedded
+	assumedRoleUser := &AssumedRoleUser{
+		AssumedRoleId: request.RoleArn,
+		Arn:           GenerateAssumedRoleArn(request.RoleArn, request.RoleSessionName),
+		Subject:       request.RoleSessionName,
+	}
+
+	// Create rich JWT claims with all session information
+	sessionClaims := NewSTSSessionClaims(sessionId, s.Config.Issuer, expiresAt).
+		WithSessionName(request.RoleSessionName).
+		WithRoleInfo(request.RoleArn, assumedRoleUser.Arn, assumedRoleUser.Arn).
+		// WithIdentityProvider(provider.Name(), externalIdentity.UserID, "").
+		WithMaxDuration(sessionDuration)
+
+	// Generate self-contained JWT token with all session information
+	jwtToken, err := s.tokenGenerator.GenerateJWTWithClaims(sessionClaims)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate JWT session token: %w", err)
+	}
+	tempCredentials.SessionToken = jwtToken
+
+	// 7. Build and return response (no session storage needed!)
+
+	return &AssumeRoleResponse{
+		Credentials:     tempCredentials,
+		AssumedRoleUser: assumedRoleUser,
+	}, nil
+}
+
 // ValidateSessionToken validates a session token and returns session information
 // This method is now completely stateless - all session information is extracted from the JWT token
 func (s *STSService) ValidateSessionToken(ctx context.Context, sessionToken string) (*SessionInfo, error) {
