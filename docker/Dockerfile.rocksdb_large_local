@@ -11,7 +11,7 @@ RUN ls -al /go/src/github.com/seaweedfs/ && \
   # && go install -tags "5BytesOffset rocksdb" -ldflags "-extldflags -static ${LDFLAGS}"
 
 FROM alpine:3.22.1 AS pkg
-RUN apk add fuse snappy gflags tmux nfs-utils rsync inotify-tools s6-overlay runit tini bash
+RUN apk add fuse snappy gflags tmux su-exec nfs-utils rsync inotify-tools s6-overlay runit tini bash
 
 FROM pkg AS final
 LABEL author="Chris Lu"
@@ -51,8 +51,5 @@ VOLUME /data
 
 WORKDIR /data
 
-
-# Switch to non-root user
-USER seaweed
-
+# Entrypoint will handle permission fixes and user switching
 ENTRYPOINT ["/entrypoint.sh"]
