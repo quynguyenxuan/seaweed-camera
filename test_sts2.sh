@@ -96,8 +96,8 @@ export AWS_SECRET_ACCESS_KEY="CkH2KRAcq6STPrD+2YAQO/j761Lp0WNKnkMN/rsU"
 # aws iam list-access-keys --endpoint-url $AWS_STS_ENDPOINT_URL --user-name Bob --region us-east-1
 # # exit 1
 echo "STS assume role"
-S3_ROLE=$(aws sts assume-role  --endpoint-url $AWS_STS_ENDPOINT_URL --role-arn arn:aws:iam::123456789012:role/MyRole --role-session-name my-session --region us-east-1 --duration-seconds 900)
-echo "STS response ${S3_ROLE}"
+# S3_ROLE=$(aws sts assume-role  --endpoint-url $AWS_STS_ENDPOINT_URL --role-arn arn:aws:iam::123456789012:role/MyRole --role-session-name my-session --region us-east-1 --duration-seconds 900)
+# echo "STS response ${S3_ROLE}"
 # export AWS_ACCESS_KEY_ID=$(echo "$S3_ROLE" | jq -r '.Credentials.AccessKeyId')
 # export AWS_SECRET_ACCESS_KEY=$(echo "$S3_ROLE" | jq -r '.Credentials.SecretAccessKey')
 # export AWS_SESSION_TOKEN=$(echo "$S3_ROLE" | jq -r '.Credentials.SessionToken')
@@ -107,7 +107,7 @@ echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
 sleep 5
 echo "Put object test.txt"
-# aws s3 cp test_sts2.sh  s3://camera2024/backup/test.txt  --region us-east-1 --endpoint-url $AWS_S3_ENDPOINT_URL --checksum-algorithm SHA256
+aws s3 cp test_sts2.sh  s3://camera2024/backup/test.txt  --region us-east-1 --endpoint-url $AWS_S3_ENDPOINT_URL --checksum-algorithm SHA256
 # echo "Get object test.txt"
 # aws s3 cp s3://cameravttnew-day3-1/backup/test.txt ./test.txt  --region us-east-1 --endpoint-url https://s3-viettel.sunteco.cloud
 # echo "Get presigned URL"

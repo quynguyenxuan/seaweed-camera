@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/pb/iam_pb"
@@ -51,19 +52,23 @@ func (store *PostgresStore) LoadConfiguration(ctx context.Context) (*iam_pb.S3Ap
 		}
 
 		// Query credentials for this user
-		credRows, err := store.db.QueryContext(ctx, "SELECT access_key, secret_key FROM credentials WHERE username = $1", username)
+		credRows, err := store.db.QueryContext(ctx, "SELECT access_key, secret_key, expiration FROM credentials WHERE username = $1", username)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query credentials for user %s: %v", username, err)
 		}
 
 		for credRows.Next() {
 			var accessKey, secretKey string
-			var expiration uint64
-			if err := credRows.Scan(&accessKey, &secretKey, &expiration); err != nil {
+			var expirationTs sql.NullTime
+			if err := credRows.Scan(&accessKey, &secretKey, &expirationTs); err != nil {
 				credRows.Close()
 				return nil, fmt.Errorf("failed to scan credential row for user %s:c %v", username, err)
 			}
 
+			var expiration int64
+			if expirationTs.Valid {
+				expiration = expirationTs.Time.Unix()
+			}
 			identity.Credentials = append(identity.Credentials, &iam_pb.Credential{
 				AccessKey: accessKey,
 				SecretKey: secretKey,
@@ -130,7 +135,7 @@ func (store *PostgresStore) SaveConfiguration(ctx context.Context, config *iam_p
 		for _, cred := range identity.Credentials {
 			_, err := tx.ExecContext(ctx,
 				"INSERT INTO credentials (username, access_key, secret_key, expiration) VALUES ($1, $2, $3, $4)",
-				identity.Name, cred.AccessKey, cred.SecretKey, cred.Expiration)
+				identity.Name, cred.AccessKey, cred.SecretKey, *int64ToTime(cred.Expiration))
 			if err != nil {
 				return fmt.Errorf("failed to insert credential for user %s: %v", identity.Name, err)
 			}
@@ -192,7 +197,7 @@ func (store *PostgresStore) CreateUser(ctx context.Context, identity *iam_pb.Ide
 	for _, cred := range identity.Credentials {
 		_, err = tx.ExecContext(ctx,
 			"INSERT INTO credentials (username, access_key, secret_key, expiration) VALUES ($1, $2, $3, $4)",
-			identity.Name, cred.AccessKey, cred.SecretKey, cred.Expiration)
+			identity.Name, cred.AccessKey, cred.SecretKey, *int64ToTime(cred.Expiration))
 		if err != nil {
 			return fmt.Errorf("failed to insert credential: %w", err)
 		}
@@ -238,7 +243,7 @@ func (store *PostgresStore) GetUser(ctx context.Context, username string) (*iam_
 	}
 
 	// Query credentials
-	rows, err := store.db.QueryContext(ctx, "SELECT access_key, secret_key FROM credentials WHERE username = $1", username)
+	rows, err := store.db.QueryContext(ctx, "SELECT access_key, secret_key, expiration FROM credentials WHERE username = $1", username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query credentials: %w", err)
 	}
@@ -246,11 +251,15 @@ func (store *PostgresStore) GetUser(ctx context.Context, username string) (*iam_
 
 	for rows.Next() {
 		var accessKey, secretKey string
-		var expiration uint64
-		if err := rows.Scan(&accessKey, &secretKey, &expiration); err != nil {
+		var expirationTs sql.NullTime
+		if err := rows.Scan(&accessKey, &secretKey, &expirationTs); err != nil {
 			return nil, fmt.Errorf("failed to scan credential: %w", err)
 		}
 
+		var expiration int64
+		if expirationTs.Valid {
+			expiration = expirationTs.Time.Unix()
+		}
 		identity.Credentials = append(identity.Credentials, &iam_pb.Credential{
 			AccessKey: accessKey,
 			SecretKey: secretKey,
@@ -319,7 +328,7 @@ func (store *PostgresStore) UpdateUser(ctx context.Context, username string, ide
 	for _, cred := range identity.Credentials {
 		_, err = tx.ExecContext(ctx,
 			"INSERT INTO credentials (username, access_key, secret_key, expiration) VALUES ($1, $2, $3, $4)",
-			username, cred.AccessKey, cred.SecretKey, cred.Expiration)
+			username, cred.AccessKey, cred.SecretKey, *int64ToTime(cred.Expiration))
 		if err != nil {
 			return fmt.Errorf("failed to insert credential: %w", err)
 		}
@@ -408,7 +417,7 @@ func (store *PostgresStore) CreateAccessKey(ctx context.Context, username string
 	// Insert credential
 	_, err = store.db.ExecContext(ctx,
 		"INSERT INTO credentials (username, access_key, secret_key, expiration) VALUES ($1, $2, $3, $4)",
-		username, cred.AccessKey, cred.SecretKey, cred.Expiration)
+		username, cred.AccessKey, cred.SecretKey, *int64ToTime(cred.Expiration))
 	if err != nil {
 		return fmt.Errorf("failed to insert credential: %w", err)
 	}
@@ -447,4 +456,12 @@ func (store *PostgresStore) DeleteAccessKey(ctx context.Context, username string
 	}
 
 	return nil
+}
+
+func int64ToTime(timestamp int64) *time.Time {
+	if timestamp == 0 {
+		return nil
+	}
+	t := time.Unix(timestamp, 0)
+	return &t
 }

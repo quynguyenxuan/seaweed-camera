@@ -74,7 +74,7 @@ type AccessKeyInfo struct {
 	SecretKey  string    `json:"secretKey"`
 	Username   string    `json:"username"`
 	CreatedAt  time.Time `json:"createdAt"`
-	Expiration uint64    `json:"expiration"`
+	Expiration time.Time `json:"expiration"`
 }
 
 // UserCredentials represents a user's credentials and metadata

@@ -144,9 +144,9 @@ func (h *UserHandlers) GetUserDetails(c *gin.Context) {
 // CreateAccessKey creates a new access key for a user
 func (h *UserHandlers) CreateAccessKey(c *gin.Context) {
 	username := c.Param("username")
-	var expiredAt uint64 = 0
-	if num, err := strconv.ParseUint(c.Param("expiredAt"), 10, 64); err == nil {
-		expiredAt = num
+	var expiration int64 = 0
+	if num, err := strconv.ParseInt(c.Param("expiration"), 10, 64); err == nil {
+		expiration = num
 	}
 
 	if username == "" {
@@ -154,7 +154,7 @@ func (h *UserHandlers) CreateAccessKey(c *gin.Context) {
 		return
 	}
 
-	accessKey, err := h.adminServer.CreateAccessKey(username, expiredAt)
+	accessKey, err := h.adminServer.CreateAccessKey(username, expiration)
 	if err != nil {
 		glog.Errorf("Failed to create access key for user %s: %v", username, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create access key: " + err.Error()})

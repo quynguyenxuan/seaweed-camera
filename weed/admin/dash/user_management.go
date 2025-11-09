@@ -264,7 +264,7 @@ func (s *AdminServer) GetObjectStoreUserDetails(username string) (*UserDetails, 
 			AccessKey:  cred.AccessKey,
 			SecretKey:  cred.SecretKey,
 			CreatedAt:  time.Now().AddDate(0, -1, 0), // Mock creation date
-			Expiration: time.Unix(int64(cred.Expiration), 0),
+			Expiration: time.Unix(cred.Expiration, 0),
 		})
 	}
 
@@ -273,7 +273,7 @@ func (s *AdminServer) GetObjectStoreUserDetails(username string) (*UserDetails, 
 
 // CreateAccessKey creates a new access key for a user
 // expiration is in minutes
-func (s *AdminServer) CreateAccessKey(username string, expiration uint64) (*AccessKeyInfo, error) {
+func (s *AdminServer) CreateAccessKey(username string, expiration int64) (*AccessKeyInfo, error) {
 	if s.credentialManager == nil {
 		return nil, fmt.Errorf("credential manager not available")
 	}
@@ -309,7 +309,7 @@ func (s *AdminServer) CreateAccessKey(username string, expiration uint64) (*Acce
 		AccessKey:  accessKey,
 		SecretKey:  secretKey,
 		CreatedAt:  time.Now(),
-		Expiration: time.Unix(int64(expiration), 0),
+		Expiration: time.Unix(expiration, 0),
 	}, nil
 }
 
