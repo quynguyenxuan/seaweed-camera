@@ -2494,7 +2494,7 @@ function showNewAccessKeyModal(accessKeyData) {
         <div class="mb-3">
             <label class="form-label"><strong>Expiration:</strong></label>
             <div class="input-group">
-                <input type="datetime" class="form-control" value="${accessKeyData.expiration}">
+                <input type="datetime-local" class="form-control" value="${accessKeyData.expiration}">
             </div>
         </div>
     `;
@@ -2508,7 +2508,7 @@ function showModal(title, content) {
     const modalHtml = `
         <div class="modal fade" id="${modalId}" tabindex="-1" role="dialog">
             <div class="modal-dialog" role="document">
-                <div class="modal-content">
+                <div class="modal-content"> 
                     <div class="modal-header">
                         <h5 class="modal-title">${title}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -2517,6 +2517,7 @@ function showModal(title, content) {
                         ${content}
                     </div>
                     <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Save</button>    
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     </div>
                 </div>

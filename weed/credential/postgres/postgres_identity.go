@@ -458,10 +458,13 @@ func (store *PostgresStore) DeleteAccessKey(ctx context.Context, username string
 	return nil
 }
 
-func int64ToTime(timestamp int64) *time.Time {
-	if timestamp == 0 {
-		return nil
+func int64ToTime(timestamp int64) *sql.NullTime {
+	if timestamp <= 0 {
+		return &sql.NullTime{
+			Time:  time.Time{},
+			Valid: false,
+		}
 	}
 	t := time.Unix(timestamp, 0)
-	return &t
+	return &sql.NullTime{Time: t, Valid: true}
 }
