@@ -146,6 +146,7 @@ devenv.local.yaml
 
 # direnv
 .direnv
+./test.go
 
 # pre-commit
 .pre-commit-config.yaml
