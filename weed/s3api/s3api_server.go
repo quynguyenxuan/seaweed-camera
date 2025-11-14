@@ -59,6 +59,7 @@ type S3ApiServer struct {
 	bucketRegistry    *BucketRegistry
 	credentialManager *credential.CredentialManager
 	bucketConfigCache *BucketConfigCache
+	policyEngine      *BucketPolicyEngine // Engine for evaluating bucket policies
 }
 
 func NewS3ApiServer(router *mux.Router, option *S3ApiServerOption) (s3ApiServer *S3ApiServer, err error) {
@@ -85,10 +86,11 @@ func NewS3ApiServerWithStore(router *mux.Router, option *S3ApiServerOption, expl
 		option.AllowedOrigins = domains
 	}
 
-	var iam *IdentityAccessManagement
+	iam := NewIdentityAccessManagementWithStore(option, explicitStore)
 
-	iam = NewIdentityAccessManagementWithStore(option, explicitStore)
-
+	// Initialize bucket policy engine first
+	policyEngine := NewBucketPolicyEngine()
+	
 	s3ApiServer = &S3ApiServer{
 		option:            option,
 		iam:               iam,
@@ -97,7 +99,12 @@ func NewS3ApiServerWithStore(router *mux.Router, option *S3ApiServerOption, expl
 		cb:                NewCircuitBreaker(option),
 		credentialManager: iam.credentialManager,
 		bucketConfigCache: NewBucketConfigCache(60 * time.Minute), // Increased TTL since cache is now event-driven
+		policyEngine:      policyEngine,                           // Initialize bucket policy engine
 	}
+
+	// Pass policy engine to IAM for bucket policy evaluation
+	// This avoids circular dependency by not passing the entire S3ApiServer
+	iam.policyEngine = policyEngine
 
 	// Initialize advanced IAM system if config is provided
 	if option.IamConfig != "" {
@@ -167,6 +174,20 @@ func NewS3ApiServerWithStore(router *mux.Router, option *S3ApiServerOption, expl
 
 	go s3ApiServer.subscribeMetaEvents("s3", startTsNs, filer.DirectoryEtcRoot, []string{option.BucketsPath})
 	return s3ApiServer, nil
+}
+
+// syncBucketPolicyToEngine syncs a bucket policy to the policy engine
+// This helper method centralizes the logic for loading bucket policies into the engine
+// to avoid duplication and ensure consistent error handling
+func (s3a *S3ApiServer) syncBucketPolicyToEngine(bucket string, policyDoc *policy.PolicyDocument) {
+	if policyDoc != nil {
+		if err := s3a.policyEngine.LoadBucketPolicyFromCache(bucket, policyDoc); err != nil {
+			glog.Errorf("Failed to sync bucket policy for %s to policy engine: %v", bucket, err)
+		}
+	} else {
+		// No policy - ensure it's removed from engine if it was there
+		s3a.policyEngine.DeleteBucketPolicy(bucket)
+	}
 }
 
 // classifyDomainNames classifies domains into path-style and virtual-host style domains.

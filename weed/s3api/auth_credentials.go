@@ -56,6 +56,9 @@ type IdentityAccessManagement struct {
 
 	// IAM Integration for advanced features
 	iamIntegration *S3IAMIntegration
+	
+	// Bucket policy engine for evaluating bucket policies
+	policyEngine *BucketPolicyEngine
 }
 
 type Identity struct {
@@ -63,7 +66,7 @@ type Identity struct {
 	Account      *Account
 	Credentials  []*Credential
 	Actions      []Action
-	PrincipalArn string // ARN for IAM authorization (e.g., "arn:seaweed:iam::user/username")
+	PrincipalArn string // ARN for IAM authorization (e.g., "arn:aws:iam::account-id:user/username")
 }
 
 // Account represents a system user, a system user can
@@ -547,26 +550,66 @@ func (iam *IdentityAccessManagement) authRequest(r *http.Request, action Action)
 
 	// For ListBuckets, authorization is performed in the handler by iterating
 	// through buckets and checking permissions for each. Skip the global check here.
+	policyAllows := false
+	
 	if action == s3_constants.ACTION_LIST && bucket == "" {
 		// ListBuckets operation - authorization handled per-bucket in the handler
 	} else {
-		//QUY nguyen check expiration time
-		authInfo, errCode := extractV4AuthInfo(r)
-		if errCode != s3err.ErrNone {
-			return identity, errCode
+		// First check bucket policy if one exists
+		// Bucket policies can grant or deny access to specific users/principals
+		// Following AWS semantics:
+		// - Explicit DENY in bucket policy → immediate rejection
+		// - Explicit ALLOW in bucket policy → grant access (bypass IAM checks)
+		// - No policy or indeterminate → fall through to IAM checks
+		if iam.policyEngine != nil && bucket != "" {
+			principal := buildPrincipalARN(identity)
+			// Use context-aware policy evaluation to get the correct S3 action
+			allowed, evaluated, err := iam.policyEngine.EvaluatePolicyWithContext(bucket, object, string(action), principal, r)
+			
+			if err != nil {
+				// SECURITY: Fail-close on policy evaluation errors
+				// If we can't evaluate the policy, deny access rather than falling through to IAM
+				glog.Errorf("Error evaluating bucket policy for %s/%s: %v - denying access", bucket, object, err)
+				return identity, s3err.ErrAccessDenied
+			} else if evaluated {
+				// A bucket policy exists and was evaluated with a matching statement
+				if allowed {
+					// Policy explicitly allows this action - grant access immediately
+					// This bypasses IAM checks to support cross-account access and policy-only principals
+					glog.V(3).Infof("Bucket policy allows %s to %s on %s/%s (bypassing IAM)", identity.Name, action, bucket, object)
+					policyAllows = true
+				} else {
+					// Policy explicitly denies this action - deny access immediately
+					// Note: Explicit Deny in bucket policy overrides all other permissions
+					glog.V(3).Infof("Bucket policy explicitly denies %s to %s on %s/%s", identity.Name, action, bucket, object)
+					return identity, s3err.ErrAccessDenied
+				}
+			}
+			// If not evaluated (no policy or no matching statements), fall through to IAM/identity checks
 		}
-		_, cred, _ := iam.lookupByAccessKey(authInfo.AccessKey)
-		// Use enhanced IAM authorization if available, otherwise fall back to legacy authorization
-		if iam.iamIntegration != nil && cred.Expiration > 0 {
-		//Quynguyen end
-			// Always use IAM when available for unified authorization
-			if errCode := iam.authorizeWithIAM(r, identity, action, bucket, object); errCode != s3err.ErrNone {
+		
+		// Only check IAM if bucket policy didn't explicitly allow
+		// This ensures bucket policies can independently grant access (AWS semantics)
+		if !policyAllows {
+			// Use enhanced IAM authorization if available, otherwise fall back to legacy authorization
+			//QUY nguyen check expiration time
+			authInfo, errCode := extractV4AuthInfo(r)
+			if errCode != s3err.ErrNone {
 				return identity, errCode
 			}
-		} else {
-			// Fall back to existing authorization when IAM is not configured
-			if !identity.canDo(action, bucket, object) {
-				return identity, s3err.ErrAccessDenied
+			_, cred, _ := iam.lookupByAccessKey(authInfo.AccessKey)
+			// Use enhanced IAM authorization if available, otherwise fall back to legacy authorization
+			if iam.iamIntegration != nil && cred.Expiration > 0 {
+			//Quynguyen end
+				// Always use IAM when available for unified authorization
+				if errCode := iam.authorizeWithIAM(r, identity, action, bucket, object); errCode != s3err.ErrNone {
+					return identity, errCode
+				}
+			} else {
+				// Fall back to existing authorization when IAM is not configured
+				if !identity.canDo(action, bucket, object) {
+					return identity, s3err.ErrAccessDenied
+				}
 			}
 		}
 	}
@@ -625,6 +668,34 @@ func (identity *Identity) canDo(action Action, bucket string, objectKey string) 
 
 func (identity *Identity) isAdmin() bool {
 	return slices.Contains(identity.Actions, s3_constants.ACTION_ADMIN)
+}
+
+// buildPrincipalARN builds an ARN for an identity to use in bucket policy evaluation
+func buildPrincipalARN(identity *Identity) string {
+	if identity == nil {
+		return "*" // Anonymous
+	}
+	
+	// Check if this is the anonymous user identity (authenticated as anonymous)
+	// S3 policies expect Principal: "*" for anonymous access
+	if identity.Name == s3_constants.AccountAnonymousId || 
+	   (identity.Account != nil && identity.Account.Id == s3_constants.AccountAnonymousId) {
+		return "*" // Anonymous user
+	}
+	
+	// Build an AWS-compatible principal ARN
+	// Format: arn:aws:iam::account-id:user/user-name
+	accountId := identity.Account.Id
+	if accountId == "" {
+		accountId = "000000000000" // Default account ID
+	}
+	
+	userName := identity.Name
+	if userName == "" {
+		userName = "unknown"
+	}
+	
+	return fmt.Sprintf("arn:aws:iam::%s:user/%s", accountId, userName)
 }
 
 // GetCredentialManager returns the credential manager instance
