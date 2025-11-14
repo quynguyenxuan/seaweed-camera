@@ -8,7 +8,7 @@ import (
 // ExtractRoleNameFromPrincipal extracts role name from principal ARN
 // Handles both STS assumed role and IAM role formats
 func ExtractRoleNameFromPrincipalPrefix(principal string) string {
-	// Handle STS assumed role format: arn:seaweed:sts::assumed-role/RoleName/SessionName
+	// Handle STS assumed role format: arn:aws:sts::assumed-role/RoleName/SessionName
 	stsPrefix := "arn:aws:sts::assumed-role/"
 	if strings.HasPrefix(principal, stsPrefix) {
 		remainder := principal[len(stsPrefix):]
@@ -20,7 +20,7 @@ func ExtractRoleNameFromPrincipalPrefix(principal string) string {
 		return remainder
 	}
 
-	// Handle IAM role format: arn:seaweed:iam::role/RoleName
+	// Handle IAM role format: arn:aws:iam::role/RoleName
 	iamPrefix := "arn:aws:iam::role/"
 	if strings.HasPrefix(principal, iamPrefix) {
 		return principal[len(iamPrefix):]
@@ -69,7 +69,7 @@ func ExtractUidAndRoleNameFromArn(roleArn string) (string, string) {
 }
 
 // ExtractRoleNameFromArn extracts role name from an IAM role ARN
-// Specifically handles: arn:seaweed:iam::role/RoleName
+// Specifically handles: arn:aws:iam::role/RoleName
 func ExtractRoleNameFromArnPrefix(roleArn string) string {
 	prefix := "arn:aws:iam::role/"
 	if strings.HasPrefix(roleArn, prefix) && len(roleArn) > len(prefix) {
