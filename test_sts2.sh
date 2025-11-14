@@ -1,4 +1,4 @@
-# export AWS_ACCESS_KEY_ID=AKIA40K8EP9D27CI77PY
+tes# export AWS_ACCESS_KEY_ID=AKIA40K8EP9D27CI77PY
 # export AWS_SECRET_ACCESS_KEY=A+pfV58aUUyXoIcy+1k6pBkn5dpJJTLsPnYsbOr3
 # export AWS_SESSION_TOKEN="123hsjfhsdfj"
 
@@ -47,7 +47,7 @@ export AWS_SECRET_ACCESS_KEY="CkH2KRAcq6STPrD+2YAQO/j761Lp0WNKnkMN/rsU"
 
 # aws s3api put-bucket-lifecycle-configuration --bucket camera2024 --lifecycle-configuration file://lifecycle.json --endpoint $AWS_S3_ENDPOINT_URL
 # set +x
-# GET_URL=$(aws s3 presign  --endpoint-url http://localhost:8333  's3://camera2024/test.txt' --expires-in 3600 --region=us-east-1)
+# GET_URL=$(aws s3 presign  --endpoint-url $AWS_S3_ENDPOINT_URLtest  's3://camera2024/test.txt' --expires-in 3600 --region=us-east-1)
 #
 # curl -X POST -T test.txt "${URL}"
 # curl -X PUT --data "hSDFHSDJFHJ" "$URL"
@@ -96,11 +96,12 @@ export AWS_SECRET_ACCESS_KEY="CkH2KRAcq6STPrD+2YAQO/j761Lp0WNKnkMN/rsU"
 # aws iam list-access-keys --endpoint-url $AWS_STS_ENDPOINT_URL --user-name Bob --region us-east-1
 # # exit 1
 echo "STS assume role"
-# S3_ROLE=$(aws sts assume-role  --endpoint-url $AWS_STS_ENDPOINT_URL --role-arn arn:aws:iam::123456789012:role/MyRole --role-session-name my-session --region us-east-1 --duration-seconds 900)
-# echo "STS response ${S3_ROLE}"
-# export AWS_ACCESS_KEY_ID=$(echo "$S3_ROLE" | jq -r '.Credentials.AccessKeyId')
-# export AWS_SECRET_ACCESS_KEY=$(echo "$S3_ROLE" | jq -r '.Credentials.SecretAccessKey')
-# export AWS_SESSION_TOKEN=$(echo "$S3_ROLE" | jq -r '.Credentials.SessionToken')
+S3_ROLE=$(aws sts assume-role  --endpoint-url $AWS_STS_ENDPOINT_URL --role-arn arn:aws:iam::123456789012:role/WriteOnly --role-session-name my-session --region us-east-1 --duration-seconds 900)
+# S3_ROLE=$(aws sts assume-role-with-web-identity  --endpoint-url $AWS_STS_ENDPOINT_URL --role-arn arn:aws:iam::123456789012:role/MyRole --role-session-name my-session --region us-east-1 --duration-seconds 900)
+echo "STS response ${S3_ROLE}"
+export AWS_ACCESS_KEY_ID=$(echo "$S3_ROLE" | jq -r '.Credentials.AccessKeyId')
+export AWS_SECRET_ACCESS_KEY=$(echo "$S3_ROLE" | jq -r '.Credentials.SecretAccessKey')
+export AWS_SESSION_TOKEN=$(echo "$S3_ROLE" | jq -r '.Credentials.SessionToken')
 
 echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
 echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
@@ -111,7 +112,8 @@ aws s3 cp test_sts2.sh  s3://camera2024/backup/test.txt  --region us-east-1 --en
 # echo "Get object test.txt"
 # aws s3 cp s3://cameravttnew-day3-1/backup/test.txt ./test.txt  --region us-east-1 --endpoint-url https://s3-viettel.sunteco.cloud
 # echo "Get presigned URL"
-# aws s3 presign s3://cameravttnew-day3-1/backup/test.txt   --region us-east-1 --endpoint-url https://s3-viettel.sunteco.cloud
+GET_URL=$(aws s3 presign s3://camera2024/backup/test.txt   --region us-east-1 --endpoint-url $AWS_S3_ENDPOINT_URL)
+echo "Get URL ${GET_URL}"
 echo "List objects"
 # aws s3 ls s3://cameravttnew-day3-1/backup  --region us-east-1 --endpoint-url https://s3-viettel.sunteco.cloud  --recursive --human-readable --summarize --no-paginate   --output text
 #

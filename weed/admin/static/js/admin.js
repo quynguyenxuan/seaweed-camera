@@ -2353,12 +2353,12 @@ function createAccessKeysManagementContent(accessKeys) {
                             </td>
                             <td>
                                 <code class="text-muted">••••••••••••••••</code>
-                                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="showSecretKey('${key.access_key}', '${key.secret_key}')">
+                                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="showSecretKey('${key.access_key}', '${key.secret_key}', '${key.expiration}')">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             </td>
                             <td>${new Date(key.created_at).toLocaleDateString()}</td>
-                            <td>${new Date(key.expiration).toLocaleDateString()}</td>
+                            <td>${+new Date(key.expiration) > 0 ? new Date(key.expiration).toLocaleDateString() : 'No expired'}</td>
 
                             <td>
                                 <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteAccessKey('${key.access_key}')">
@@ -2373,7 +2373,123 @@ function createAccessKeysManagementContent(accessKeys) {
     `;
 }
 
+function generateRandomKey(length = 20) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+
+async function showCreateAccessKeyForm() {
+    if (!currentAccessKeysUser) {
+        showErrorMessage('No user selected');
+        return;
+    }
+    
+    // Generate key pair
+    const accessKey = 'AKIA' + generateRandomKey(16);
+    const secretKey = generateRandomKey(32);
+    
+    // Set default expiration to 90 days from now
+    const defaultExpiration = new Date();
+    defaultExpiration.setDate(defaultExpiration.getDate() + 90);
+    const defaultExpirationStr = defaultExpiration.toISOString().slice(0, 16);
+    
+    const formContent = `
+        <form id="createAccessKeyForm" onsubmit="return handleCreateAccessKey(event, '${accessKey}', '${secretKey}')">
+            <div class="mb-3">
+                <label class="form-label"><strong>Access Key:</strong></label>
+                <div class="input-group">
+                    <input type="text" class="form-control" value="${accessKey}" readonly>
+                    <button type="button" class="btn btn-outline-secondary" onclick="copyToClipboard('${accessKey}')">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label"><strong>Secret Key:</strong></label>
+                <div class="input-group">
+                    <input type="text" class="form-control" value="${secretKey}" readonly>
+                    <button type="button" class="btn btn-outline-secondary" onclick="copyToClipboard('${secretKey}')">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="noExpire" id="noExpireCheckbox" onchange="document.getElementById('expirationDate').disabled = this.checked">
+                    <label class="form-check-label" for="noExpireCheckbox">
+                        No expiration
+                    </label>
+                </div>
+                <label for="expirationDate" class="form-label"><strong>Expiration Date:</strong></label>
+                <input type="datetime-local" class="form-control" id="expirationDate" name="expiration" 
+                       min="${new Date().toISOString().slice(0, 16)}" 
+                       value="${defaultExpirationStr}">
+            </div>
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary me-2" data-bs-dismiss="modal" >Save</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </form>
+    `;
+    
+    showModal('Create New Access Key', formContent, true);
+}
+
+async function handleCreateAccessKey(event, accessKey, secretKey) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    const noExpire = formData.get('noExpire');
+    let expirationDate = null;
+    
+    if (!noExpire) {
+        expirationDate = new Date(formData.get('expiration'));
+        if (expirationDate <= new Date()) {
+            showErrorMessage('Expiration date must be in the future');
+            return false;
+        }
+    }
+    
+    try {
+        const response = await fetch(`/api/users/${currentAccessKeysUser}/access-keys`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                access_key: accessKey,
+                secret_key: secretKey,
+                expiration: noExpire ? null : expirationDate.toISOString()
+            })
+        });
+        
+        if (response.ok) {
+            showSuccessMessage('Access key created successfully');
+            await loadAccessKeys(currentAccessKeysUser);
+        } else {
+            const error = await response.json();
+            showErrorMessage(error.error || 'Failed to create access key');
+        }
+    } catch (error) {
+        console.error('Error creating access key:', error);
+        showErrorMessage('Failed to create access key');
+    }
+    
+    return false;
+}
+
 async function createAccessKey() {
+    // For backward compatibility, redirect to the new form
+    showCreateAccessKeyForm();
+}
+
+async function createAccessKey_old() {
     if (!currentAccessKeysUser) {
         showErrorMessage('No user selected');
         return;
@@ -2434,7 +2550,7 @@ async function deleteAccessKeyConfirmed(accessKeyId) {
     }
 }
 
-function showSecretKey(accessKey, secretKey) {
+function showSecretKey(accessKey, secretKey, expiration) {
     const content = `
         <div class="alert alert-info">
             <i class="fas fa-info-circle me-2"></i>
@@ -2456,6 +2572,12 @@ function showSecretKey(accessKey, secretKey) {
                 <button class="btn btn-outline-secondary" onclick="copyToClipboard('${secretKey}')">
                     <i class="fas fa-copy"></i>
                 </button>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label"><strong>Expiration:</strong></label>
+            <div class="input-group">
+                <input type="text" class="form-control"  readonly value="${+new Date(expiration) > 0 ? new Date(expiration).toLocaleDateString() : 'No expired'}">
             </div>
         </div>
     `;
@@ -2502,7 +2624,7 @@ function showNewAccessKeyModal(accessKeyData) {
     showModal('New Access Key Created', content);
 }
 
-function showModal(title, content) {
+function showModal(title, content, noFooter = false ) {
     // Create a dynamic modal
     const modalId = 'dynamicModal_' + Date.now();
     const modalHtml = `
@@ -2516,10 +2638,11 @@ function showModal(title, content) {
                     <div class="modal-body">
                         ${content}
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Save</button>    
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    </div>
+                    ${noFooter ? '' : `
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                        `}
                 </div>
             </div>
         </div>

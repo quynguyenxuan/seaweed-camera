@@ -501,7 +501,13 @@ func loadIAMManagerFromConfig(configPath string, credentialManager *credential.C
 		STS:    configRoot.STS,
 		Policy: configRoot.Policy,
 		Roles: &integration.RoleStoreConfig{
-			StoreType: sts.StoreTypeMemory, // Use memory store for JSON config-based setup
+			//QUYNGUYEN for save role to filler
+			// StoreType: sts.StoreTypeMemory, // Use memory store for JSON config-based setup 
+			StoreType: sts.StoreTypeFiler,
+			StoreConfig: map[string]interface{}{
+				"noCache": true,
+			},
+			//QUy Nguyen end
 		},
 	}
 

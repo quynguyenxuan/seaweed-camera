@@ -600,30 +600,6 @@ func (s *STSService) AssumeRole(ctx context.Context, request *AssumeRoleRequest)
 		return nil, fmt.Errorf("request cannot be nil")
 	}
 
-	// // Validate request parameters
-	// if err := s.validateAssumeRoleWithCredentialsRequest(request); err != nil {
-	// 	return nil, fmt.Errorf("invalid request: %w", err)
-	// }
-
-	// // 1. Get the specified provider
-	// provider, exists := s.providers[request.ProviderName]
-	// if !exists {
-	// 	return nil, fmt.Errorf("identity provider not found: %s", request.ProviderName)
-	// }
-
-	// // 2. Validate credentials with the specified provider
-	// credentials := request.Username + ":" + request.Password
-	// externalIdentity, err := provider.Authenticate(ctx, credentials)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to authenticate credentials: %w", err)
-	// }
-
-	// // 3. Check if the role exists and can be assumed (includes trust policy validation)
-	// if err := s.validateRoleAssumptionForCredentials(ctx, request.RoleArn, externalIdentity); err != nil {
-	// 	return nil, fmt.Errorf("role assumption denied: %w", err)
-	// }
-
-	// 4. Calculate session duration
 	sessionDuration := s.calculateSessionDuration(request.DurationSeconds)
 	expiresAt := time.Now().Add(sessionDuration)
 
@@ -646,15 +622,9 @@ func (s *STSService) AssumeRole(ctx context.Context, request *AssumeRoleRequest)
 		Subject:       request.RoleSessionName,
 	}
 
-	// Create rich JWT claims with all session information
-	sessionClaims := NewSTSSessionClaims(sessionId, s.Config.Issuer, expiresAt).
-		WithSessionName(request.RoleSessionName).
-		WithRoleInfo(request.RoleArn, assumedRoleUser.Arn, assumedRoleUser.Arn).
-		// WithIdentityProvider(provider.Name(), externalIdentity.UserID, "").
-		WithMaxDuration(sessionDuration)
 
 	// Generate self-contained JWT token with all session information
-	jwtToken, err := s.tokenGenerator.GenerateJWTWithClaims(sessionClaims)
+	jwtToken, err := s.tokenGenerator.GenerateSessionToken(sessionId, expiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate JWT session token: %w", err)
 	}

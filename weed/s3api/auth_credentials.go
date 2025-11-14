@@ -124,7 +124,20 @@ func NewIdentityAccessManagement(option *S3ApiServerOption) *IdentityAccessManag
 	return NewIdentityAccessManagementWithStore(option, "")
 }
 
+var (
+    iamGlobal *IdentityAccessManagement
+    once     sync.Once
+)
+//Quynguyen add
 func NewIdentityAccessManagementWithStore(option *S3ApiServerOption, explicitStore string) *IdentityAccessManagement {
+	once.Do(func() {
+        iamGlobal = NewIdentityAccessManagementWithStoreOnce(option, explicitStore)
+    })
+    return iamGlobal
+}
+//Quynguyen end
+func NewIdentityAccessManagementWithStoreOnce(option *S3ApiServerOption, explicitStore string) *IdentityAccessManagement {
+
 	iam := &IdentityAccessManagement{
 		domain:       option.DomainName,
 		hashes:       make(map[string]*sync.Pool),
@@ -381,6 +394,11 @@ func (iam *IdentityAccessManagement) CleanExpiredAccessKey() error {
 	}
 	return nil
 }
+//QUYnguyen Add
+func (iam *IdentityAccessManagement) LookupByAccessKey(accessKey string) (identity *Identity, cred *Credential, found bool) {
+	return iam.lookupByAccessKey(accessKey)
+}
+//QUYnguyen end
 
 func (iam *IdentityAccessManagement) lookupByAccessKey(accessKey string) (identity *Identity, cred *Credential, found bool) {
 	iam.m.RLock()
@@ -532,8 +550,15 @@ func (iam *IdentityAccessManagement) authRequest(r *http.Request, action Action)
 	if action == s3_constants.ACTION_LIST && bucket == "" {
 		// ListBuckets operation - authorization handled per-bucket in the handler
 	} else {
+		//QUY nguyen check expiration time
+		authInfo, errCode := extractV4AuthInfo(r)
+		if errCode != s3err.ErrNone {
+			return identity, errCode
+		}
+		_, cred, _ := iam.lookupByAccessKey(authInfo.AccessKey)
 		// Use enhanced IAM authorization if available, otherwise fall back to legacy authorization
-		if iam.iamIntegration != nil {
+		if iam.iamIntegration != nil && cred.Expiration > 0 {
+		//Quynguyen end
 			// Always use IAM when available for unified authorization
 			if errCode := iam.authorizeWithIAM(r, identity, action, bucket, object); errCode != s3err.ErrNone {
 				return identity, errCode
@@ -695,7 +720,7 @@ func (iam *IdentityAccessManagement) authorizeWithIAM(r *http.Request, identity 
 	ctx := r.Context()
 
 	// Get session info from request headers (for JWT-based authentication)
-	sessionToken := r.Header.Get("X-SeaweedFS-Session-Token")
+	sessionToken := r.Header.Get("X-Amz-Security-Token")
 	principal := r.Header.Get("X-SeaweedFS-Principal")
 
 	// Create IAMIdentity for authorization

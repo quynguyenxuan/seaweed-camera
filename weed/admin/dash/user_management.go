@@ -273,7 +273,7 @@ func (s *AdminServer) GetObjectStoreUserDetails(username string) (*UserDetails, 
 
 // CreateAccessKey creates a new access key for a user
 // expiration is in minutes
-func (s *AdminServer) CreateAccessKey(username string, expiration int64) (*AccessKeyInfo, error) {
+func (s *AdminServer) CreateAccessKey(username string, accessKeyParam, secretKeyParam string, expiration int64) (*AccessKeyInfo, error) {
 	if s.credentialManager == nil {
 		return nil, fmt.Errorf("credential manager not available")
 	}
@@ -292,6 +292,15 @@ func (s *AdminServer) CreateAccessKey(username string, expiration int64) (*Acces
 	// Generate new access key
 	accessKey := generateAccessKey()
 	secretKey := generateSecretKey()
+
+	//QUYNGUYEN add
+	if accessKeyParam != "" {
+		accessKey = accessKeyParam
+	}
+	if secretKeyParam != "" {
+		secretKey = secretKeyParam
+	}
+	//QUYNGUYEN add
 
 	credential := &iam_pb.Credential{
 		AccessKey:  accessKey,

@@ -444,6 +444,28 @@ func (iama *IamApiServer) CreateAccessKey(s3cfg *iam_pb.S3ApiConfiguration, valu
 }
 
 // QUYNGUYEN add
+func (iama *IamApiServer) SaveCredential(s3cfg *iam_pb.S3ApiConfiguration, userName string, credential *iam_pb.Credential) error {
+	
+	changed := false
+	for _, ident := range s3cfg.Identities {
+		if userName == ident.Name {
+			ident.Credentials = append(ident.Credentials, credential)
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		s3cfg.Identities = append(s3cfg.Identities,
+			&iam_pb.Identity{
+				Name: userName,
+				Credentials: []*iam_pb.Credential{
+					credential,
+				},
+			},
+		)
+	}
+	return nil
+}
 func (iama *IamApiServer) AssumeRoleWithWebIdentity(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp AssumeRoleWithWebIdentityResponse, err *IamError) {
 	// Parse parameters từ request
 	roleArn := values.Get("RoleArn")
@@ -520,7 +542,7 @@ func (iama *IamApiServer) AssumeRoleWithCredentials(s3cfg *iam_pb.S3ApiConfigura
 	roleSessionName := values.Get("RoleSessionName")
 	durationSecondsStr := values.Get("DurationSeconds")
 	policy := values.Get("Policy")
-	accessKeyId := values.Get("Username")
+	accessKeyId := values.Get("UserName")
 	secretAccessKey := values.Get("Password")
 	providerName := values.Get("ProviderName")
 
@@ -600,7 +622,8 @@ func (iama *IamApiServer) AssumeRole(s3cfg *iam_pb.S3ApiConfiguration, values ur
 	roleSessionName := values.Get("RoleSessionName")
 	durationSecondsStr := values.Get("DurationSeconds")
 	policy := values.Get("Policy")
-	// username := values.Get("Username")
+	userName := values.Get("UserName")
+	accessKeyId := values.Get("AccessKeyId")
 
 	// Validate required parameters
 	if roleArn == "" || roleSessionName == "" {
@@ -666,9 +689,18 @@ func (iama *IamApiServer) AssumeRole(s3cfg *iam_pb.S3ApiConfiguration, values ur
 			Code:  iam.ErrCodeInvalidInputException,
 			Error: errors.New("RoleArn and RoleSessionName are required"),
 		}
-
 		return
 	}
+	identity, _, found := iama.iam.LookupByAccessKey(accessKeyId)
+	if found {
+			userName = identity.Name
+	}
+
+	iama.SaveCredential(s3cfg, userName, &iam_pb.Credential{
+		AccessKey:  assumeRoleResp.Credentials.AccessKeyId,
+		SecretKey:  assumeRoleResp.Credentials.SecretAccessKey,
+		Expiration: assumeRoleResp.Credentials.Expiration.Unix(),
+	})
 
 	// Convert response
 	resp.AssumeRoleResult.Credentials = sts.Credentials{
@@ -719,6 +751,7 @@ func (iama *IamApiServer) GetSessionToken(s3cfg *iam_pb.S3ApiConfiguration, valu
 
 	// Gọi stsService.GetSessionToken
 	getSessionTokenResp, sessionTokenErr := iamManager.GetSessionToken(ctx, request)
+	
 	if err != nil {
 		glog.V(0).Infof("Error assuming role: %v", sessionTokenErr)
 		err = &IamError{
@@ -811,6 +844,10 @@ func handleImplicitUsername(r *http.Request, values url.Values) {
 	}
 	userName := s[2]
 	values.Set("UserName", userName)
+	accessKey := s[0]
+	if len(values.Get("AccessKeyId")) == 0 {
+		values.Set("AccessKeyId", accessKey)
+	}
 }
 
 func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {

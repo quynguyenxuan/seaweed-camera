@@ -57,10 +57,13 @@
   "policy": {
     "defaultEffect": "Deny"
   },
+  "roleStore": {
+    "storeType": "filer"
+  },
   "roles": [
     {
-      "roleName": "TestAdminRole",
-      "roleArn": "arn:aws:iam::role/TestAdminRole",
+      "roleName": "Admin",
+      "roleArn": "arn:aws:iam::role/Admin",
       "trustPolicy": {
         "Version": "2012-10-17",
         "Statement": [
@@ -70,7 +73,8 @@
               "Federated": "test-oidc"
             },
             "Action": [
-              "sts:AssumeRoleWithWebIdentity"
+              "sts:AssumeRoleWithWebIdentity",
+              "sts:AssumeRole"
             ]
           }
         ]
@@ -81,8 +85,8 @@
       "description": "Admin role for testing"
     },
     {
-      "roleName": "TestReadOnlyRole",
-      "roleArn": "arn:aws:iam::role/TestReadOnlyRole",
+      "roleName": "ReadOnly",
+      "roleArn": "arn:aws:iam::role/ReadOnly",
       "trustPolicy": {
         "Version": "2012-10-17",
         "Statement": [
@@ -92,7 +96,8 @@
               "Federated": "test-oidc"
             },
             "Action": [
-              "sts:AssumeRoleWithWebIdentity"
+              "sts:AssumeRoleWithWebIdentity",
+              "sts:AssumeRole"
             ]
           }
         ]
@@ -102,31 +107,10 @@
       ],
       "description": "Read-only role for testing"
     },
+    
     {
-      "roleName": "TestWriteOnlyRole",
-      "roleArn": "arn:aws:iam::role/TestWriteOnlyRole",
-      "trustPolicy": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-            "Effect": "Allow",
-            "Principal": {
-              "Federated": "test-oidc"
-            },
-            "Action": [
-              "sts:AssumeRoleWithWebIdentity"
-            ]
-          }
-        ]
-      },
-      "attachedPolicies": [
-        "S3WriteOnlyPolicy"
-      ],
-      "description": "Write-only role for testing"
-    },
-    {
-      "roleName": "KeycloakAdminRole",
-      "roleArn": "arn:aws:iam::role/KeycloakAdminRole",
+      "roleName": "WriteOnly",
+      "roleArn": "arn:aws:iam::role/WriteOnly",
       "trustPolicy": {
         "Version": "2012-10-17",
         "Statement": [
@@ -136,51 +120,8 @@
               "Federated": "keycloak"
             },
             "Action": [
-              "sts:AssumeRoleWithWebIdentity"
-            ]
-          }
-        ]
-      },
-      "attachedPolicies": [
-        "S3AdminPolicy"
-      ],
-      "description": "Admin role for Keycloak users"
-    },
-    {
-      "roleName": "KeycloakReadOnlyRole",
-      "roleArn": "arn:aws:iam::role/KeycloakReadOnlyRole",
-      "trustPolicy": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-            "Effect": "Allow",
-            "Principal": {
-              "Federated": "keycloak"
-            },
-            "Action": [
-              "sts:AssumeRoleWithWebIdentity"
-            ]
-          }
-        ]
-      },
-      "attachedPolicies": [
-        "S3ReadOnlyPolicy"
-      ],
-      "description": "Read-only role for Keycloak users"
-    },
-    {
-      "roleName": "KeycloakWriteOnlyRole",
-      "roleArn": "arn:aws:iam::role/KeycloakWriteOnlyRole",
-      "trustPolicy": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-            "Effect": "Allow",
-            "Principal": {
-              "Federated": "keycloak"
-            },
-            "Action": [
-              "sts:AssumeRoleWithWebIdentity"
+              "sts:AssumeRoleWithWebIdentity",
+              "sts:AssumeRole"
             ]
           }
         ]
@@ -191,8 +132,8 @@
       "description": "Write-only role for Keycloak users"
     },
     {
-      "roleName": "KeycloakReadWriteRole",
-      "roleArn": "arn:aws:iam::role/KeycloakReadWriteRole",
+      "roleName": "ReadWrite",
+      "roleArn": "arn:aws:iam::role/ReadWrite",
       "trustPolicy": {
         "Version": "2012-10-17",
         "Statement": [
@@ -202,7 +143,8 @@
               "Federated": "keycloak"
             },
             "Action": [
-              "sts:AssumeRoleWithWebIdentity"
+              "sts:AssumeRoleWithWebIdentity",
+              "sts:AssumeRole"
             ]
           }
         ]

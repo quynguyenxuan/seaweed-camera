@@ -464,11 +464,7 @@ func (m *IAMManager) validateTrustPolicyBasic(ctx context.Context, roleDef *Role
 		if statement.Effect == "Allow" {
 			for _, action := range statement.Action {
 				if action == "sts:AssumeRole" {
-					if principal, ok := statement.Principal.(map[string]interface{}); ok {
-						if _, ok := principal["Federated"].(string); ok {
-							return nil // Allow
-						}
-					}
+					return nil // Allow
 				}
 			}
 		}

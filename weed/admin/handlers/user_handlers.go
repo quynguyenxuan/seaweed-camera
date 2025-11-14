@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -144,17 +143,27 @@ func (h *UserHandlers) GetUserDetails(c *gin.Context) {
 // CreateAccessKey creates a new access key for a user
 func (h *UserHandlers) CreateAccessKey(c *gin.Context) {
 	username := c.Param("username")
-	var expiration int64 = 0
-	if num, err := strconv.ParseInt(c.Param("expiration"), 10, 64); err == nil {
-		expiration = num
+	
+	var bodyData dash.AccessKeyInfo
+	if err := c.ShouldBindJSON(&bodyData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
 	}
 
+	accessKeyParam := bodyData.AccessKey
+	secretKeyParam := bodyData.SecretKey
+
+	var expiration int64 = 0
+	if !bodyData.Expiration.IsZero() {
+		expiration = bodyData.Expiration.Unix()
+	}
+		
 	if username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Username is required"})
 		return
 	}
 
-	accessKey, err := h.adminServer.CreateAccessKey(username, expiration)
+	accessKey, err := h.adminServer.CreateAccessKey(username, accessKeyParam, secretKeyParam, expiration)
 	if err != nil {
 		glog.Errorf("Failed to create access key for user %s: %v", username, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create access key: " + err.Error()})
