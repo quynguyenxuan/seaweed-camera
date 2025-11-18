@@ -62,7 +62,10 @@
       "api_version": 740,
       "timeout": "5s",
       "max_retry_delay": "1s",
-      "directory_prefix": "seaweedfs"
+      "directory_prefix": "seaweedfs",
+      "keyspace": "sunfs",
+      "table_name": "policies",
+      "table_prefix": "sw_"
     }
   },
   "roleStore": {
@@ -72,7 +75,10 @@
       "api_version": 740,
       "timeout": "5s",
       "max_retry_delay": "1s",
-      "directory_prefix": "seaweedfs"
+      "directory_prefix": "seaweedfs",
+      "keyspace": "sunfs",
+      "table_name": "roles",
+      "table_prefix": "sw_"
     }
   },
   "roles": [

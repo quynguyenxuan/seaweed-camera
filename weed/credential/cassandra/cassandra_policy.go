@@ -13,6 +13,7 @@ import (
 
 // GetPolicies retrieves all IAM policies from Cassandra
 func (store *CassandraStore) GetPolicies(ctx context.Context) (map[string]policy_engine.PolicyDocument, error) {
+	fmt.Println("✅ Đã lấy policies")
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
@@ -21,7 +22,7 @@ func (store *CassandraStore) GetPolicies(ctx context.Context) (map[string]policy
 	}
 
 	query := fmt.Sprintf(`
-		SELECT policy_name, policy_data FROM %s.%s_policies`, store.keyspace, store.tableName)
+		SELECT name, document FROM %s.%s_policies`, store.keyspace, store.tableName)
 
 	iter := store.session.Query(query).
 		WithContext(ctx).
@@ -49,6 +50,7 @@ func (store *CassandraStore) GetPolicies(ctx context.Context) (map[string]policy
 
 // CreatePolicy creates a new IAM policy in Cassandra
 func (store *CassandraStore) CreatePolicy(ctx context.Context, name string, document policy_engine.PolicyDocument) error {
+	fmt.Println("✅ Đã tạo policy: ", name)
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
@@ -69,7 +71,7 @@ func (store *CassandraStore) CreatePolicy(ctx context.Context, name string, docu
 	}
 
 	query := fmt.Sprintf(`
-		INSERT INTO %s.%s_policies (policy_name, policy_data, created_at, updated_at)
+		INSERT INTO %s.%s_policies (name, document, created_at, updated_at)
 		VALUES (?, ?, ?, ?)`, store.keyspace, store.tableName)
 
 	err = store.session.Query(query, name, string(policyData), time.Now(), time.Now()).
@@ -86,6 +88,7 @@ func (store *CassandraStore) CreatePolicy(ctx context.Context, name string, docu
 
 // UpdatePolicy updates an existing IAM policy in Cassandra
 func (store *CassandraStore) UpdatePolicy(ctx context.Context, name string, document policy_engine.PolicyDocument) error {
+	fmt.Println("✅ Đã cập nhật policy: ", name)
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
@@ -107,8 +110,8 @@ func (store *CassandraStore) UpdatePolicy(ctx context.Context, name string, docu
 
 	query := fmt.Sprintf(`
 		UPDATE %s.%s_policies
-		SET policy_data = ?, updated_at = ?
-		WHERE policy_name = ?`, store.keyspace, store.tableName)
+		SET document = ?, updated_at = ?
+		WHERE name = ?`, store.keyspace, store.tableName)
 
 	err = store.session.Query(query, string(policyData), time.Now(), name).
 		WithContext(ctx).
@@ -122,8 +125,9 @@ func (store *CassandraStore) UpdatePolicy(ctx context.Context, name string, docu
 	return nil
 }
 
-// DeletePolicy removes an IAM policy from Cassandra
+// DeletePolicy deletes an IAM policy from Cassandra
 func (store *CassandraStore) DeletePolicy(ctx context.Context, name string) error {
+	fmt.Println("✅ Đã xóa policy: ", name)
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
@@ -139,7 +143,7 @@ func (store *CassandraStore) DeletePolicy(ctx context.Context, name string) erro
 
 	query := fmt.Sprintf(`
 		DELETE FROM %s.%s_policies
-		WHERE policy_name = ?`, store.keyspace, store.tableName)
+		WHERE name = ?`, store.keyspace, store.tableName)
 
 	err = store.session.Query(query, name).
 		WithContext(ctx).
@@ -155,6 +159,7 @@ func (store *CassandraStore) DeletePolicy(ctx context.Context, name string) erro
 
 // GetPolicy retrieves a specific IAM policy from Cassandra
 func (store *CassandraStore) GetPolicy(ctx context.Context, name string) (*policy_engine.PolicyDocument, error) {
+	fmt.Println("✅ Đã lấy policy: ", name)
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
@@ -163,8 +168,8 @@ func (store *CassandraStore) GetPolicy(ctx context.Context, name string) (*polic
 	}
 
 	query := fmt.Sprintf(`
-		SELECT policy_data FROM %s.%s_policies
-		WHERE policy_name = ? LIMIT 1`, store.keyspace, store.tableName)
+		SELECT document FROM %s.%s_policies
+		WHERE name = ? LIMIT 1`, store.keyspace, store.tableName)
 
 	var policyData string
 	err := store.session.Query(query, name).
@@ -179,7 +184,6 @@ func (store *CassandraStore) GetPolicy(ctx context.Context, name string) (*polic
 		return nil, fmt.Errorf("failed to get policy: %v", err)
 	}
 
-	// Deserialize policy
 	var policy policy_engine.PolicyDocument
 	err = json.Unmarshal([]byte(policyData), &policy)
 	if err != nil {

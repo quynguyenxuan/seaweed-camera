@@ -37,34 +37,52 @@ func NewCassandraPolicyStore(config map[string]interface{}) (PolicyStore, error)
 	}
 
 	// Set timeout
-	timeout := 5 * time.Second
-	if timeoutStr, ok := config["timeout"].(string); ok && timeoutStr != "" {
-		if parsedTimeout, err := time.ParseDuration(timeoutStr); err == nil {
-			timeout = parsedTimeout
-		}
-	}
+	// timeout := 5 * time.Second
+	// if timeoutStr, ok := config["timeout"].(string); ok && timeoutStr != "" {
+	// 	if parsedTimeout, err := time.ParseDuration(timeoutStr); err == nil {
+	// 		timeout = parsedTimeout
+	// 	}
+	// }
 
 	// Create cluster configuration
 	filerStore := cassandra2.GetInstance()
-	cluster := filerStore.GetCluster()
-	cluster.Keyspace = keyspace
-	cluster.Timeout = timeout
-	cluster.Consistency = gocql.Quorum
+	// cluster := filerStore.GetCluster()
+	// cluster.Keyspace = keyspace
+	// cluster.Timeout = timeout
+	// cluster.Consistency = gocql.LocalQuorum
 
 	// Connect to Cassandra
-	session, err := cluster.CreateSession()
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Cassandra: %v", err)
+	// session, err := cluster.CreateSession()
+	session := filerStore.GetSession()
+	if session == nil {
+		return nil, fmt.Errorf("failed to connect to Cassandra: %v")
 	}
 
+	// Create keyspace and table if they don't exist
+	if err := createKeyspaceAndTable(session, keyspace, tableName); err != nil {
+		session.Close()
+		return nil, fmt.Errorf("failed to create keyspace and table: %v", err)
+	}
+
+	store := &CassandraPolicyStore{
+		session:   session,
+		keyspace:  keyspace,
+		tableName: tableName,
+	}
+
+	glog.V(0).Infof("Cassandra policy store initialized with keyspace: %s, table: %s", keyspace, tableName)
+	return store, nil
+}
+
+// createKeyspaceAndTable creates the keyspace and table if they don't exist
+func createKeyspaceAndTable(session *gocql.Session, keyspace, tableName string) error {
 	// Create keyspace if it doesn't exist
-	err = session.Query(fmt.Sprintf(`
+	err := session.Query(fmt.Sprintf(`
 		CREATE KEYSPACE IF NOT EXISTS %s 
 		WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
 	`, keyspace)).Exec()
 	if err != nil {
-		session.Close()
-		return nil, fmt.Errorf("failed to create keyspace: %v", err)
+		return fmt.Errorf("failed to create keyspace: %v", err)
 	}
 
 	// Create table if it doesn't exist
@@ -76,18 +94,10 @@ func NewCassandraPolicyStore(config map[string]interface{}) (PolicyStore, error)
 			updated_at timestamp
 		)`, keyspace, tableName)).Exec()
 	if err != nil {
-		session.Close()
-		return nil, fmt.Errorf("failed to create table: %v", err)
+		return fmt.Errorf("failed to create table: %v", err)
 	}
 
-	store := &CassandraPolicyStore{
-		session:   session,
-		keyspace:  keyspace,
-		tableName: tableName,
-	}
-
-	glog.V(0).Infof("Cassandra policy store initialized with keyspace: %s, table: %s", keyspace, tableName)
-	return store, nil
+	return nil
 }
 
 // StorePolicy stores a policy document in Cassandra

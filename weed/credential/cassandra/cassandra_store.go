@@ -2,16 +2,13 @@ package cassandra
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/gocql/gocql"
 	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/filer/cassandra2"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
-	"github.com/seaweedfs/seaweedfs/weed/pb/iam_pb"
 	"github.com/seaweedfs/seaweedfs/weed/util"
 )
 
@@ -59,17 +56,19 @@ func (store *CassandraStore) Initialize(configuration util.Configuration, prefix
 
 	// Get Cassandra cluster configuration
 	filerStore := cassandra2.GetInstance()
-	cluster := filerStore.GetCluster()
-	cluster.Keyspace = keyspace
+	// cluster := filerStore.GetCluster()
+	// cluster.Keyspace = keyspace
 
 	// Create session
-	session, err := cluster.CreateSession()
-	if err != nil {
-		return fmt.Errorf("failed to create Cassandra session: %v", err)
+	// session, err := cluster.CreateSession()
+	session := filerStore.GetSession()
+
+	if session == nil {
+		return fmt.Errorf("failed to create Cassandra session: %v")
 	}
 
 	// Create tables
-	err = store.createTables(session, keyspace, tableName)
+	err := store.createTables(session, keyspace, tableName)
 	if err != nil {
 		session.Close()
 		return fmt.Errorf("failed to create tables: %v", err)
@@ -89,7 +88,9 @@ func (store *CassandraStore) createTables(session *gocql.Session, keyspace, tabl
 	err := session.Query(fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s.%s_users (
 			username text PRIMARY KEY,
-			identity_data text,
+			email text,
+			account_data text,
+			actions text,
 			created_at timestamp,
 			updated_at timestamp
 		)`, keyspace, tableName)).WithContext(context.Background()).Exec()
@@ -100,12 +101,14 @@ func (store *CassandraStore) createTables(session *gocql.Session, keyspace, tabl
 
 	// Create access keys table
 	err = session.Query(fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS %s.%s_access_keys (
-			access_key text PRIMARY KEY,
+		CREATE TABLE IF NOT EXISTS %s.%s_credentials (
+			id timeuuid PRIMARY KEY,
 			username text,
-			credential_data text,
+			access_key text,
+			secret_key text,
 			created_at timestamp,
-			updated_at timestamp
+			updated_at timestamp,
+			expiration timestamp
 		)`, keyspace, tableName)).WithContext(context.Background()).Exec()
 
 	if err != nil {
@@ -115,14 +118,47 @@ func (store *CassandraStore) createTables(session *gocql.Session, keyspace, tabl
 	// Create policies table
 	err = session.Query(fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s.%s_policies (
-			policy_name text PRIMARY KEY,
-			policy_data text,
+			name text PRIMARY KEY,
+			document text,
 			created_at timestamp,
 			updated_at timestamp
 		)`, keyspace, tableName)).WithContext(context.Background()).Exec()
 
 	if err != nil {
 		return fmt.Errorf("failed to create policies table: %v", err)
+	}
+
+	// Create secondary indexes for efficient querying
+	// Index for users email
+	err = session.Query(fmt.Sprintf(`
+		CREATE INDEX IF NOT EXISTS idx_%s_users_email ON %s.%s_users (email)
+	`, tableName, keyspace, tableName)).WithContext(context.Background()).Exec()
+	if err != nil {
+		return fmt.Errorf("failed to create users email index: %v", err)
+	}
+
+	// Index for credentials username
+	err = session.Query(fmt.Sprintf(`
+		CREATE INDEX IF NOT EXISTS idx_%s_credentials_username ON %s.%s_credentials (username)
+	`, tableName, keyspace, tableName)).WithContext(context.Background()).Exec()
+	if err != nil {
+		return fmt.Errorf("failed to create credentials username index: %v", err)
+	}
+
+	// Index for credentials access_key
+	err = session.Query(fmt.Sprintf(`
+		CREATE INDEX IF NOT EXISTS idx_%s_credentials_access_key ON %s.%s_credentials (access_key)
+	`, tableName, keyspace, tableName)).WithContext(context.Background()).Exec()
+	if err != nil {
+		return fmt.Errorf("failed to create credentials access_key index: %v", err)
+	}
+
+	// Index for policies name
+	err = session.Query(fmt.Sprintf(`
+		CREATE INDEX IF NOT EXISTS idx_%s_policies_name ON %s.%s_policies (name)
+	`, tableName, keyspace, tableName)).WithContext(context.Background()).Exec()
+	if err != nil {
+		// return fmt.Errorf("failed to create policies name index: %v", err)
 	}
 
 	// Create config table
@@ -132,76 +168,9 @@ func (store *CassandraStore) createTables(session *gocql.Session, keyspace, tabl
 			config_data text,
 			updated_at timestamp
 		)`, keyspace, tableName)).WithContext(context.Background()).Exec()
-
 	if err != nil {
 		return fmt.Errorf("failed to create config table: %v", err)
 	}
-
-	return nil
-}
-
-func (store *CassandraStore) LoadConfiguration(ctx context.Context) (*iam_pb.S3ApiConfiguration, error) {
-	store.mu.RLock()
-	defer store.mu.RUnlock()
-
-	if !store.configured {
-		return nil, fmt.Errorf("store not configured")
-	}
-
-	query := fmt.Sprintf(`
-		SELECT config_data FROM %s.%s_config
-		WHERE config_key = ? LIMIT 1`, store.keyspace, store.tableName)
-
-	var configData string
-	err := store.session.Query(query, "s3_api_config").
-		WithContext(ctx).
-		Consistency(gocql.One).
-		Scan(&configData)
-
-	if err != nil {
-		if err == gocql.ErrNotFound {
-			// Return empty config if not found
-			return &iam_pb.S3ApiConfiguration{}, nil
-		}
-		return nil, fmt.Errorf("failed to load configuration: %v", err)
-	}
-
-	var config iam_pb.S3ApiConfiguration
-	err = json.Unmarshal([]byte(configData), &config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal configuration: %v", err)
-	}
-
-	return &config, nil
-}
-
-func (store *CassandraStore) SaveConfiguration(ctx context.Context, config *iam_pb.S3ApiConfiguration) error {
-	store.mu.RLock()
-	defer store.mu.RUnlock()
-
-	if !store.configured {
-		return fmt.Errorf("store not configured")
-	}
-
-	// Serialize configuration
-	configData, err := json.Marshal(config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal configuration: %v", err)
-	}
-
-	query := fmt.Sprintf(`
-		INSERT INTO %s.%s_config (config_key, config_data, updated_at)
-		VALUES (?, ?, ?)`, store.keyspace, store.tableName)
-
-	err = store.session.Query(query, "s3_api_config", string(configData), time.Now()).
-		WithContext(ctx).
-		Exec()
-
-	if err != nil {
-		return fmt.Errorf("failed to save configuration: %v", err)
-	}
-
-	glog.V(2).Infof("Saved S3 API configuration to Cassandra")
 	return nil
 }
 

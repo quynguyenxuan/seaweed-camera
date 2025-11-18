@@ -43,6 +43,9 @@ func GetInstance() *Cassandra2Store {
 func (store *Cassandra2Store) GetCluster() *gocql.ClusterConfig {
 	return store.cluster
 }
+func (store *Cassandra2Store) GetSession() *gocql.Session {
+	return store.session
+}
 
 func (store *Cassandra2Store) GetName() string {
 	return "cassandra2"

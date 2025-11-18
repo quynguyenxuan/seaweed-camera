@@ -47,18 +47,19 @@ func NewCassandraRoleStore(config *RoleStoreConfig) (*CassandraRoleStore, error)
 	}
 
 	filerStore := cassandra2.GetInstance()
-	cluster := filerStore.GetCluster()
-	// consistency := cluster.Consistency
+	// cluster := filerStore.GetCluster()
+	// // consistency := cluster.Consistency
 
-	// Create cluster configuration
-	cluster.Keyspace = keyspace
-	cluster.Timeout = timeout
-	// cluster.Consistency = consistency
+	// // Create cluster configuration
+	// cluster.Keyspace = keyspace
+	// cluster.Timeout = timeout
+	// // cluster.Consistency = consistency
 
-	// Create session
-	session, err := cluster.CreateSession()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Cassandra session: %v", err)
+	// // Create session
+	// session, err := cluster.CreateSession()
+	session := filerStore.GetSession()
+	if session == nil {
+		return nil, fmt.Errorf("failed to create Cassandra session: %v")
 	}
 
 	// Create keyspace and table if they don't exist

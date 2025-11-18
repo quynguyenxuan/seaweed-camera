@@ -152,8 +152,8 @@ keyspace = "seaweedfs"
 hosts = [
     "scylla:9042",
 ]
-username = ""
-password = ""
+username = "cassandra"
+password = "cassandra"
 # This changes the data layout. Only add new directories. Removing/Updating will cause data loss.
 superLargeDirectories = []
 # Name of the datacenter local to this filer, used as host selection fallback.
