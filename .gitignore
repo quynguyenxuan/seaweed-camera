@@ -147,6 +147,6 @@ devenv.local.yaml
 # direnv
 .direnv
 ./test.go
-
+**/filerldb2/
 # pre-commit
 .pre-commit-config.yaml

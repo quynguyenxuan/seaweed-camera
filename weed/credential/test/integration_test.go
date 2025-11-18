@@ -9,6 +9,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/util"
 
 	// Import all store implementations to register them
+	_ "github.com/seaweedfs/seaweedfs/weed/credential/cassandra"
 	_ "github.com/seaweedfs/seaweedfs/weed/credential/filer_etc"
 	_ "github.com/seaweedfs/seaweedfs/weed/credential/memory"
 	_ "github.com/seaweedfs/seaweedfs/weed/credential/postgres"
@@ -21,7 +22,7 @@ func TestStoreRegistration(t *testing.T) {
 		t.Fatal("No credential stores registered")
 	}
 
-	expectedStores := []string{string(credential.StoreTypeFilerEtc), string(credential.StoreTypeMemory), string(credential.StoreTypePostgres)}
+	expectedStores := []string{string(credential.StoreTypeFilerEtc), string(credential.StoreTypeMemory), string(credential.StoreTypePostgres), string(credential.StoreTypeCassandra)}
 
 	// Verify all expected stores are present
 	for _, expected := range expectedStores {
@@ -117,5 +118,20 @@ func TestMemoryStoreIntegration(t *testing.T) {
 	_, err = cm.GetUser(ctx, "testuser")
 	if err != credential.ErrUserNotFound {
 		t.Errorf("Expected ErrUserNotFound, got %v", err)
+	}
+}
+
+func TestCassandraStoreIntegration(t *testing.T) {
+	// Test creating credential manager with Cassandra store
+	config := util.GetViper()
+	cm, err := credential.NewCredentialManager(credential.StoreTypeCassandra, config, "test.")
+	if err != nil {
+		t.Fatalf("Failed to create Cassandra credential manager: %v", err)
+	}
+	defer cm.Shutdown()
+
+	// Test that the store is of the correct type
+	if cm.GetStore().GetName() != credential.StoreTypeCassandra {
+		t.Errorf("Expected Cassandra store, got %s", cm.GetStore().GetName())
 	}
 }

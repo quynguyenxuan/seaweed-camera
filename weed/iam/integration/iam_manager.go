@@ -148,6 +148,10 @@ func (m *IAMManager) createRoleStore(config *RoleStoreConfig) (RoleStore, error)
 		return NewGenericCachedRoleStore(config.StoreConfig, nil)
 	case "memory":
 		return NewMemoryRoleStore(), nil
+	case "foundationdb":
+		return NewFoundationDBRoleStore(config)
+	case "cassandra":
+		return NewCassandraRoleStore(config)
 	default:
 		return nil, fmt.Errorf("unsupported role store type: %s", config.StoreType)
 	}
@@ -174,6 +178,10 @@ func (m *IAMManager) createRoleStoreWithProvider(config *RoleStoreConfig, filerA
 		return NewGenericCachedRoleStore(config.StoreConfig, filerAddressProvider)
 	case "memory":
 		return NewMemoryRoleStore(), nil
+	case "foundationdb":
+		return NewFoundationDBRoleStore(config)
+	case "cassandra":
+		return NewCassandraRoleStore(config)
 	default:
 		return nil, fmt.Errorf("unsupported role store type: %s", config.StoreType)
 	}
@@ -298,6 +306,7 @@ func (m *IAMManager) AssumeRole(ctx context.Context, request *sts.AssumeRoleRequ
 	// Use STS service to assume the role
 	return m.stsService.AssumeRole(ctx, request)
 }
+
 // AssumeRoleWithCredentials assumes a role using credentials (LDAP)
 func (m *IAMManager) GetSessionToken(ctx context.Context, request *sts.GetSessionTokenRequest) (*sts.GetSessionTokenResponse, error) {
 	if !m.initialized {
@@ -452,7 +461,8 @@ func (m *IAMManager) validateTrustPolicyForCredentials(ctx context.Context, role
 
 	return fmt.Errorf("trust policy does not allow credential assumption for provider: %s", request.ProviderName)
 }
-//QuyNguyen Add
+
+// QuyNguyen Add
 // validateTrustPolicyForCredentials validates trust policy for credential assumption
 func (m *IAMManager) validateTrustPolicyBasic(ctx context.Context, roleDef *RoleDefinition, request *sts.AssumeRoleRequest) error {
 	if roleDef.TrustPolicy == nil {
@@ -472,6 +482,7 @@ func (m *IAMManager) validateTrustPolicyBasic(ctx context.Context, roleDef *Role
 
 	return fmt.Errorf("trust policy does not allow credential assumption for provider: %s", request.RoleSessionName)
 }
+
 //QuyNguyen end
 // Helper functions
 
@@ -713,3 +724,5 @@ func (m *IAMManager) ValidateTrustPolicyForCredentials(ctx context.Context, role
 	// Use existing trust policy validation logic
 	return m.validateTrustPolicyForCredentials(ctx, roleDef, mockRequest)
 }
+
+

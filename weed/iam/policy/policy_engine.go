@@ -242,6 +242,10 @@ func (e *PolicyEngine) createPolicyStore(config *PolicyEngineConfig) (PolicyStor
 		return NewGenericCachedPolicyStore(config.StoreConfig, nil)
 	case "cached-filer", "generic-cached":
 		return NewGenericCachedPolicyStore(config.StoreConfig, nil)
+	case "foundationdb":
+		return NewFoundationDBPolicyStore(config.StoreConfig)
+	case "cassandra":
+		return NewCassandraPolicyStore(config.StoreConfig)
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", config.StoreType)
 	}
@@ -263,6 +267,10 @@ func (e *PolicyEngine) createPolicyStoreWithProvider(config *PolicyEngineConfig,
 		return NewGenericCachedPolicyStore(config.StoreConfig, filerAddressProvider)
 	case "cached-filer", "generic-cached":
 		return NewGenericCachedPolicyStore(config.StoreConfig, filerAddressProvider)
+	case "foundationdb":
+		return NewFoundationDBPolicyStore(config.StoreConfig)
+	case "cassandra":
+		return NewCassandraPolicyStore(config.StoreConfig)
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", config.StoreType)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -22,6 +23,25 @@ type Cassandra2Store struct {
 	cluster                 *gocql.ClusterConfig
 	session                 *gocql.Session
 	superLargeDirectoryHash map[string]string
+}
+
+var (
+    instance *Cassandra2Store
+    once     sync.Once
+)
+func GetInstance() *Cassandra2Store {
+	once.Do(func() {
+		if instance != nil {
+			return
+		}
+        instance = &Cassandra2Store{}
+		config := util.GetViper()
+		instance.Initialize(config, instance.GetName()+".")
+    })
+    return instance
+}
+func (store *Cassandra2Store) GetCluster() *gocql.ClusterConfig {
+	return store.cluster
 }
 
 func (store *Cassandra2Store) GetName() string {
@@ -77,6 +97,8 @@ func (store *Cassandra2Store) initialize(keyspace string, hosts []string, userna
 		}
 		existingHash[dirHash] = dir
 	}
+	//Quynguyen add instance
+	instance = store
 	return
 }
 

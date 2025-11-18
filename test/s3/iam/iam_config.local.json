@@ -55,10 +55,25 @@
     }
   ],
   "policy": {
-    "defaultEffect": "Deny"
+    "defaultEffect": "Allow",
+    "storeType": "cassandra",
+    "storeConfig": {
+      "cluster_file": "/var/fdb/config/fdb.cluster",
+      "api_version": 740,
+      "timeout": "5s",
+      "max_retry_delay": "1s",
+      "directory_prefix": "seaweedfs"
+    }
   },
   "roleStore": {
-    "storeType": "filer"
+    "storeType": "cassandra",
+    "storeConfig": {
+      "cluster_file": "/var/fdb/config/fdb.cluster",
+      "api_version": 740,
+      "timeout": "5s",
+      "max_retry_delay": "1s",
+      "directory_prefix": "seaweedfs"
+    }
   },
   "roles": [
     {

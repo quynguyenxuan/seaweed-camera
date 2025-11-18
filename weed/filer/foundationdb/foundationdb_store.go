@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -47,12 +48,30 @@ func init() {
 }
 
 type FoundationDBStore struct {
-	database        fdb.Database
+	database        *fdb.Database
 	seaweedfsDir    directory.DirectorySubspace
 	kvDir           directory.DirectorySubspace
 	directoryPrefix string
 	timeout         time.Duration
 	maxRetryDelay   time.Duration
+}
+var (
+    instance *FoundationDBStore
+    once     sync.Once
+)
+func GetInstance() *FoundationDBStore {
+	once.Do(func() {
+		if instance != nil {
+			return
+		}
+        instance = &FoundationDBStore{}
+		config := util.GetViper()
+		instance.Initialize(config, instance.GetName()+".")
+    })
+    return instance
+}
+func (store *FoundationDBStore) GetDatabase() *fdb.Database {
+	return store.database
 }
 
 // Context key type for storing transactions
@@ -134,6 +153,8 @@ func (store *FoundationDBStore) initialize(clusterFile string, apiVersion int) e
 	}
 
 	glog.V(0).Infof("FoundationDB store initialized successfully with directory prefix: %s", store.directoryPrefix)
+	//Quynguyen add instance
+	instance = store
 	return nil
 }
 

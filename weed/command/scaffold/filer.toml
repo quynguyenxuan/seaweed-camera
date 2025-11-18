@@ -180,7 +180,7 @@ upsertQuery = """
 #    PRIMARY KEY ((dirhash, directory), name)
 # ) WITH CLUSTERING ORDER BY (name ASC);
 enabled = false
-keyspace = "seaweedfs"
+keyspace = "sunfs"
 hosts = [
     "localhost:9042",
 ]
@@ -400,5 +400,13 @@ user = "guest"
 password = ""
 timeout = "5s"
 maxReconnects = 1000
+
+[foundationdb]
+enabled = false
+cluster_file = "/var/fdb/config/fdb.cluster"
+api_version = 740
+timeout = "5s"
+max_retry_delay = "1s"
+directory_prefix = "sunfs"
 
 
