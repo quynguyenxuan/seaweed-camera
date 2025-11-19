@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -13,6 +14,7 @@ import (
 
 // CassandraPolicyStore implements PolicyStore interface using Cassandra
 type CassandraPolicyStore struct {
+	mu        sync.RWMutex
 	session   *gocql.Session
 	keyspace  string
 	tableName string
@@ -37,31 +39,30 @@ func NewCassandraPolicyStore(config map[string]interface{}) (PolicyStore, error)
 	}
 
 	// Set timeout
-	// timeout := 5 * time.Second
-	// if timeoutStr, ok := config["timeout"].(string); ok && timeoutStr != "" {
-	// 	if parsedTimeout, err := time.ParseDuration(timeoutStr); err == nil {
-	// 		timeout = parsedTimeout
-	// 	}
-	// }
+	timeout := 5 * time.Second
+	if timeoutStr, ok := config["timeout"].(string); ok && timeoutStr != "" {
+		if parsedTimeout, err := time.ParseDuration(timeoutStr); err == nil {
+			timeout = parsedTimeout
+		}
+	}
 
 	// Create cluster configuration
 	filerStore := cassandra2.GetInstance()
-	// cluster := filerStore.GetCluster()
-	// cluster.Keyspace = keyspace
-	// cluster.Timeout = timeout
-	// cluster.Consistency = gocql.LocalQuorum
+	cluster := filerStore.GetCluster()
+	cluster.Keyspace = keyspace
+	cluster.Timeout = timeout
+	cluster.Consistency = gocql.LocalQuorum
 
 	// Connect to Cassandra
-	// session, err := cluster.CreateSession()
-	session := filerStore.GetSession()
-	if session == nil {
-		return nil, fmt.Errorf("failed to connect to Cassandra: %v")
+	session, err := cluster.CreateSession()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Cassandra cluster at %s: %v", cluster.Hosts, err)
 	}
 
 	// Create keyspace and table if they don't exist
 	if err := createKeyspaceAndTable(session, keyspace, tableName); err != nil {
 		session.Close()
-		return nil, fmt.Errorf("failed to create keyspace and table: %v", err)
+		return nil, fmt.Errorf("failed to create keyspace '%s' and table '%s': %v", keyspace, tableName, err)
 	}
 
 	store := &CassandraPolicyStore{
@@ -102,6 +103,9 @@ func createKeyspaceAndTable(session *gocql.Session, keyspace, tableName string) 
 
 // StorePolicy stores a policy document in Cassandra
 func (c *CassandraPolicyStore) StorePolicy(ctx context.Context, filerAddress string, policyName string, policy *PolicyDocument) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if policyName == "" {
 		return fmt.Errorf("policy name cannot be empty")
 	}
@@ -134,6 +138,9 @@ func (c *CassandraPolicyStore) StorePolicy(ctx context.Context, filerAddress str
 
 // GetPolicy retrieves a policy document from Cassandra
 func (c *CassandraPolicyStore) GetPolicy(ctx context.Context, filerAddress string, policyName string) (*PolicyDocument, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if policyName == "" {
 		return nil, fmt.Errorf("policy name cannot be empty")
 	}
@@ -169,6 +176,9 @@ func (c *CassandraPolicyStore) GetPolicy(ctx context.Context, filerAddress strin
 
 // DeletePolicy deletes a policy document from Cassandra
 func (c *CassandraPolicyStore) DeletePolicy(ctx context.Context, filerAddress string, policyName string) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if policyName == "" {
 		return fmt.Errorf("policy name cannot be empty")
 	}
@@ -191,6 +201,9 @@ func (c *CassandraPolicyStore) DeletePolicy(ctx context.Context, filerAddress st
 
 // ListPolicies lists all policy names from Cassandra
 func (c *CassandraPolicyStore) ListPolicies(ctx context.Context, filerAddress string) ([]string, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	var policyNames []string
 
 	query := fmt.Sprintf(`
@@ -216,8 +229,12 @@ func (c *CassandraPolicyStore) ListPolicies(ctx context.Context, filerAddress st
 
 // Close closes the Cassandra connection
 func (c *CassandraPolicyStore) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.session != nil {
 		c.session.Close()
+		c.session = nil
 		glog.V(0).Infof("Cassandra policy store closed")
 	}
 	return nil

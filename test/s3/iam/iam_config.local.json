@@ -58,27 +58,25 @@
     "defaultEffect": "Allow",
     "storeType": "cassandra",
     "storeConfig": {
-      "cluster_file": "/var/fdb/config/fdb.cluster",
-      "api_version": 740,
-      "timeout": "5s",
-      "max_retry_delay": "1s",
-      "directory_prefix": "seaweedfs",
+      "hosts": ["localhost"],
+      "port": 9042,
       "keyspace": "sunfs",
       "table_name": "policies",
-      "table_prefix": "sw_"
+      "timeout": "5s",
+      "connect_timeout": "10s",
+      "consistency": "LocalQuorum"
     }
   },
   "roleStore": {
     "storeType": "cassandra",
     "storeConfig": {
-      "cluster_file": "/var/fdb/config/fdb.cluster",
-      "api_version": 740,
-      "timeout": "5s",
-      "max_retry_delay": "1s",
-      "directory_prefix": "seaweedfs",
+      "hosts": ["localhost"],
+      "port": 9042,
       "keyspace": "sunfs",
       "table_name": "roles",
-      "table_prefix": "sw_"
+      "timeout": "5s",
+      "connect_timeout": "10s",
+      "consistency": "LocalQuorum"
     }
   },
   "roles": [

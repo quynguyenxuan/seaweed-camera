@@ -81,7 +81,7 @@ func (store *Cassandra2Store) initialize(keyspace string, hosts []string, userna
 		fallback = gocql.DCAwareRoundRobinPolicy(localDC)
 	}
 	store.cluster.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(fallback)
-	store.cluster.Consistency = gocql.LocalQuorum
+	store.cluster.Consistency = gocql.LocalOne
 
 	store.session, err = store.cluster.CreateSession()
 	if err != nil {

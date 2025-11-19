@@ -122,7 +122,7 @@ func (store *CassandraStore) CreateUser(ctx context.Context, identity *iam_pb.Id
 	userQuery := fmt.Sprintf(`
 		INSERT INTO %s.%s_users (username, email, account_data, actions, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)`, store.keyspace, store.tableName)
-	batch.Query(userQuery, identity.Name, string(accountDataJSON), string(actionsJSON), time.Now(), time.Now())
+	batch.Query(userQuery, identity.Name, "", string(accountDataJSON), string(actionsJSON), time.Now(), time.Now())
 
 	// Insert credentials
 	for _, cred := range identity.Credentials {
@@ -266,7 +266,7 @@ func (store *CassandraStore) UpdateUser(ctx context.Context, username string, id
 	userQuery := fmt.Sprintf(`
 		UPDATE %s.%s_users SET email = ?, account_data = ?, actions = ?, updated_at = ?
 		WHERE username = ?`, store.keyspace, store.tableName)
-	batch.Query(userQuery, string(accountDataJSON), string(actionsJSON), time.Now(), username)
+	batch.Query(userQuery, "", string(accountDataJSON), string(actionsJSON), time.Now(), username)
 
 	// Delete existing credentials
 	deleteCredQuery := fmt.Sprintf(`
