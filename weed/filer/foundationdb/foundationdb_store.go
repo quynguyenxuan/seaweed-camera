@@ -81,7 +81,12 @@ const transactionKey contextKey = "fdb_transaction"
 
 // Helper functions for context-scoped transactions
 func (store *FoundationDBStore) getTransactionFromContext(ctx context.Context) (fdb.Transaction, bool) {
-	if tx, ok := ctx.Value(transactionKey).(fdb.Transaction); ok {
+	val := ctx.Value(transactionKey)
+	if val == nil {
+		var emptyTx fdb.Transaction
+		return emptyTx, false
+	}
+	if tx, ok := val.(fdb.Transaction); ok {
 		return tx, true
 	}
 	var emptyTx fdb.Transaction
@@ -267,7 +272,7 @@ func (store *FoundationDBStore) FindEntry(ctx context.Context, fullpath util.Ful
 		return nil, fmt.Errorf("find entry %s: %w", fullpath, err)
 	}
 
-	if len(data) == 0 {
+	if data == nil {
 		return nil, filer_pb.ErrNotFound
 	}
 
@@ -324,13 +329,17 @@ func (store *FoundationDBStore) DeleteFolderChildren(ctx context.Context, fullpa
 func (store *FoundationDBStore) deleteFolderChildrenInBatches(ctx context.Context, fullpath util.FullPath) error {
 	const BATCH_SIZE = 100 // Delete up to 100 entries per transaction
 
+	// Ensure listing and recursion run outside of any ambient transaction
+	// Store a sentinel nil value so getTransactionFromContext returns false
+	ctxNoTxn := context.WithValue(ctx, transactionKey, (*struct{})(nil))
+
 	for {
 		// Collect one batch of entries
 		var entriesToDelete []util.FullPath
 		var subDirectories []util.FullPath
 
 		// List entries - we'll process BATCH_SIZE at a time
-		_, err := store.ListDirectoryEntries(ctx, fullpath, "", true, int64(BATCH_SIZE), func(entry *filer.Entry) bool {
+		_, err := store.ListDirectoryEntries(ctxNoTxn, fullpath, "", true, int64(BATCH_SIZE), func(entry *filer.Entry) bool {
 			entriesToDelete = append(entriesToDelete, entry.FullPath)
 			if entry.IsDirectory() {
 				subDirectories = append(subDirectories, entry.FullPath)
@@ -349,7 +358,7 @@ func (store *FoundationDBStore) deleteFolderChildrenInBatches(ctx context.Contex
 
 		// Recursively delete subdirectories first (also in batches)
 		for _, subDir := range subDirectories {
-			if err := store.deleteFolderChildrenInBatches(ctx, subDir); err != nil {
+			if err := store.deleteFolderChildrenInBatches(ctxNoTxn, subDir); err != nil {
 				return err
 			}
 		}
@@ -537,7 +546,7 @@ func (store *FoundationDBStore) KvGet(ctx context.Context, key []byte) ([]byte, 
 	if err != nil {
 		return nil, fmt.Errorf("kv get %s: %w", string(key), err)
 	}
-	if len(data) == 0 {
+	if data == nil {
 		return nil, filer.ErrKvNotFound
 	}
 
