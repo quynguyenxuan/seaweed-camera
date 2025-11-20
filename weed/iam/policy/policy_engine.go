@@ -246,6 +246,8 @@ func (e *PolicyEngine) createPolicyStore(config *PolicyEngineConfig) (PolicyStor
 		return NewFoundationDBPolicyStore(config.StoreConfig)
 	case "cassandra":
 		return NewCassandraPolicyStore(config.StoreConfig)
+	case "mysql":
+		return NewMysqlPolicyStore(config.StoreConfig)
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", config.StoreType)
 	}
@@ -271,6 +273,8 @@ func (e *PolicyEngine) createPolicyStoreWithProvider(config *PolicyEngineConfig,
 		return NewFoundationDBPolicyStore(config.StoreConfig)
 	case "cassandra":
 		return NewCassandraPolicyStore(config.StoreConfig)
+	case "mysql":
+		return NewMysqlPolicyStore(config.StoreConfig)
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", config.StoreType)
 	}

@@ -21,11 +21,11 @@ type FoundationDBRoleStore struct {
 	kvDir         directory.DirectorySubspace
 	timeout       time.Duration
 	maxRetryDelay time.Duration
-	store    *foundationdb.FoundationDBStore
+	store         *foundationdb.FoundationDBStore
 }
 
 // NewFoundationDBRoleStore creates a new FoundationDB-based role store
-func NewFoundationDBRoleStore(config *RoleStoreConfig) (*FoundationDBRoleStore, error) {
+func NewFoundationDBRoleStore(config map[string]interface{}) (*FoundationDBRoleStore, error) {
 	if config == nil {
 		return nil, fmt.Errorf("role store config cannot be nil")
 	}
@@ -35,7 +35,7 @@ func NewFoundationDBRoleStore(config *RoleStoreConfig) (*FoundationDBRoleStore, 
 
 	// Set timeout
 	timeout := 5 * time.Second
-	if timeoutStr, ok := config.StoreConfig["timeout"].(string); ok && timeoutStr != "" {
+	if timeoutStr, ok := config["timeout"].(string); ok && timeoutStr != "" {
 		if parsedTimeout, err := time.ParseDuration(timeoutStr); err == nil {
 			timeout = parsedTimeout
 		}
@@ -43,7 +43,7 @@ func NewFoundationDBRoleStore(config *RoleStoreConfig) (*FoundationDBRoleStore, 
 
 	// Set max retry delay
 	maxRetryDelay := 2 * time.Second
-	if retryDelayStr, ok := config.StoreConfig["max_retry_delay"].(string); ok && retryDelayStr != "" {
+	if retryDelayStr, ok := config["max_retry_delay"].(string); ok && retryDelayStr != "" {
 		if parsedDelay, err := time.ParseDuration(retryDelayStr); err == nil {
 			maxRetryDelay = parsedDelay
 		}
@@ -60,7 +60,7 @@ func NewFoundationDBRoleStore(config *RoleStoreConfig) (*FoundationDBRoleStore, 
 		kvDir:         kvDir,
 		timeout:       timeout,
 		maxRetryDelay: maxRetryDelay,
-		store:    filerStore,
+		store:         filerStore,
 	}
 
 	glog.V(0).Infof("FoundationDB role store initialized with cluster file:")
@@ -105,7 +105,6 @@ func (f *FoundationDBRoleStore) GetRole(ctx context.Context, filerAddress string
 	roleKey := f.kvDir.Pack(tuple.Tuple{string(roleName)})
 
 	roleData, err := f.store.KeyGet(ctx, roleKey)
-
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve role: %v", err)
@@ -171,7 +170,7 @@ func (f *FoundationDBRoleStore) DeleteRole(ctx context.Context, filerAddress str
 
 // Shutdown closes the FoundationDB connection
 func (f *FoundationDBRoleStore) Shutdown() {
-	database := f.store.GetDatabase() 
+	database := f.store.GetDatabase()
 	if database != nil {
 		database.Close()
 	}

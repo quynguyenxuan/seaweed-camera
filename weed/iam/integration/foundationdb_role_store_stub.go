@@ -11,6 +11,6 @@ import (
 // This function is a stub that will be replaced by the actual implementation
 // when the foundationdb build tag is used
 // NewFoundationDBRoleStore creates a FoundationDB role store (stub for when foundationdb build tag is not used)
-func NewFoundationDBRoleStore(config *RoleStoreConfig) (RoleStore, error) {
+func NewFoundationDBRoleStore(config map[string]interface{}) (RoleStore, error) {
 	return nil, fmt.Errorf("FoundationDB support not compiled. Please rebuild with -tags foundationdb")
 }

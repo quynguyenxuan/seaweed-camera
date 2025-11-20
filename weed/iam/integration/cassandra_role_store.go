@@ -21,26 +21,26 @@ type CassandraRoleStore struct {
 }
 
 // NewCassandraRoleStore creates a new Cassandra-based role store
-func NewCassandraRoleStore(config *RoleStoreConfig) (*CassandraRoleStore, error) {
+func NewCassandraRoleStore(config map[string]interface{}) (*CassandraRoleStore, error) {
 	if config == nil {
 		return nil, fmt.Errorf("role store config cannot be nil")
 	}
 
 	// Get keyspace
 	keyspace := "sunfs"
-	if ks, ok := config.StoreConfig["keyspace"].(string); ok && ks != "" {
+	if ks, ok := config["keyspace"].(string); ok && ks != "" {
 		keyspace = ks
 	}
 
 	// Get table name
 	tableName := "iam_roles"
-	if tn, ok := config.StoreConfig["table_name"].(string); ok && tn != "" {
+	if tn, ok := config["table_name"].(string); ok && tn != "" {
 		tableName = tn
 	}
 
 	// Set timeout
 	timeout := 5 * time.Second
-	if timeoutStr, ok := config.StoreConfig["timeout"].(string); ok && timeoutStr != "" {
+	if timeoutStr, ok := config["timeout"].(string); ok && timeoutStr != "" {
 		if parsedTimeout, err := time.ParseDuration(timeoutStr); err == nil {
 			timeout = parsedTimeout
 		}

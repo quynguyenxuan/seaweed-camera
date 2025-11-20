@@ -24,6 +24,7 @@ const (
 	StoreTypeMemory   CredentialStoreTypeName = "memory"
 	StoreTypeFilerEtc CredentialStoreTypeName = "filer_etc"
 	StoreTypePostgres CredentialStoreTypeName = "postgres"
+	StoreTypeMysql    CredentialStoreTypeName = "mysql"
 	StoreTypeFoundationDB CredentialStoreTypeName = "foundationdb"
 	StoreTypeCassandra CredentialStoreTypeName = "cassandra"	
 )

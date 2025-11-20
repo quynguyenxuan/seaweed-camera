@@ -149,9 +149,11 @@ func (m *IAMManager) createRoleStore(config *RoleStoreConfig) (RoleStore, error)
 	case "memory":
 		return NewMemoryRoleStore(), nil
 	case "foundationdb":
-		return NewFoundationDBRoleStore(config)
+		return NewFoundationDBRoleStore(config.StoreConfig)
 	case "cassandra":
-		return NewCassandraRoleStore(config)
+		return NewCassandraRoleStore(config.StoreConfig)
+	case "mysql":
+		return NewMysqlRoleStore(config.StoreConfig)
 	default:
 		return nil, fmt.Errorf("unsupported role store type: %s", config.StoreType)
 	}
@@ -179,9 +181,11 @@ func (m *IAMManager) createRoleStoreWithProvider(config *RoleStoreConfig, filerA
 	case "memory":
 		return NewMemoryRoleStore(), nil
 	case "foundationdb":
-		return NewFoundationDBRoleStore(config)
+		return NewFoundationDBRoleStore(config.StoreConfig)
 	case "cassandra":
-		return NewCassandraRoleStore(config)
+		return NewCassandraRoleStore(config.StoreConfig)
+	case "mysql":
+		return NewMysqlRoleStore(config.StoreConfig)
 	default:
 		return nil, fmt.Errorf("unsupported role store type: %s", config.StoreType)
 	}
@@ -724,5 +728,3 @@ func (m *IAMManager) ValidateTrustPolicyForCredentials(ctx context.Context, role
 	// Use existing trust policy validation logic
 	return m.validateTrustPolicyForCredentials(ctx, roleDef, mockRequest)
 }
-
-
