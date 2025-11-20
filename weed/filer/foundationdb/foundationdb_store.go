@@ -107,7 +107,7 @@ func (store *FoundationDBStore) Initialize(configuration util.Configuration, pre
 	configuration.SetDefault(prefix+"api_version", 740)
 	configuration.SetDefault(prefix+"timeout", "5s")
 	configuration.SetDefault(prefix+"max_retry_delay", "1s")
-	configuration.SetDefault(prefix+"directory_prefix", "seaweedfs")
+	configuration.SetDefault(prefix+"directory_prefix", "sunfs")
 
 	clusterFile := configuration.GetString(prefix + "cluster_file")
 	apiVersion := configuration.GetInt(prefix + "api_version")

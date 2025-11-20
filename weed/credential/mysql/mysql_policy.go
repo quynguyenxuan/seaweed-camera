@@ -11,6 +11,9 @@ import (
 
 // GetPolicies retrieves all IAM policies from MySQL
 func (store *MysqlStore) GetPolicies(ctx context.Context) (map[string]policy_engine.PolicyDocument, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
 	if !store.configured {
 		return nil, fmt.Errorf("store not configured")
 	}
@@ -44,6 +47,9 @@ func (store *MysqlStore) GetPolicies(ctx context.Context) (map[string]policy_eng
 
 // CreatePolicy creates a new IAM policy in MySQL
 func (store *MysqlStore) CreatePolicy(ctx context.Context, name string, document policy_engine.PolicyDocument) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
@@ -65,6 +71,9 @@ func (store *MysqlStore) CreatePolicy(ctx context.Context, name string, document
 
 // UpdatePolicy updates an existing IAM policy in MySQL
 func (store *MysqlStore) UpdatePolicy(ctx context.Context, name string, document policy_engine.PolicyDocument) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
@@ -95,6 +104,9 @@ func (store *MysqlStore) UpdatePolicy(ctx context.Context, name string, document
 
 // DeletePolicy deletes an IAM policy from MySQL
 func (store *MysqlStore) DeletePolicy(ctx context.Context, name string) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
@@ -118,6 +130,9 @@ func (store *MysqlStore) DeletePolicy(ctx context.Context, name string) error {
 
 // GetPolicy retrieves a specific IAM policy by name from MySQL
 func (store *MysqlStore) GetPolicy(ctx context.Context, name string) (*policy_engine.PolicyDocument, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
 	if !store.configured {
 		return nil, fmt.Errorf("store not configured")
 	}

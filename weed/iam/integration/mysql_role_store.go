@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -12,6 +13,7 @@ import (
 
 // MysqlRoleStore implements RoleStore interface using MySQL
 type MysqlRoleStore struct {
+	mu        sync.RWMutex
 	db        *sql.DB
 	database  string
 	tableName string
@@ -37,7 +39,7 @@ func NewMysqlRoleStore(config map[string]interface{}) (*MysqlRoleStore, error) {
 		port = int(p)
 	}
 
-	database := "seaweedfs"
+	database := "sunfs"
 	if d, ok := config["database"].(string); ok && d != "" {
 		database = d
 	}
@@ -121,6 +123,9 @@ func createRoleTable(db *sql.DB, tableName string) error {
 
 // StoreRole stores a role definition in MySQL
 func (m *MysqlRoleStore) StoreRole(ctx context.Context, filerAddress string, roleName string, role *RoleDefinition) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if roleName == "" {
 		return fmt.Errorf("role name cannot be empty")
 	}
@@ -139,11 +144,12 @@ func (m *MysqlRoleStore) StoreRole(ctx context.Context, filerAddress string, rol
 		INSERT INTO %s (role_name,role_data,created_at,updated_at) 
 		VALUES (?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE 
-		role_data = VALUES(role_data),
-		updated_at = VALUES(updated_at)
+		role_data = ?,
+		updated_at = ?
 	`, m.tableName)
 
-	_, err = m.db.ExecContext(ctx, query, roleName, string(roleData), time.Now(), time.Now())
+	now := time.Now()
+	_, err = m.db.ExecContext(ctx, query, roleName, string(roleData), now, now, string(roleData), now)
 	if err != nil {
 		return fmt.Errorf("failed to store role: %v", err)
 	}
@@ -153,6 +159,9 @@ func (m *MysqlRoleStore) StoreRole(ctx context.Context, filerAddress string, rol
 
 // GetRole retrieves a role definition from MySQL
 func (m *MysqlRoleStore) GetRole(ctx context.Context, filerAddress string, roleName string) (*RoleDefinition, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	if roleName == "" {
 		return nil, fmt.Errorf("role name cannot be empty")
 	}
@@ -185,6 +194,9 @@ func (m *MysqlRoleStore) GetRole(ctx context.Context, filerAddress string, roleN
 
 // ListRoles lists all role names for a given filer address from MySQL
 func (m *MysqlRoleStore) ListRoles(ctx context.Context, filerAddress string) ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	var roleNames []string
 
 	query := fmt.Sprintf(`
@@ -216,6 +228,9 @@ func (m *MysqlRoleStore) ListRoles(ctx context.Context, filerAddress string) ([]
 
 // DeleteRole deletes a role definition from MySQL
 func (m *MysqlRoleStore) DeleteRole(ctx context.Context, filerAddress string, roleName string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if roleName == "" {
 		return fmt.Errorf("role name cannot be empty")
 	}

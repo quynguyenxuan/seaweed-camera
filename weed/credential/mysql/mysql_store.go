@@ -3,6 +3,7 @@ package mysql
 import (
 	"database/sql"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/credential"
@@ -17,6 +18,7 @@ func init() {
 
 // MysqlStore implements CredentialStore using MySQL
 type MysqlStore struct {
+	mu        sync.RWMutex
 	db         *sql.DB
 	configured bool
 }
@@ -89,24 +91,24 @@ func (store *MysqlStore) createTables() error {
 			account_data JSON,
 			actions JSON,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-		);
-		CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			KEY idx_users_email (email)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 	`
 
 	// Create credentials table
 	credentialsTable := `
 		CREATE TABLE IF NOT EXISTS credentials (
 			id INT AUTO_INCREMENT PRIMARY KEY,
-			username VARCHAR(255) REFERENCES users(username) ON DELETE CASCADE,
+			username VARCHAR(255) NOT NULL,
 			access_key VARCHAR(255) UNIQUE NOT NULL,
 			secret_key VARCHAR(255) NOT NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			expiration TIMESTAMP NULL
-		);
-		CREATE INDEX IF NOT EXISTS idx_credentials_username ON credentials(username);
-		CREATE INDEX IF NOT EXISTS idx_credentials_access_key ON credentials(access_key);
+			expiration TIMESTAMP NULL,
+			KEY idx_credentials_username (username),
+			CONSTRAINT fk_credentials_user FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 	`
 
 	// Create policies table
@@ -116,8 +118,7 @@ func (store *MysqlStore) createTables() error {
 			document JSON NOT NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-		);
-		CREATE INDEX IF NOT EXISTS idx_policies_name ON policies(name);
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 	`
 
 	// Execute table creation

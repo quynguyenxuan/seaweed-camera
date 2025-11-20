@@ -239,6 +239,28 @@ func (m *IAMManager) CreateRole(ctx context.Context, filerAddress string, roleNa
 	return m.roleStore.StoreRole(ctx, "", roleName, roleDef)
 }
 
+// DeleteRole deletes a role
+func (m *IAMManager) DeleteRole(ctx context.Context, roleName string) error {
+	if !m.initialized {
+		return fmt.Errorf("IAM manager not initialized")
+	}
+
+	if roleName == "" {
+		return fmt.Errorf("role name cannot be empty")
+	}
+
+	return m.roleStore.DeleteRole(ctx, m.getFilerAddress(), roleName)
+}
+
+// ListRoles lists all roles
+func (m *IAMManager) ListRoles(ctx context.Context) ([]string, error) {
+	if !m.initialized {
+		return nil, fmt.Errorf("IAM manager not initialized")
+	}
+
+	return m.roleStore.ListRoles(ctx, m.getFilerAddress())
+}
+
 // AssumeRoleWithWebIdentity assumes a role using web identity (OIDC)
 func (m *IAMManager) AssumeRoleWithWebIdentity(ctx context.Context, request *sts.AssumeRoleWithWebIdentityRequest) (*sts.AssumeRoleResponse, error) {
 	if !m.initialized {

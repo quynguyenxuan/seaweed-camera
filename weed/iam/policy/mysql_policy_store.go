@@ -123,8 +123,8 @@ func createTable(db *sql.DB, tableName string) error {
 
 // StorePolicy stores a policy document in MySQL
 func (m *MysqlPolicyStore) StorePolicy(ctx context.Context, filerAddress string, policyName string, policy *PolicyDocument) error {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	if policyName == "" {
 		return fmt.Errorf("policy name cannot be empty")
@@ -195,8 +195,8 @@ func (m *MysqlPolicyStore) GetPolicy(ctx context.Context, filerAddress string, p
 
 // DeletePolicy deletes a policy document from MySQL
 func (m *MysqlPolicyStore) DeletePolicy(ctx context.Context, filerAddress string, policyName string) error {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	if policyName == "" {
 		return fmt.Errorf("policy name cannot be empty")

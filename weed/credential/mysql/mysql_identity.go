@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
+	mysql "github.com/go-sql-driver/mysql"
 	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/pb/iam_pb"
 )
@@ -146,6 +148,9 @@ func (store *MysqlStore) SaveConfiguration(ctx context.Context, config *iam_pb.S
 }
 
 func (store *MysqlStore) CreateUser(ctx context.Context, identity *iam_pb.Identity) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
@@ -190,6 +195,9 @@ func (store *MysqlStore) CreateUser(ctx context.Context, identity *iam_pb.Identi
 		"INSERT INTO users (username, email, account_data, actions) VALUES (?, ?, ?, ?)",
 		identity.Name, "", accountDataJSON, actionsJSON)
 	if err != nil {
+		if isMysqlDuplicateEntryError(err) {
+			return credential.ErrUserAlreadyExists
+		}
 		return fmt.Errorf("failed to insert user: %w", err)
 	}
 
@@ -207,6 +215,9 @@ func (store *MysqlStore) CreateUser(ctx context.Context, identity *iam_pb.Identi
 }
 
 func (store *MysqlStore) GetUser(ctx context.Context, username string) (*iam_pb.Identity, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
 	if !store.configured {
 		return nil, fmt.Errorf("store not configured")
 	}
@@ -271,6 +282,9 @@ func (store *MysqlStore) GetUser(ctx context.Context, username string) (*iam_pb.
 }
 
 func (store *MysqlStore) UpdateUser(ctx context.Context, username string, identity *iam_pb.Identity) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
@@ -338,28 +352,45 @@ func (store *MysqlStore) UpdateUser(ctx context.Context, username string, identi
 }
 
 func (store *MysqlStore) DeleteUser(ctx context.Context, username string) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
 
-	result, err := store.db.ExecContext(ctx, "DELETE FROM users WHERE username = ?", username)
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var exists int
+	err = tx.QueryRowContext(ctx, "SELECT 1 FROM users WHERE username = ?", username).Scan(&exists)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return credential.ErrUserNotFound
+		}
+		return fmt.Errorf("failed to check user existence: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, "DELETE FROM credentials WHERE username = ?", username)
+	if err != nil {
+		return fmt.Errorf("failed to delete user credentials: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, "DELETE FROM users WHERE username = ?", username)
 	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return credential.ErrUserNotFound
-	}
-
-	return nil
+	return tx.Commit()
 }
 
 func (store *MysqlStore) ListUsers(ctx context.Context) ([]string, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
 	if !store.configured {
 		return nil, fmt.Errorf("store not configured")
 	}
@@ -383,6 +414,9 @@ func (store *MysqlStore) ListUsers(ctx context.Context) ([]string, error) {
 }
 
 func (store *MysqlStore) GetUserByAccessKey(ctx context.Context, accessKey string) (*iam_pb.Identity, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
 	if !store.configured {
 		return nil, fmt.Errorf("store not configured")
 	}
@@ -400,6 +434,9 @@ func (store *MysqlStore) GetUserByAccessKey(ctx context.Context, accessKey strin
 }
 
 func (store *MysqlStore) CreateAccessKey(ctx context.Context, username string, cred *iam_pb.Credential) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
@@ -426,6 +463,9 @@ func (store *MysqlStore) CreateAccessKey(ctx context.Context, username string, c
 }
 
 func (store *MysqlStore) DeleteAccessKey(ctx context.Context, username string, accessKey string) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	if !store.configured {
 		return fmt.Errorf("store not configured")
 	}
@@ -467,4 +507,12 @@ func int64ToTime(timestamp int64) *sql.NullTime {
 	}
 	t := time.Unix(timestamp, 0)
 	return &sql.NullTime{Time: t, Valid: true}
+}
+
+func isMysqlDuplicateEntryError(err error) bool {
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) {
+		return mysqlErr.Number == 1062
+	}
+	return false
 }
