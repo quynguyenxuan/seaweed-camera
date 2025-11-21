@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	"github.com/seaweedfs/seaweedfs/weed/iam/policy"
 	seaweedSts "github.com/seaweedfs/seaweedfs/weed/iam/sts"
-	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/iam_pb"
 	"github.com/seaweedfs/seaweedfs/weed/s3api/policy_engine"
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3_constants"
@@ -261,7 +261,7 @@ func (iama *IamApiServer) UpdateUser(s3cfg *iam_pb.S3ApiConfiguration, values ur
 			}
 			return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: e}
 		}
-		
+
 		// Create new user with new name and old data
 		newIdentity := &iam_pb.Identity{
 			Name:        newUserName,
@@ -269,18 +269,18 @@ func (iama *IamApiServer) UpdateUser(s3cfg *iam_pb.S3ApiConfiguration, values ur
 			Actions:     identity.Actions,
 			Account:     identity.Account,
 		}
-		
+
 		// Create new user
 		if e := iama.iam.GetCredentialManager().CreateUser(context.Background(), newIdentity); e != nil {
 			return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: e}
 		}
-		
+
 		// Delete old user
 		if e := iama.iam.GetCredentialManager().DeleteUser(context.Background(), userName); e != nil {
 			// Try to cleanup new user if delete fails? For now just log/return error
 			return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: e}
 		}
-		
+
 		return resp, nil
 	}
 	return resp, nil
@@ -346,7 +346,7 @@ func (iama *IamApiServer) PutUserPolicy(s3cfg *iam_pb.S3ApiConfiguration, values
 	}
 	// Log the actions
 	glog.V(3).Infof("PutUserPolicy: actions=%v", actions)
-	
+
 	identity, e := iama.iam.GetCredentialManager().GetUser(context.Background(), userName)
 	if e != nil {
 		if e == cred.ErrUserNotFound {
@@ -354,19 +354,19 @@ func (iama *IamApiServer) PutUserPolicy(s3cfg *iam_pb.S3ApiConfiguration, values
 		}
 		return PutUserPolicyResponse{}, &IamError{Code: iam.ErrCodeServiceFailureException, Error: e}
 	}
-	
+
 	identity.Actions = actions
 	if e := iama.iam.GetCredentialManager().UpdateUser(context.Background(), userName, identity); e != nil {
 		return PutUserPolicyResponse{}, &IamError{Code: iam.ErrCodeServiceFailureException, Error: e}
 	}
-	
+
 	return resp, nil
 }
 
 func (iama *IamApiServer) GetUserPolicy(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp GetUserPolicyResponse, err *IamError) {
 	userName := values.Get("UserName")
 	policyName := values.Get("PolicyName")
-	
+
 	identity, e := iama.iam.GetCredentialManager().GetUser(context.Background(), userName)
 	if e != nil {
 		if e == cred.ErrUserNotFound {
@@ -420,14 +420,12 @@ func (iama *IamApiServer) GetUserPolicy(s3cfg *iam_pb.S3ApiConfiguration, values
 		return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: err2}
 	}
 	resp.GetUserPolicyResult.PolicyDocument = string(policyDocumentJSON)
-		return resp, nil
-	}
-	return resp, &IamError{Code: iam.ErrCodeNoSuchEntityException, Error: fmt.Errorf(USER_DOES_NOT_EXIST, userName)}
+	return resp, nil
 }
 
 func (iama *IamApiServer) DeleteUserPolicy(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp PutUserPolicyResponse, err *IamError) {
 	userName := values.Get("UserName")
-	
+
 	identity, e := iama.iam.GetCredentialManager().GetUser(context.Background(), userName)
 	if e != nil {
 		if e == cred.ErrUserNotFound {
@@ -435,12 +433,12 @@ func (iama *IamApiServer) DeleteUserPolicy(s3cfg *iam_pb.S3ApiConfiguration, val
 		}
 		return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: e}
 	}
-	
+
 	identity.Actions = []string{}
 	if e := iama.iam.GetCredentialManager().UpdateUser(context.Background(), userName, identity); e != nil {
 		return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: e}
 	}
-	
+
 	return resp, nil
 }
 
@@ -490,19 +488,19 @@ func (iama *IamApiServer) CreateAccessKey(s3cfg *iam_pb.S3ApiConfiguration, valu
 	resp.CreateAccessKeyResult.AccessKey.SecretAccessKey = &secretAccessKey
 	resp.CreateAccessKeyResult.AccessKey.UserName = &userName
 	resp.CreateAccessKeyResult.AccessKey.Status = &status
-	
+
 	credential := &iam_pb.Credential{
 		AccessKey: accessKeyId,
 		SecretKey: secretAccessKey,
 	}
-	
+
 	if e := iama.iam.GetCredentialManager().CreateAccessKey(context.Background(), userName, credential); e != nil {
 		if e == cred.ErrUserNotFound {
 			return resp, &IamError{Code: iam.ErrCodeNoSuchEntityException, Error: fmt.Errorf(USER_DOES_NOT_EXIST, userName)}
 		}
 		return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: e}
 	}
-	
+
 	return resp, nil
 }
 
@@ -558,10 +556,10 @@ func (iama *IamApiServer) AssumeRoleWithWebIdentity(s3cfg *iam_pb.S3ApiConfigura
 	}
 	assumeRoleResp, assumeRoleErr := iamManager.AssumeRoleWithWebIdentity(ctx, request)
 	if assumeRoleErr != nil {
-		glog.V(0).Infof("Error assuming role: %v", assumeRoleErr)
+		glog.V(0).Infof("Error assuming role with web identity: %v", assumeRoleErr)
 		err = &IamError{
 			Code:  iam.ErrCodeInvalidInputException,
-			Error: errors.New("RoleArn and RoleSessionName are required"),
+			Error: errors.New("Failed to assume role with web identity"),
 		}
 
 		return
@@ -637,10 +635,10 @@ func (iama *IamApiServer) AssumeRoleWithCredentials(s3cfg *iam_pb.S3ApiConfigura
 	}
 	assumeRoleResp, assumeRoleErr := iamManager.AssumeRoleWithCredentials(ctx, request)
 	if assumeRoleErr != nil {
-		glog.V(0).Infof("Error assuming role: %v", assumeRoleErr)
+		glog.V(0).Infof("Error assuming role with credentials: %v", assumeRoleErr)
 		err = &IamError{
 			Code:  iam.ErrCodeInvalidInputException,
-			Error: errors.New("RoleArn and RoleSessionName are required"),
+			Error: errors.New("Failed to assume role with credentials"),
 		}
 
 		return
@@ -715,7 +713,6 @@ func (iama *IamApiServer) AssumeRole(s3cfg *iam_pb.S3ApiConfiguration, values ur
 		return
 	}
 
-
 	// Gọi iamManager.AssumeRole
 	ctx := context.Background()
 	iamManager := iama.iam.GetIAMManager()
@@ -731,13 +728,13 @@ func (iama *IamApiServer) AssumeRole(s3cfg *iam_pb.S3ApiConfiguration, values ur
 		glog.V(0).Infof("Error assuming role: %v", assumeRoleErr)
 		err = &IamError{
 			Code:  iam.ErrCodeInvalidInputException,
-			Error: errors.New("RoleArn and RoleSessionName are required"),
+			Error: errors.New("Failed to assume role"),
 		}
 		return
 	}
 	identity, _, found := iama.iam.LookupByAccessKey(accessKeyId)
 	if found {
-			userName = identity.Name
+		userName = identity.Name
 	}
 
 	iama.SaveCredential(s3cfg, userName, &iam_pb.Credential{
@@ -795,12 +792,12 @@ func (iama *IamApiServer) GetSessionToken(s3cfg *iam_pb.S3ApiConfiguration, valu
 
 	// Gọi stsService.GetSessionToken
 	getSessionTokenResp, sessionTokenErr := iamManager.GetSessionToken(ctx, request)
-	
-	if err != nil {
-		glog.V(0).Infof("Error assuming role: %v", sessionTokenErr)
+
+	if sessionTokenErr != nil {
+		glog.V(0).Infof("Error getting session token: %v", sessionTokenErr)
 		err = &IamError{
 			Code:  iam.ErrCodeInvalidInputException,
-			Error: errors.New("RoleArn and RoleSessionName are required"),
+			Error: errors.New("Failed to get session token"),
 		}
 		return
 	}
@@ -847,7 +844,7 @@ func CreateSessionToken(payload cred.SessionTokenPayload, secret string) (string
 func (iama *IamApiServer) DeleteAccessKey(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp DeleteAccessKeyResponse, err *IamError) {
 	userName := values.Get("UserName")
 	accessKeyId := values.Get("AccessKeyId")
-	
+
 	if e := iama.iam.GetCredentialManager().DeleteAccessKey(context.Background(), userName, accessKeyId); e != nil {
 		if e == cred.ErrUserNotFound {
 			return resp, &IamError{Code: iam.ErrCodeNoSuchEntityException, Error: fmt.Errorf(USER_DOES_NOT_EXIST, userName)}
@@ -857,7 +854,7 @@ func (iama *IamApiServer) DeleteAccessKey(s3cfg *iam_pb.S3ApiConfiguration, valu
 		}
 		return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: e}
 	}
-	
+
 	return resp, nil
 }
 
@@ -906,7 +903,7 @@ func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {
 	glog.V(4).Infof("DoActions: %+v", values)
 	var response interface{}
 	var iamError *IamError
-	
+
 	switch r.Form.Get("Action") {
 	case "ListUsers":
 		response, iamError = iama.ListUsers(s3cfg, values)
@@ -1047,7 +1044,7 @@ func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {
 		s3err.WriteXMLResponse(w, r, errNotImplemented.HTTPStatusCode, errorResponse)
 		return
 	}
-	
+
 	s3err.WriteXMLResponse(w, r, http.StatusOK, response)
 }
 
@@ -1092,7 +1089,7 @@ func (iama *IamApiServer) CreateRole(s3cfg *iam_pb.S3ApiConfiguration, values ur
 	assumeRolePolicyDocument := values.Get("AssumeRolePolicyDocument")
 	description := values.Get("Description")
 
-	var trustPolicy policy_engine.PolicyDocument
+	var trustPolicy policy.PolicyDocument
 	if err := json.Unmarshal([]byte(assumeRolePolicyDocument), &trustPolicy); err != nil {
 		return resp, &IamError{Code: iam.ErrCodeMalformedPolicyDocumentException, Error: err}
 	}

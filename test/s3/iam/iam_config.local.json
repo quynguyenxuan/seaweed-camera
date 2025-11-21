@@ -56,6 +56,35 @@
   ],
   "policy": {
     "defaultEffect": "Allow",
+    "storeType": "postgres",
+    "storeConfig": {
+      "hostname": "localhost",
+      "port": 5432,
+      "username": "postgres",
+      "password": "",
+      "database": "sunfs",
+      "schema": "public",
+      "sslmode": "disable",
+      "table_name": "policies",
+      "timeout": "30s"
+    }
+  },
+  "roleStore": {
+    "storeType": "postgres",
+    "storeConfig": {
+      "hostname": "localhost",
+      "port": 5432,
+      "username": "postgres",
+      "password": "",
+      "database": "sunfs",
+      "schema": "public",
+      "sslmode": "disable",
+      "table_name": "iam_roles",
+      "timeout": "30s"
+    }
+  },
+  "policyStoreCassandra": {
+    "defaultEffect": "Allow",
     "storeType": "cassandra",
     "storeConfig": {
       "hosts": ["localhost"],
@@ -67,7 +96,7 @@
       "consistency": "LocalQuorum"
     }
   },
-  "roleStore": {
+  "roleStoreCassandra": {
     "storeType": "cassandra",
     "storeConfig": {
       "hosts": ["localhost"],

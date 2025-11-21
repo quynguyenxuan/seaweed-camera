@@ -132,6 +132,43 @@ type GetSessionTokenResponse struct {
 }
 
 // QUYNGUYEN end
+
+type DeletePolicyResponse struct {
+	CommonResponse
+	XMLName xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ DeletePolicyResponse"`
+}
+
+type ListPoliciesResponse struct {
+	CommonResponse
+	XMLName            xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ ListPoliciesResponse"`
+	ListPoliciesResult struct {
+		Policies    []*iam.Policy `xml:"Policies>member"`
+		IsTruncated bool          `xml:"IsTruncated"`
+	} `xml:"ListPoliciesResult"`
+}
+
+type CreateRoleResponse struct {
+	CommonResponse
+	XMLName          xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ CreateRoleResponse"`
+	CreateRoleResult struct {
+		Role iam.Role `xml:"Role"`
+	} `xml:"CreateRoleResult"`
+}
+
+type DeleteRoleResponse struct {
+	CommonResponse
+	XMLName xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ DeleteRoleResponse"`
+}
+
+type ListRolesResponse struct {
+	CommonResponse
+	XMLName         xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ ListRolesResponse"`
+	ListRolesResult struct {
+		Roles       []*iam.Role `xml:"Roles>member"`
+		IsTruncated bool        `xml:"IsTruncated"`
+	} `xml:"ListRolesResult"`
+}
+
 func (r *CommonResponse) SetRequestId() {
 	r.ResponseMetadata.RequestId = fmt.Sprintf("%d", time.Now().UnixNano())
 }

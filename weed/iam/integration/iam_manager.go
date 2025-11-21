@@ -154,6 +154,8 @@ func (m *IAMManager) createRoleStore(config *RoleStoreConfig) (RoleStore, error)
 		return NewCassandraRoleStore(config.StoreConfig)
 	case "mysql":
 		return NewMysqlRoleStore(config.StoreConfig)
+	case "postgres", "postgresql":
+		return NewPostgresRoleStore(config.StoreConfig)
 	default:
 		return nil, fmt.Errorf("unsupported role store type: %s", config.StoreType)
 	}
@@ -186,6 +188,8 @@ func (m *IAMManager) createRoleStoreWithProvider(config *RoleStoreConfig, filerA
 		return NewCassandraRoleStore(config.StoreConfig)
 	case "mysql":
 		return NewMysqlRoleStore(config.StoreConfig)
+	case "postgres", "postgresql":
+		return NewPostgresRoleStore(config.StoreConfig)
 	default:
 		return nil, fmt.Errorf("unsupported role store type: %s", config.StoreType)
 	}
