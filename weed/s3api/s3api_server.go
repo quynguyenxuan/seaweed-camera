@@ -509,6 +509,7 @@ func loadIAMManagerFromConfig(configPath string, credentialManager *credential.C
 		Policy    *policy.PolicyEngineConfig    `json:"policy"`
 		Providers []map[string]interface{}      `json:"providers"`
 		Roles     []*integration.RoleDefinition `json:"roles"`
+		RoleStore  *integration.RoleStoreConfig `json:"roleStore"`
 		Policies  []struct {
 			Name     string                 `json:"name"`
 			Document *policy.PolicyDocument `json:"document"`
@@ -534,15 +535,16 @@ func loadIAMManagerFromConfig(configPath string, credentialManager *credential.C
 	iamConfig := &integration.IAMConfig{
 		STS:    configRoot.STS,
 		Policy: configRoot.Policy,
-		Roles: &integration.RoleStoreConfig{
-			//QUYNGUYEN for save role to filler
-			// StoreType: sts.StoreTypeMemory, // Use memory store for JSON config-based setup 
-			StoreType: sts.StoreTypeFiler,
-			StoreConfig: map[string]interface{}{
-				"noCache": true,
-			},
-			//QUy Nguyen end
-		},
+		Roles:  configRoot.RoleStore,
+		// Roles: &integration.RoleStoreConfig{
+		// 	//QUYNGUYEN for save role to filler
+		// 	// StoreType: sts.StoreTypeMemory, // Use memory store for JSON config-based setup 
+		// 	StoreType: sts.StoreTypeFiler,
+		// 	StoreConfig: map[string]interface{}{
+		// 		"noCache": true,
+		// 	},
+		// 	//QUy Nguyen end
+		// },
 	}
 
 	// Initialize IAM manager
