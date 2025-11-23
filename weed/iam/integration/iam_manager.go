@@ -525,9 +525,19 @@ func (m *IAMManager) ExpireSessionForTesting(ctx context.Context, sessionToken s
 	return m.stsService.ExpireSessionForTesting(ctx, sessionToken)
 }
 
+// GetRoleStore returns the role store instance
+func (m *IAMManager) GetRoleStore() RoleStore {
+	return m.roleStore
+}
+
 // GetSTSService returns the STS service instance
 func (m *IAMManager) GetSTSService() *sts.STSService {
 	return m.stsService
+}
+
+// Get Policy engine
+func (m *IAMManager) GetPolicyEngine() *policy.PolicyEngine {
+	return m.policyEngine
 }
 
 // parseJWTTokenForTrustPolicy parses a JWT token to extract claims for trust policy evaluation

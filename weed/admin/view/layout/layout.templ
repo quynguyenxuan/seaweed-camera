@@ -26,7 +26,7 @@ templ Layout(c *gin.Context, content templ.Component) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Minio Admin</title>
+    <title>SunFS  Admin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     
@@ -46,7 +46,7 @@ templ Layout(c *gin.Context, content templ.Component) {
             <div class="container-fluid">
                 <a class="navbar-brand fw-bold" href="/admin">
                     <i class="fas fa-server me-2"></i>
-                    Minio Admin
+                    SunFS Admin
                     <span class="badge bg-warning text-dark ms-2">ALPHA</span>
                 </a>
                 
@@ -157,6 +157,16 @@ templ Layout(c *gin.Context, content templ.Component) {
                                             <i class="fas fa-shield-alt me-2"></i>Policies
                                         </a>
                                     </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link py-2" href="/object-store/roles">
+                                            <i class="fas fa-user-shield me-2"></i>Roles
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link py-2" href="/object-store/iam-policies">
+                                            <i class="fas fa-shield-alt me-2"></i>IAM Policies
+                                        </a>
+                                    </li>
                                 </ul>
                             </div>
                         </li>
@@ -174,31 +184,31 @@ templ Layout(c *gin.Context, content templ.Component) {
                             }
                             if isMQPage {
                                 <div class="collapse show" id="messageQueueSubmenu">
-                                    <ul class="nav flex-column ms-3">
-                                        <li class="nav-item">
-                                            if currentPath == "/mq/brokers" {
-                                                <a class="nav-link py-2 active" href="/mq/brokers">
-                                                    <i class="fas fa-server me-2"></i>Brokers
-                                                </a>
-                                            } else {
-                                                <a class="nav-link py-2" href="/mq/brokers">
-                                                    <i class="fas fa-server me-2"></i>Brokers
-                                                </a>
-                                            }
-                                        </li>
-                                        <li class="nav-item">
-                                            if currentPath == "/mq/topics" {
-                                                <a class="nav-link py-2 active" href="/mq/topics">
-                                                    <i class="fas fa-list-alt me-2"></i>Topics
-                                                </a>
-                                            } else {
-                                                <a class="nav-link py-2" href="/mq/topics">
-                                                    <i class="fas fa-list-alt me-2"></i>Topics
-                                                </a>
-                                            }
-                                        </li>
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        if currentPath == "/mq/brokers" {
+                                            <a class="nav-link py-2 active" href="/mq/brokers">
+                                                <i class="fas fa-server me-2"></i>Brokers
+                                            </a>
+                                        } else {
+                                            <a class="nav-link py-2" href="/mq/brokers">
+                                                <i class="fas fa-server me-2"></i>Brokers
+                                            </a>
+                                        }
+                                    </li>
+                                    <li class="nav-item">
+                                        if currentPath == "/mq/topics" {
+                                            <a class="nav-link py-2 active" href="/mq/topics">
+                                                <i class="fas fa-list-alt me-2"></i>Topics
+                                            </a>
+                                        } else {
+                                            <a class="nav-link py-2" href="/mq/topics">
+                                                <i class="fas fa-list-alt me-2"></i>Topics
+                                            </a>
+                                        }
+                                    </li>
 
-                                    </ul>
+                                </ul>
                                 </div>
                             } else {
                                 <div class="collapse" id="messageQueueSubmenu">
@@ -320,7 +330,7 @@ templ Layout(c *gin.Context, content templ.Component) {
     <footer class="footer mt-auto py-3 bg-light">
         <div class="container-fluid text-center">
             <small class="text-muted">
-                &copy; {fmt.Sprintf("%d", time.Now().Year())} Minio Admin v{version.VERSION_NUMBER}
+                &copy; {fmt.Sprintf("%d", time.Now().Year())} SunFS Admin v{version.VERSION_NUMBER}
                 if !strings.Contains(version.VERSION, "enterprise") {
                     <span class="mx-2">•</span>
                     <a href="https://seaweedfs.com" target="_blank" class="text-decoration-none">

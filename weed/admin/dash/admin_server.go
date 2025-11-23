@@ -14,6 +14,8 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/filer"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	"github.com/seaweedfs/seaweedfs/weed/iam/integration"
+	"github.com/seaweedfs/seaweedfs/weed/iam/policy"
 	"github.com/seaweedfs/seaweedfs/weed/pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/iam_pb"
@@ -45,6 +47,7 @@ type AdminServer struct {
 
 	// Credential management
 	credentialManager *credential.CredentialManager
+	iamManager        *integration.IAMManager
 
 	// Configuration persistence
 	configPersistence *ConfigPersistence
@@ -61,7 +64,7 @@ type AdminServer struct {
 
 // Type definitions moved to types.go
 
-func NewAdminServer(masters string, templateFS http.FileSystem, dataDir string) *AdminServer {
+func NewAdminServer(masters string, templateFS http.FileSystem, dataDir string, iamConfig string) *AdminServer {
 	grpcDialOption := security.LoadClientTLS(util.GetViper(), "grpc.admin")
 
 	// Create master client with multiple master support
@@ -92,41 +95,14 @@ func NewAdminServer(masters string, templateFS http.FileSystem, dataDir string) 
 	// Initialize topic retention purger
 	server.topicRetentionPurger = NewTopicRetentionPurger(server)
 
-	// Initialize credential manager with defaults
-	credentialManager, err := credential.NewCredentialManagerWithDefaults("")
-	if err != nil {
-		glog.Warningf("Failed to initialize credential manager: %v", err)
-		// Continue without credential manager - will fall back to legacy approach
-	} else {
-		// For stores that need filer client details, set them
-		if store := credentialManager.GetStore(); store != nil {
-			if filerClientSetter, ok := store.(interface {
-				SetFilerClient(string, grpc.DialOption)
-			}); ok {
-				// We'll set the filer client later when we discover filers
-				// For now, just store the credential manager
-				server.credentialManager = credentialManager
+	// Initialize credential manager first
+	server.credentialManager = server.initCredentialManager()
 
-				// Set up a goroutine to set filer client once we discover filers
-				go func() {
-					for {
-						filerAddr := server.GetFilerAddress()
-						if filerAddr != "" {
-							filerClientSetter.SetFilerClient(filerAddr, server.grpcDialOption)
-							glog.V(1).Infof("Set filer client for credential manager: %s", filerAddr)
-							break
-						}
-						glog.V(1).Infof("Waiting for filer discovery for credential manager...")
-						time.Sleep(5 * time.Second) // Retry every 5 seconds
-					}
-				}()
-			} else {
-				server.credentialManager = credentialManager
-			}
-		} else {
-			server.credentialManager = credentialManager
-		}
+	// Initialize IAM manager if config is provided
+	if iamConfig != "" {
+		server.initIAMManager(iamConfig)
 	}
+
 
 	// Initialize maintenance system - always initialize even without persistent storage
 	var maintenanceConfig *maintenance.MaintenanceConfig
@@ -190,8 +166,69 @@ func (s *AdminServer) loadTaskConfigurationsFromPersistence() {
 }
 
 // GetCredentialManager returns the credential manager
+func (s *AdminServer) initCredentialManager() *credential.CredentialManager {
+	credentialManager, err := credential.NewCredentialManagerWithDefaults("")
+	if err != nil {
+		glog.Warningf("Failed to initialize credential manager: %v", err)
+		return nil
+	}
+
+	glog.V(0).Infof("Successfully initialized credential manager")
+
+	// Setup filer client for stores that need it
+	if store := credentialManager.GetStore(); store != nil {
+		if filerClientSetter, ok := store.(interface {
+			SetFilerClient(string, grpc.DialOption)
+		}); ok {
+			glog.V(1).Infof("Setting up filer client for credential manager")
+			go func() {
+				for {
+					if filerAddr := s.GetFilerAddress(); filerAddr != "" {
+						filerClientSetter.SetFilerClient(filerAddr, s.grpcDialOption)
+						glog.V(1).Infof("Set filer client for credential manager: %s", filerAddr)
+						break
+					}
+					glog.V(1).Infof("Waiting for filer discovery for credential manager...")
+					time.Sleep(5 * time.Second)
+				}
+			}()
+		}
+	}
+
+	return credentialManager
+}
+
+func (s *AdminServer) initIAMManager(iamConfig string) {
+	glog.V(1).Infof("Loading advanced IAM configuration from: %s", iamConfig)
+
+	iamManager, err := s3api.LoadIAMManagerFromConfig(iamConfig, s.credentialManager, func() string {
+		filers := s.GetAllFilers()
+		if len(filers) > 0 {
+			return filers[0]
+		}
+		return ""
+	})
+
+	if err != nil {
+		glog.Errorf("Failed to load IAM configuration: %v", err)
+		return
+	}
+
+	s.iamManager = iamManager
+	glog.V(1).Infof("Advanced IAM system initialized successfully")
+}
+
 func (s *AdminServer) GetCredentialManager() *credential.CredentialManager {
 	return s.credentialManager
+}
+
+
+// GetPolicyEngine returns the IAM policy engine instance
+func (s *AdminServer) GetPolicyEngine() *policy.PolicyEngine {
+	if s.iamManager == nil {
+		return nil
+	}
+	return s.iamManager.GetPolicyEngine()
 }
 
 // Filer discovery methods moved to client_management.go

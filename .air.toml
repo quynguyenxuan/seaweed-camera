@@ -19,9 +19,10 @@ tmp_dir = "tmp"
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
   follow_symlink = false
-  # full_bin = "dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient  exec /usr/bin/go run ./weed -- server -iam -filer  -s3 -s3.config=/mnt/nvme0n1p6/seaweedfs385/s3.json -volume.max=0 -master.volumeSizeLimitMB=100 -volume.preStopSeconds=1"
-  full_bin = "/usr/bin/sleep 100000"
-  cmd = "go build -o ./tmp/weed -tags=5BytesOffset,rocksdb -buildvcs=false ./weed"
+  full_bin = "dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec /usr/local/go/bin/go run ./weed -- server -v=1 -s3 -iam -ip=127.0.0.1 -dir=/mnt/sunfs -master.volumeSizeLimitMB=100 -master.defaultReplication=000 -filer.defaultReplicaPlacement=000 -volume.max=0 -iam.config=/home/sunteco/seaweed-camera/test/s3/iam/iam_config.local.json"
+  # full_bin = "/usr/bin/sleep 100000"
+  # full_bin="dlv exec ./tmp/main --listen=127.0.0.1:2345 --headless=true --api-version=2 --accept-multiclient --continue --log --"
+  # build = "go build -o ./tmp/weed -tags='5BytesOffset rocksdb cassandra ydb sqlite foundationdb' -buildvcs=false ./weed"
   include_dir = ["weed"]
   include_ext = ["go", "tpl", "tmpl", "html"]
   include_file = []

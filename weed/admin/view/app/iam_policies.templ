@@ -1,0 +1,544 @@
+package app
+
+import (
+    "fmt"
+    "github.com/seaweedfs/seaweedfs/weed/admin/dash"
+)
+
+templ IAMPolicies(data dash.PoliciesData) {
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-shield-alt me-2"></i>IAM Policies
+        </h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createPolicyModal">
+                    <i class="fas fa-plus me-1"></i>Create Policy
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="policies-content">
+        <!-- Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-xl-4 col-md-6 mb-4">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    Total Policies
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    { fmt.Sprintf("%d", data.TotalPolicies) }
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-shield-alt fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-4 col-md-6 mb-4">
+                <div class="card border-left-success shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                    Last Updated
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    { data.LastUpdated.Format("2006-01-02 15:04:05") }
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-clock fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-4 col-md-6 mb-4">
+                <div class="card border-left-info shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                    User
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    { data.Username }
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-user fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Policies Table -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-list me-2"></i>Policies List
+                </h6>
+            </div>
+            <div class="card-body">
+                if len(data.Policies) == 0 {
+                    <div class="text-center py-4">
+                        <i class="fas fa-shield-alt fa-3x text-gray-300 mb-3"></i>
+                        <h5 class="text-gray-500">No policies found</h5>
+                        <p class="text-gray-400">Create your first IAM policy to get started.</p>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPolicyModal">
+                            <i class="fas fa-plus me-1"></i>Create First Policy
+                        </button>
+                    </div>
+                } else {
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="policiesTable" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Policy Name</th>
+                                    <th>Version</th>
+                                    <th>Statements</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                for _, policy := range data.Policies {
+                                    <tr>
+                                        <td>
+                                            <strong>{policy.Name}</strong>
+                                            <br>
+                                            <small class="text-muted">IAM Policy</small>
+                                        </td>
+                                        <td>
+                                            <code class="small">{policy.Document.Version}</code>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{ fmt.Sprintf("%d", len(policy.Document.Statement)) }</span>
+                                            <small class="text-muted ms-1">statements</small>
+                                        </td>
+                                        <td>
+                                            <small>{ policy.CreatedAt.Format("2006-01-02 15:04") }</small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-outline-primary" data-policyName={policy.Name} onclick="viewPolicy(event)">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-warning" data-policyName={policy.Name} onclick="editPolicy(event)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger" data-policyName={policy.Name} onclick="deletePolicy(event)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Policy Modal -->
+    <div class="modal fade" id="createPolicyModal" tabindex="-1" aria-labelledby="createPolicyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createPolicyModalLabel">
+                        <i class="fas fa-plus me-2"></i>Create IAM Policy
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createPolicyForm">
+                        <div class="mb-3">
+                            <label for="policyName" class="form-label">Policy Name</label>
+                            <input type="text" class="form-control" id="policyName" name="name" required>
+                            <div class="form-text">Enter a unique name for the policy (e.g., "S3ReadOnlyAccess").</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="policyVersion" class="form-label">Version</label>
+                            <input type="text" class="form-control" id="policyVersion" name="version" value="2012-10-17" required>
+                            <div class="form-text">Policy language version (usually "2012-10-17").</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="policyDocument" class="form-label">Policy Document (JSON)</label>
+                            <div class="mb-2">
+                                <label for="policyTemplate" class="form-label">Quick Templates</label>
+                                <select class="form-select" id="policyTemplate" onchange="loadPolicyTemplate()">
+                                    <option value="">Select a template...</option>
+                                    <option value="s3-readonly">S3 Read Only Access</option>
+                                    <option value="s3-readwrite">S3 Read Write Access</option>
+                                    <option value="s3-full">S3 Full Access</option>
+                                    <option value="admin-full">Administrator Full Access</option>
+                                    <option value="custom">Custom Policy</option>
+                                </select>
+                            </div>
+                            <textarea class="form-control" id="policyDocument" name="document" rows="10" required placeholder='{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::bucket-name/*",
+        "arn:aws:s3:::bucket-name"
+      ]
+    }
+  ]
+}'></textarea>
+                            <div class="form-text">Enter the policy document in JSON format or select a template above.</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="createPolicy()">
+                        <i class="fas fa-plus me-1"></i>Create Policy
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Policy Modal -->
+    <div class="modal fade" id="viewPolicyModal" tabindex="-1" aria-labelledby="viewPolicyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="viewPolicyModalLabel">
+                        <i class="fas fa-eye me-2"></i>View IAM Policy
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Policy Name</label>
+                        <input type="text" class="form-control" id="viewPolicyName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Policy Document</label>
+                        <textarea class="form-control" id="viewPolicyDocument" rows="15" readonly></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Policy Modal -->
+    <div class="modal fade" id="editPolicyModal" tabindex="-1" aria-labelledby="editPolicyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editPolicyModalLabel">
+                        <i class="fas fa-edit me-2"></i>Edit IAM Policy
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editPolicyForm">
+                        <div class="mb-3">
+                            <label class="form-label">Policy Name</label>
+                            <input type="text" class="form-control" id="editPolicyName" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPolicyDocument" class="form-label">Policy Document (JSON)</label>
+                            <textarea class="form-control" id="editPolicyDocument" name="document" rows="10" required></textarea>
+                            <div class="form-text">Modify the policy document in JSON format.</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning" onclick="updatePolicy()">
+                        <i class="fas fa-save me-1"></i>Update Policy
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Policy management JavaScript functions
+    function createPolicy() {
+        const form = document.getElementById('createPolicyForm');
+        const formData = new FormData(form);
+        
+        const policyData = {
+            name: formData.get('name'),
+            document: JSON.parse(formData.get('document'))
+        };
+
+        fetch('/api/object-store/iam-policies', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(policyData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+            } else {
+                alert('Policy created successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('createPolicyModal')).hide();
+                location.reload();
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+        });
+    }
+
+    function loadPolicyTemplate() {
+        const templateSelect = document.getElementById('policyTemplate');
+        const policyDocument = document.getElementById('policyDocument');
+        const policyName = document.getElementById('policyName');
+        
+        const templates = {
+            's3-readonly': {
+                name: 'S3ReadOnlyAccess',
+                document: {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetObject",
+                                "s3:ListBucket",
+                                "s3:GetBucketLocation"
+                            ],
+                            "Resource": [
+                                "arn:aws:s3:::*",
+                                "arn:aws:s3:::*/*"
+                            ]
+                        }
+                    ]
+                }
+            },
+            's3-readwrite': {
+                name: 'S3ReadWriteAccess',
+                document: {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetObject",
+                                "s3:PutObject",
+                                "s3:DeleteObject",
+                                "s3:ListBucket",
+                                "s3:GetBucketLocation",
+                                "s3:CreateBucket"
+                            ],
+                            "Resource": [
+                                "arn:aws:s3:::*",
+                                "arn:aws:s3:::*/*"
+                            ]
+                        }
+                    ]
+                }
+            },
+            's3-full': {
+                name: 'S3FullAccess',
+                document: {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": "s3:*",
+                            "Resource": [
+                                "arn:aws:s3:::*",
+                                "arn:aws:s3:::*/*"
+                            ]
+                        }
+                    ]
+                }
+            },
+            'admin-full': {
+                name: 'AdministratorAccess',
+                document: {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": "*",
+                            "Resource": "*"
+                        }
+                    ]
+                }
+            },
+            'custom': {
+                name: 'CustomPolicy',
+                document: {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetObject",
+                                "s3:ListBucket"
+                            ],
+                            "Resource": [
+                                "arn:aws:s3:::your-bucket-name",
+                                "arn:aws:s3:::your-bucket-name/*"
+                            ]
+                        }
+                    ]
+                }
+            }
+        };
+        
+        const selectedTemplate = templateSelect.value;
+        if (selectedTemplate && templates[selectedTemplate]) {
+            const template = templates[selectedTemplate];
+            policyName.value = template.name;
+            policyDocument.value = JSON.stringify(template.document, null, 2);
+        }
+    }
+
+    function viewPolicy(event) {
+        console.log("Event target:", event.target)
+        console.log("Event current target:", event.currentTarget)
+        
+        // Try currentTarget first (the button), then target (the icon)
+        let button = event.currentTarget || event.target;
+        while (button && button.tagName !== 'BUTTON') {
+            button = button.parentElement;
+        }
+        
+        const policyName = button.getAttribute('data-policyName');
+        console.log("Policy name: ", policyName)
+
+        fetch(`/api/object-store/iam-policies/${policyName}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+            } else {
+                document.getElementById('viewPolicyName').value = policyName;
+                document.getElementById('viewPolicyDocument').value = JSON.stringify(data.policy, null, 2);
+                new bootstrap.Modal(document.getElementById('viewPolicyModal')).show();
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+        });
+    }
+
+    function editPolicy(event) {
+        // Try currentTarget first (the button), then target (the icon)
+        let button = event.currentTarget || event.target;
+        while (button && button.tagName !== 'BUTTON') {
+            button = button.parentElement;
+        }
+        
+        const policyName = button.getAttribute('data-policyName');
+        fetch(`/api/object-store/iam-policies/${policyName}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+            } else {
+                document.getElementById('editPolicyName').value = policyName;
+                document.getElementById('editPolicyDocument').value = JSON.stringify(data.policy, null, 2);
+                new bootstrap.Modal(document.getElementById('editPolicyModal')).show();
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+        });
+    }
+
+    function updatePolicy() {
+        const policyName = document.getElementById('editPolicyName').value;
+        const policyDocument = JSON.parse(document.getElementById('editPolicyDocument').value);
+
+        fetch(`/api/object-store/iam-policies/${policyName}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ document: policyDocument })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+            } else {
+                alert('Policy updated successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('editPolicyModal')).hide();
+                location.reload();
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+        });
+    }
+
+    function deletePolicy(event) {
+        // Try currentTarget first (the button), then target (the icon)
+        let button = event.currentTarget || event.target;
+        while (button && button.tagName !== 'BUTTON') {
+            button = button.parentElement;
+        }
+        
+        const policyName = button.getAttribute('data-policyName');
+        if (confirm(`Are you sure you want to delete policy "${policyName}"?`)) {
+            fetch(`/api/object-store/iam-policies/${policyName}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    alert('Policy deleted successfully!');
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            });
+        }
+    }
+
+    // Initialize DataTable for policies table
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof $ !== 'undefined' && $.fn.DataTable) {
+            $('#policiesTable').DataTable({
+                "responsive": true,
+                "lengthChange": false,
+                "pageLength": 10,
+                "ordering": true,
+                "info": true,
+                "autoWidth": false,
+                "language": {
+                    "emptyTable": "No policies available"
+                }
+            });
+        }
+    });
+    </script>
+}

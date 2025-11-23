@@ -495,6 +495,9 @@ func (s3a *S3ApiServer) registerRouter(router *mux.Router) {
 
 }
 
+func LoadIAMManagerFromConfig(configPath string, credentialManager *credential.CredentialManager, filerAddressProvider func() string) (*integration.IAMManager, error) {
+	return loadIAMManagerFromConfig(configPath, credentialManager , filerAddressProvider)
+}
 // loadIAMManagerFromConfig loads the advanced IAM manager from configuration file
 func loadIAMManagerFromConfig(configPath string, credentialManager *credential.CredentialManager, filerAddressProvider func() string) (*integration.IAMManager, error) {
 	// Read configuration file

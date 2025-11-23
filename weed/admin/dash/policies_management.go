@@ -7,6 +7,8 @@ import (
 
 	"github.com/seaweedfs/seaweedfs/weed/credential"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	"github.com/seaweedfs/seaweedfs/weed/iam/integration"
+	"github.com/seaweedfs/seaweedfs/weed/iam/policy"
 	"github.com/seaweedfs/seaweedfs/weed/s3api/policy_engine"
 )
 
@@ -39,6 +41,52 @@ type CreatePolicyRequest struct {
 type UpdatePolicyRequest struct {
 	Document     policy_engine.PolicyDocument `json:"document" binding:"required"`
 	DocumentJSON string                       `json:"document_json"`
+}
+
+// Role management request structures
+type IAMRole struct {
+	Name             string                `json:"name"`
+	RoleArn          string                `json:"role_arn"`
+	TrustPolicy      policy.PolicyDocument `json:"trust_policy"`
+	TrustPolicyJSON  string                `json:"trust_policy_json"`
+	AttachedPolicies []string              `json:"attached_policies"`
+	Description      string                `json:"description,omitempty"`
+	CreatedAt        time.Time             `json:"created_at"`
+	UpdatedAt        time.Time             `json:"updated_at"`
+}
+
+type RolesCollection struct {
+	Roles map[string]integration.RoleDefinition `json:"roles"`
+}
+
+type RolesData struct {
+	Username    string    `json:"username"`
+	Roles       []IAMRole `json:"roles"`
+	TotalRoles  int       `json:"total_roles"`
+	LastUpdated time.Time `json:"last_updated"`
+}
+
+type IAMPoliciesData struct {
+	Username      string                                  `json:"username"`
+	Policies      map[string]policy_engine.PolicyDocument `json:"policies"`
+	TotalPolicies int                                     `json:"total_policies"`
+	LastUpdated   time.Time                               `json:"last_updated"`
+}
+
+type CreateRoleRequest struct {
+	Name             string                `json:"name" binding:"required"`
+	RoleArn          string                `json:"role_arn"`
+	TrustPolicy      policy.PolicyDocument `json:"trust_policy" binding:"required"`
+	TrustPolicyJSON  string                `json:"trust_policy_json"`
+	AttachedPolicies []string              `json:"attached_policies"`
+	Description      string                `json:"description,omitempty"`
+}
+
+type UpdateRoleRequest struct {
+	TrustPolicy      policy.PolicyDocument `json:"trust_policy" binding:"required"`
+	TrustPolicyJSON  string                `json:"trust_policy_json"`
+	AttachedPolicies []string              `json:"attached_policies"`
+	Description      string                `json:"description,omitempty"`
 }
 
 // PolicyManager interface is now in the credential package
@@ -223,4 +271,135 @@ func (s *AdminServer) GetPolicy(name string) (*IAMPolicy, error) {
 	}
 
 	return policy, nil
+}
+
+// Role management methods using IAM Manager
+
+// GetIAMManager retrieves or creates an IAM manager instance
+func (s *AdminServer) GetIAMManager() *integration.IAMManager {
+
+	glog.V(1).Infof("GetIAMManager called, credentialManager is nil: %v", s.credentialManager == nil)
+	if s.credentialManager == nil {
+		glog.V(0).Infof("Credential manager is nil, IAM manager not available")
+		return nil
+	}
+
+	return s.iamManager
+}
+
+// GetRoles retrieves all IAM roles
+func (s *AdminServer) GetRoles() ([]IAMRole, error) {
+	iamManager := s.GetIAMManager()
+	if iamManager == nil {
+		return nil, fmt.Errorf("IAM manager not available")
+	}
+
+	ctx := context.Background()
+	roleNames, err := iamManager.ListRoles(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert role names to []IAMRole
+	var roles []IAMRole
+	for _, roleName := range roleNames {
+		// Get role from role store directly since IAM manager doesn't expose GetRole
+		roleStore := iamManager.GetRoleStore()
+		if roleStore == nil {
+			glog.Errorf("Role store is not available")
+			continue
+		}
+
+		roleDef, err := roleStore.GetRole(ctx, "", roleName)
+		if err != nil {
+			glog.Errorf("Failed to get role %s: %v", roleName, err)
+			continue // Skip roles that can't be retrieved
+		}
+
+		role := IAMRole{
+			Name:             roleName,
+			RoleArn:          roleDef.RoleArn,
+			TrustPolicy:      *roleDef.TrustPolicy,
+			TrustPolicyJSON:  "", // Will be populated if needed
+			AttachedPolicies: roleDef.AttachedPolicies,
+			Description:      roleDef.Description,
+			CreatedAt:        time.Now(),
+			UpdatedAt:        time.Now(),
+		}
+		roles = append(roles, role)
+	}
+
+	return roles, nil
+}
+
+// CreateRole creates a new IAM role
+func (s *AdminServer) CreateRole(name string, roleDef *integration.RoleDefinition) error {
+	iamManager := s.GetIAMManager()
+	if iamManager == nil {
+		return fmt.Errorf("IAM manager not available")
+	}
+
+	ctx := context.Background()
+	return iamManager.CreateRole(ctx, "", name, roleDef)
+}
+
+// UpdateRole updates an existing IAM role
+func (s *AdminServer) UpdateRole(name string, roleDef *integration.RoleDefinition) error {
+	iamManager := s.GetIAMManager()
+	if iamManager == nil {
+		return fmt.Errorf("IAM manager not available")
+	}
+
+	ctx := context.Background()
+	return iamManager.CreateRole(ctx, "", name, roleDef) // CreateRole also updates existing roles
+}
+
+// DeleteRole deletes an IAM role
+func (s *AdminServer) DeleteRole(name string) error {
+	iamManager := s.GetIAMManager()
+	if iamManager == nil {
+		return fmt.Errorf("IAM manager not available")
+	}
+
+	ctx := context.Background()
+	return iamManager.DeleteRole(ctx, name)
+}
+
+// GetRole retrieves a specific IAM role
+func (s *AdminServer) GetRole(name string) (*IAMRole, error) {
+	iamManager := s.GetIAMManager()
+	if iamManager == nil {
+		return nil, fmt.Errorf("IAM manager not available")
+	}
+
+	ctx := context.Background()
+
+	// Get role from role store directly since IAM manager doesn't expose GetRole
+	roleStore := iamManager.GetRoleStore()
+	if roleStore == nil {
+		return nil, fmt.Errorf("Role store is not available")
+	}
+
+	roleDef, err := roleStore.GetRole(ctx, "", name)
+	if err != nil {
+		return nil, err
+	}
+
+	if roleDef == nil {
+		return nil, nil
+	}
+
+	// Convert RoleDefinition to IAMRole
+	role := &IAMRole{
+		Name:             name,
+		RoleArn:          roleDef.RoleArn,
+		TrustPolicy:      *roleDef.TrustPolicy,
+		TrustPolicyJSON:  "", // Will be populated if needed
+		AttachedPolicies: roleDef.AttachedPolicies,
+		Description:      roleDef.Description,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+	}
+
+	return role, nil
 }

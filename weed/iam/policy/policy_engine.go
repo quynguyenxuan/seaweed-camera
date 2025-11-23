@@ -289,6 +289,11 @@ func (e *PolicyEngine) IsInitialized() bool {
 	return e.initialized
 }
 
+// GetStore returns the underlying policy store
+func (e *PolicyEngine) GetStore() PolicyStore {
+	return e.store
+}
+
 // AddPolicy adds a policy to the engine (filerAddress ignored for memory stores)
 func (e *PolicyEngine) AddPolicy(filerAddress string, name string, policy *PolicyDocument) error {
 	if !e.initialized {

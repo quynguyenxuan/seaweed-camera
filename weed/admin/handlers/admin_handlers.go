@@ -18,6 +18,8 @@ type AdminHandlers struct {
 	fileBrowserHandlers *FileBrowserHandlers
 	userHandlers        *UserHandlers
 	policyHandlers      *PolicyHandlers
+	roleHandlers        *RoleHandlers
+	iamPolicyHandlers   *IAMPolicyHandlers
 	maintenanceHandlers *MaintenanceHandlers
 	mqHandlers          *MessageQueueHandlers
 }
@@ -29,6 +31,8 @@ func NewAdminHandlers(adminServer *dash.AdminServer) *AdminHandlers {
 	fileBrowserHandlers := NewFileBrowserHandlers(adminServer)
 	userHandlers := NewUserHandlers(adminServer)
 	policyHandlers := NewPolicyHandlers(adminServer)
+	roleHandlers := NewRoleHandlers(adminServer)
+	iamPolicyHandlers := NewIAMPolicyHandlers(adminServer)
 	maintenanceHandlers := NewMaintenanceHandlers(adminServer)
 	mqHandlers := NewMessageQueueHandlers(adminServer)
 	return &AdminHandlers{
@@ -38,6 +42,8 @@ func NewAdminHandlers(adminServer *dash.AdminServer) *AdminHandlers {
 		fileBrowserHandlers: fileBrowserHandlers,
 		userHandlers:        userHandlers,
 		policyHandlers:      policyHandlers,
+		roleHandlers:        roleHandlers,
+		iamPolicyHandlers:   iamPolicyHandlers,
 		maintenanceHandlers: maintenanceHandlers,
 		mqHandlers:          mqHandlers,
 	}
@@ -72,6 +78,8 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 		protected.GET("/object-store/buckets/:bucket", h.ShowBucketDetails)
 		protected.GET("/object-store/users", h.userHandlers.ShowObjectStoreUsers)
 		protected.GET("/object-store/policies", h.policyHandlers.ShowPolicies)
+		protected.GET("/object-store/roles", h.roleHandlers.ShowRoles)
+		protected.GET("/object-store/iam-policies", h.iamPolicyHandlers.ShowIAMPolicies)
 
 		// File browser routes
 		protected.GET("/files", h.fileBrowserHandlers.ShowFileBrowser)
@@ -146,6 +154,28 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 				objectStorePoliciesApi.POST("/validate", h.policyHandlers.ValidatePolicy)
 			}
 
+			// Object Store Role management API routes
+			objectStoreRolesApi := api.Group("/object-store/roles")
+			{
+				objectStoreRolesApi.GET("", h.roleHandlers.GetRoles)
+				objectStoreRolesApi.POST("", h.roleHandlers.CreateRole)
+				objectStoreRolesApi.GET("/:name", h.roleHandlers.GetRole)
+				objectStoreRolesApi.PUT("/:name", h.roleHandlers.UpdateRole)
+				objectStoreRolesApi.DELETE("/:name", h.roleHandlers.DeleteRole)
+				objectStoreRolesApi.POST("/validate", h.roleHandlers.ValidateRole)
+			}
+
+			// IAM Policy management API routes
+			iamPoliciesApi := api.Group("/object-store/iam-policies")
+			{
+				iamPoliciesApi.GET("", h.iamPolicyHandlers.GetIAMPolicies)
+				iamPoliciesApi.POST("", h.iamPolicyHandlers.CreateIAMPolicy)
+				iamPoliciesApi.GET("/:name", h.iamPolicyHandlers.GetIAMPolicy)
+				iamPoliciesApi.PUT("/:name", h.iamPolicyHandlers.UpdateIAMPolicy)
+				iamPoliciesApi.DELETE("/:name", h.iamPolicyHandlers.DeleteIAMPolicy)
+				iamPoliciesApi.POST("/validate", h.iamPolicyHandlers.ValidateIAMPolicy)
+			}
+
 			// File management API routes
 			filesApi := api.Group("/files")
 			{
@@ -199,6 +229,9 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 		r.GET("/object-store/buckets/:bucket", h.ShowBucketDetails)
 		r.GET("/object-store/users", h.userHandlers.ShowObjectStoreUsers)
 		r.GET("/object-store/policies", h.policyHandlers.ShowPolicies)
+		r.GET("/object-store/roles", h.roleHandlers.ShowRoles)
+		r.GET("/object-store/iam-policies", h.iamPolicyHandlers.ShowIAMPolicies)
+
 
 		// File browser routes
 		r.GET("/files", h.fileBrowserHandlers.ShowFileBrowser)
@@ -270,6 +303,29 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 				objectStorePoliciesApi.PUT("/:name", h.policyHandlers.UpdatePolicy)
 				objectStorePoliciesApi.DELETE("/:name", h.policyHandlers.DeletePolicy)
 				objectStorePoliciesApi.POST("/validate", h.policyHandlers.ValidatePolicy)
+			}
+
+			// Object Store Role management API routes
+			objectStoreRolesApi := api.Group("/object-store/roles")
+			{
+				objectStoreRolesApi.GET("", h.roleHandlers.GetRoles)
+				objectStoreRolesApi.POST("", h.roleHandlers.CreateRole)
+				objectStoreRolesApi.GET("/:name", h.roleHandlers.GetRole)
+				objectStoreRolesApi.PUT("/:name", h.roleHandlers.UpdateRole)
+				objectStoreRolesApi.DELETE("/:name", h.roleHandlers.DeleteRole)
+				objectStoreRolesApi.POST("/validate", h.roleHandlers.ValidateRole)
+			}
+
+
+			// IAM Policy management API routes
+			iamPoliciesApi := api.Group("/object-store/iam-policies")
+			{
+				iamPoliciesApi.GET("", h.iamPolicyHandlers.GetIAMPolicies)
+				iamPoliciesApi.POST("", h.iamPolicyHandlers.CreateIAMPolicy)
+				iamPoliciesApi.GET("/:name", h.iamPolicyHandlers.GetIAMPolicy)
+				iamPoliciesApi.PUT("/:name", h.iamPolicyHandlers.UpdateIAMPolicy)
+				iamPoliciesApi.DELETE("/:name", h.iamPolicyHandlers.DeleteIAMPolicy)
+				iamPoliciesApi.POST("/validate", h.iamPolicyHandlers.ValidateIAMPolicy)
 			}
 
 			// File management API routes

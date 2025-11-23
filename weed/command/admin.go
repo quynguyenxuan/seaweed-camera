@@ -39,6 +39,7 @@ type AdminOptions struct {
 	adminUser     *string
 	adminPassword *string
 	dataDir       *string
+	iamConfig     *string
 }
 
 func init() {
@@ -48,6 +49,7 @@ func init() {
 	a.master = cmdAdmin.Flag.String("master", "localhost:9333", "comma-separated master servers")
 	a.masters = cmdAdmin.Flag.String("masters", "", "comma-separated master servers (deprecated, use -master instead)")
 	a.dataDir = cmdAdmin.Flag.String("dataDir", "", "directory to store admin configuration and data files")
+	a.iamConfig = cmdAdmin.Flag.String("iamConfig", "", "path to IAM configuration file")
 
 	a.adminUser = cmdAdmin.Flag.String("adminUser", "admin", "admin interface username")
 	a.adminPassword = cmdAdmin.Flag.String("adminPassword", "", "admin interface password (if empty, auth is disabled)")
@@ -249,7 +251,7 @@ func startAdminServer(ctx context.Context, options AdminOptions) error {
 	}
 
 	// Create admin server
-	adminServer := dash.NewAdminServer(*options.master, nil, dataDir)
+	adminServer := dash.NewAdminServer(*options.master, nil, dataDir, *options.iamConfig)
 
 	// Show discovered filers
 	filers := adminServer.GetAllFilers()
