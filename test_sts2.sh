@@ -10,9 +10,9 @@ export AWS_S3_ENDPOINT_URL=http://localhost:8333
 export AWS_STS_ENDPOINT_URL=http://localhost:8111
 
 export AWS_S3_ADDRESSING_STYLE="path"
-export AWS_ACCESS_KEY_ID="TJ51H9HLA4D37B8DTC26"
+export AWS_ACCESS_KEY_ID="HTVHBU8Y8TXLDLHJRI2G"
 # "SX7N95SB15XMHVKJCCWNU"
-export AWS_SECRET_ACCESS_KEY="CkH2KRAcq6STPrD+2YAQO/j761Lp0WNKnkMN/rsU"
+export AWS_SECRET_ACCESS_KEY="W8b7jG9GqN1/RkLiti5SEZZmcE+vGULmps6R0GLY"
 # "tLko8YikRA9Y7CZ1L8IyuWfVZdvw6sSMFtB0NZv4k0"
 
 # export AWS_SESSION_TOKEN=$(bun run test_gen_token.ts)
@@ -108,11 +108,23 @@ echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
 sleep 5
 echo "Put object test.txt"
-aws s3 cp test_sts2.sh  s3://camera2024/backup/test.txt  --region us-east-1 --endpoint-url $AWS_S3_ENDPOINT_URL --checksum-algorithm SHA256
+aws s3 cp test_sts.sh  s3://camera2024/backup/test.txt  \
+--region us-east-1 \
+--endpoint-url $AWS_S3_ENDPOINT_URL --checksum-algorithm SHA256 \
+--cli-read-timeout=120 \
+--cli-connect-timeout=120 \
+# --session-token=$AWS_SESSION_TOKEN \
+# --access-key=$AWS_ACCESS_KEY_ID \
+# --secret-key=$AWS_SECRET_ACCESS_KEY
 # echo "Get object test.txt"
 # aws s3 cp s3://cameravttnew-day3-1/backup/test.txt ./test.txt  --region us-east-1 --endpoint-url https://s3-viettel.sunteco.cloud
 # echo "Get presigned URL"
-GET_URL=$(aws s3 presign s3://camera2024/backup/test.txt   --region us-east-1 --endpoint-url $AWS_S3_ENDPOINT_URL)
+GET_URL=$(aws s3 presign s3://camera2024/backup/test.txt   --region us-east-1 \
+--endpoint-url $AWS_S3_ENDPOINT_URL )
+# --session-token $AWS_SESSION_TOKEN \
+# --access-key $AWS_ACCESS_KEY_ID \
+# --secret-key $AWS_SECRET_ACCESS_KEY )
+
 echo "Get URL ${GET_URL}"
 echo "List objects"
 # aws s3 ls s3://cameravttnew-day3-1/backup  --region us-east-1 --endpoint-url https://s3-viettel.sunteco.cloud  --recursive --human-readable --summarize --no-paginate   --output text
