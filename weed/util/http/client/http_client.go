@@ -134,6 +134,7 @@ func NewHttpClient(clientName ClientName, opts ...HttpClientOpt) (*HTTPClient, e
 	}
 	httpClient.Client = &http.Client{
 		Transport: httpClient.Transport,
+		Timeout:   60 * time.Second,
 	}
 
 	for _, opt := range opts {

@@ -14,6 +14,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/security"
+	"github.com/seaweedfs/seaweedfs/weed/util"
 )
 
 // ChunkedUploadResult contains the result of a chunked upload
@@ -239,12 +240,17 @@ uploadLoop:
 	}
 
 	// Wait for all uploads to complete
-	wg.Wait()
+	glog.V(4).Infof("UploadReaderInChunks: waiting for %d goroutines to complete", chunkOffset/int64(opt.ChunkSize)+1)
 
-	// Sort chunks by offset (do this even if there's an error, for cleanup purposes)
-	sort.Slice(fileChunks, func(i, j int) bool {
-		return fileChunks[i].Offset < fileChunks[j].Offset
-	})
+	uploadErr = util.RunWithTimeout(func() error {
+		wg.Wait()
+		// Sort chunks by offset (do this even if there's an error, for cleanup purposes)
+		sort.Slice(fileChunks, func(i, j int) bool {
+			return fileChunks[i].Offset < fileChunks[j].Offset
+		})
+		return nil
+	}, 60*time.Second)
+	
 
 	// Check for errors - return partial results for cleanup
 	if uploadErr != nil {

@@ -337,7 +337,7 @@ func (iam *IdentityAccessManagement) loadS3ApiConfiguration(config *iam_pb.S3Api
 				t.Account = account
 			} else {
 				t.Account = &AccountAdmin
-				glog.Warningf("identity %s is associated with a non exist account ID, the association is invalid", ident.Name)
+				glog.V(3).Infof("identity %s is associated with a non exist account ID, the association is invalid", ident.Name)
 			}
 		}
 
@@ -367,7 +367,7 @@ func (iam *IdentityAccessManagement) loadS3ApiConfiguration(config *iam_pb.S3Api
 	iam.m.Unlock()
 
 	// Log configuration summary
-	glog.V(1).Infof("Loaded %d identities, %d accounts, %d access keys. Auth enabled: %v",
+	glog.V(2).Infof("Loaded %d identities, %d accounts, %d access keys. Auth enabled: %v",
 		len(identities), len(accounts), len(accessKeyIdent), iam.isAuthEnabled)
 	
 	if glog.V(2) {
@@ -733,7 +733,7 @@ func (iam *IdentityAccessManagement) GetCredentialManager() *credential.Credenti
 
 // LoadS3ApiConfigurationFromCredentialManager loads configuration using the credential manager
 func (iam *IdentityAccessManagement) LoadS3ApiConfigurationFromCredentialManager() error {
-	glog.V(1).Infof("Loading S3 API configuration from credential manager")
+	glog.V(2).Infof("Loading S3 API configuration from credential manager")
 	
 	s3ApiConfiguration, err := iam.credentialManager.LoadConfiguration(context.Background())
 	if err != nil {
@@ -749,7 +749,7 @@ func (iam *IdentityAccessManagement) LoadS3ApiConfigurationFromCredentialManager
 		return err
 	}
 
-	glog.V(1).Infof("Successfully loaded S3 API configuration from credential manager")
+	glog.V(2).Infof("Successfully loaded S3 API configuration from credential manager")
 	return nil
 }
 

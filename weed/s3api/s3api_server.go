@@ -174,6 +174,18 @@ func NewS3ApiServerWithStore(router *mux.Router, option *S3ApiServerOption, expl
 			time.Sleep(15 * time.Second) // Đợi 15 giây trước khi chạy lại
 		}
 	}()
+
+	// QUYNGUYEN add - sync credentials from store to identities
+	go func() {
+		time.Sleep(30 * time.Second) // Initial delay to allow system to fully initialize
+		for {
+			err := s3ApiServer.syncCredentialsFromStore()
+			if err != nil {
+				glog.V(1).Infof("Error syncing credentials from store: %v", err)
+			}
+			time.Sleep(2 * time.Second) // Sync every 1 second
+		}
+	}()
 	//QUYNGUYEN end
 
 	// Initialize the global SSE-S3 key manager with filer access
@@ -184,6 +196,23 @@ func NewS3ApiServerWithStore(router *mux.Router, option *S3ApiServerOption, expl
 	go s3ApiServer.subscribeMetaEvents("s3", startTsNs, filer.DirectoryEtcRoot, []string{option.BucketsPath})
 	return s3ApiServer, nil
 }
+
+// QUYNGUYEN add - syncCredentialsFromStore syncs credentials from credential store to iam identities
+func (s3a *S3ApiServer) syncCredentialsFromStore() error {
+	if s3a.iam == nil {
+		return nil
+	}
+
+	// Use the existing IAM method to load from credential manager
+	if err := s3a.iam.LoadS3ApiConfigurationFromCredentialManager(); err != nil {
+		return fmt.Errorf("failed to load configuration from credential manager: %w", err)
+	}
+
+	glog.V(4).Infof("Successfully synced identities from credential store")
+	return nil
+}
+
+//QUYNGUYEN end
 
 // syncBucketPolicyToEngine syncs a bucket policy to the policy engine
 // This helper method centralizes the logic for loading bucket policies into the engine
@@ -496,8 +525,9 @@ func (s3a *S3ApiServer) registerRouter(router *mux.Router) {
 }
 
 func LoadIAMManagerFromConfig(configPath string, credentialManager *credential.CredentialManager, filerAddressProvider func() string) (*integration.IAMManager, error) {
-	return loadIAMManagerFromConfig(configPath, credentialManager , filerAddressProvider)
+	return loadIAMManagerFromConfig(configPath, credentialManager, filerAddressProvider)
 }
+
 // loadIAMManagerFromConfig loads the advanced IAM manager from configuration file
 func loadIAMManagerFromConfig(configPath string, credentialManager *credential.CredentialManager, filerAddressProvider func() string) (*integration.IAMManager, error) {
 	// Read configuration file
@@ -512,7 +542,7 @@ func loadIAMManagerFromConfig(configPath string, credentialManager *credential.C
 		Policy    *policy.PolicyEngineConfig    `json:"policy"`
 		Providers []map[string]interface{}      `json:"providers"`
 		Roles     []*integration.RoleDefinition `json:"roles"`
-		RoleStore  *integration.RoleStoreConfig `json:"roleStore"`
+		RoleStore *integration.RoleStoreConfig  `json:"roleStore"`
 		Policies  []struct {
 			Name     string                 `json:"name"`
 			Document *policy.PolicyDocument `json:"document"`
@@ -541,7 +571,7 @@ func loadIAMManagerFromConfig(configPath string, credentialManager *credential.C
 		Roles:  configRoot.RoleStore,
 		// Roles: &integration.RoleStoreConfig{
 		// 	//QUYNGUYEN for save role to filler
-		// 	// StoreType: sts.StoreTypeMemory, // Use memory store for JSON config-based setup 
+		// 	// StoreType: sts.StoreTypeMemory, // Use memory store for JSON config-based setup
 		// 	StoreType: sts.StoreTypeFiler,
 		// 	StoreConfig: map[string]interface{}{
 		// 		"noCache": true,
@@ -560,10 +590,10 @@ func loadIAMManagerFromConfig(configPath string, credentialManager *credential.C
 	providerFactory := sts.NewProviderFactory()
 	for _, providerConfig := range configRoot.Providers {
 		provider, err := providerFactory.CreateProvider(&sts.ProviderConfig{
-			Name:    providerConfig["name"].(string),
-			Type:    providerConfig["type"].(string),
-			Enabled: true,
-			Config:  providerConfig["config"].(map[string]interface{}),
+			Name:              providerConfig["name"].(string),
+			Type:              providerConfig["type"].(string),
+			Enabled:           true,
+			Config:            providerConfig["config"].(map[string]interface{}),
 			CredentialManager: credentialManager,
 		})
 		if err != nil {
