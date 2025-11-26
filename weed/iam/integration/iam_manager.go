@@ -151,11 +151,23 @@ func (m *IAMManager) createRoleStore(config *RoleStoreConfig) (RoleStore, error)
 	case "foundationdb":
 		return NewFoundationDBRoleStore(config.StoreConfig)
 	case "cassandra":
-		return NewCassandraRoleStore(config.StoreConfig)
+		cassandraStore, err := NewCassandraRoleStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedRoleStoreWithStore(config.StoreConfig, cassandraStore), nil
 	case "mysql":
-		return NewMysqlRoleStore(config.StoreConfig)
+		mysqlStore, err := NewMysqlRoleStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedRoleStoreWithStore(config.StoreConfig, mysqlStore), nil
 	case "postgres", "postgresql":
-		return NewPostgresRoleStore(config.StoreConfig)
+		postgresStore, err := NewPostgresRoleStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedRoleStoreWithStore(config.StoreConfig, postgresStore), nil
 	default:
 		return nil, fmt.Errorf("unsupported role store type: %s", config.StoreType)
 	}
@@ -185,11 +197,23 @@ func (m *IAMManager) createRoleStoreWithProvider(config *RoleStoreConfig, filerA
 	case "foundationdb":
 		return NewFoundationDBRoleStore(config.StoreConfig)
 	case "cassandra":
-		return NewCassandraRoleStore(config.StoreConfig)
+		cassandraStore, err := NewCassandraRoleStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedRoleStoreWithStore(config.StoreConfig, cassandraStore), nil
 	case "mysql":
-		return NewMysqlRoleStore(config.StoreConfig)
+		mysqlStore, err := NewMysqlRoleStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedRoleStoreWithStore(config.StoreConfig, mysqlStore), nil
 	case "postgres", "postgresql":
-		return NewPostgresRoleStore(config.StoreConfig)
+		postgresStore, err := NewPostgresRoleStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedRoleStoreWithStore(config.StoreConfig, postgresStore), nil
 	default:
 		return nil, fmt.Errorf("unsupported role store type: %s", config.StoreType)
 	}

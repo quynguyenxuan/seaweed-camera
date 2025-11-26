@@ -245,11 +245,23 @@ func (e *PolicyEngine) createPolicyStore(config *PolicyEngineConfig) (PolicyStor
 	case "foundationdb":
 		return NewFoundationDBPolicyStore(config.StoreConfig)
 	case "cassandra":
-		return NewCassandraPolicyStore(config.StoreConfig)
+		cassandraStore, err := NewCassandraPolicyStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedPolicyStoreWithStore(config.StoreConfig, cassandraStore), nil
 	case "mysql":
-		return NewMysqlPolicyStore(config.StoreConfig)
+		mysqlStore, err := NewMysqlPolicyStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedPolicyStoreWithStore(config.StoreConfig, mysqlStore), nil
 	case "postgres", "postgresql":
-		return NewPostgresPolicyStore(config.StoreConfig)
+		postgresStore, err := NewPostgresPolicyStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedPolicyStoreWithStore(config.StoreConfig, postgresStore), nil
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", config.StoreType)
 	}
@@ -274,11 +286,23 @@ func (e *PolicyEngine) createPolicyStoreWithProvider(config *PolicyEngineConfig,
 	case "foundationdb":
 		return NewFoundationDBPolicyStore(config.StoreConfig)
 	case "cassandra":
-		return NewCassandraPolicyStore(config.StoreConfig)
+		cassandraStore, err := NewCassandraPolicyStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedPolicyStoreWithStore(config.StoreConfig, cassandraStore), nil
 	case "mysql":
-		return NewMysqlPolicyStore(config.StoreConfig)
+		mysqlStore, err := NewMysqlPolicyStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedPolicyStoreWithStore(config.StoreConfig, mysqlStore), nil
 	case "postgres", "postgresql":
-		return NewPostgresPolicyStore(config.StoreConfig)
+		postgresStore, err := NewPostgresPolicyStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedPolicyStoreWithStore(config.StoreConfig, postgresStore), nil
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", config.StoreType)
 	}

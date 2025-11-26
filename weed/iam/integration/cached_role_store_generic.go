@@ -54,6 +54,11 @@ func NewGenericCachedRoleStore(config map[string]interface{}, filerAddressProvid
 		return nil, err
 	}
 
+	return NewGenericCachedRoleStoreWithStore(config, filerStore), nil
+}
+
+// NewGenericCachedRoleStoreWithStore creates a new cached role store using generics with a provided role store
+func NewGenericCachedRoleStoreWithStore(config map[string]interface{}, store RoleStore) *GenericCachedRoleStore {
 	// Parse cache configuration with defaults
 	cacheTTL := 5 * time.Minute
 	listTTL := 1 * time.Minute
@@ -76,7 +81,7 @@ func NewGenericCachedRoleStore(config map[string]interface{}, filerAddressProvid
 	}
 
 	// Create adapter and generic cached store
-	adapter := NewRoleStoreAdapter(filerStore)
+	adapter := NewRoleStoreAdapter(store)
 	cachedStore := util.NewCachedStore(
 		adapter,
 		genericCopyRoleDefinition, // Copy function
@@ -93,7 +98,7 @@ func NewGenericCachedRoleStore(config map[string]interface{}, filerAddressProvid
 	return &GenericCachedRoleStore{
 		CachedStore: cachedStore,
 		adapter:     adapter,
-	}, nil
+	}
 }
 
 // StoreRole implements RoleStore interface

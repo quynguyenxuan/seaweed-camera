@@ -53,6 +53,13 @@ func NewGenericCachedPolicyStore(config map[string]interface{}, filerAddressProv
 		return nil, err
 	}
 
+	// Reuse NewGenericCachedPolicyStoreWithStore
+	cachedStore := NewGenericCachedPolicyStoreWithStore(config, filerStore)
+	return cachedStore, nil
+}
+
+// NewGenericCachedPolicyStoreWithStore creates a new cached policy store using generics with a provided policy store
+func NewGenericCachedPolicyStoreWithStore(config map[string]interface{}, store PolicyStore) *GenericCachedPolicyStore {
 	// Parse cache configuration with defaults
 	cacheTTL := 5 * time.Minute
 	listTTL := 1 * time.Minute
@@ -64,8 +71,8 @@ func NewGenericCachedPolicyStore(config map[string]interface{}, filerAddressProv
 				cacheTTL = parsed
 			}
 		}
-		if listTTLStr, ok := config["listTtl"].(string); ok && listTTLStr != "" {
-			if parsed, err := time.ParseDuration(listTTLStr); err == nil {
+		if listTtlStr, ok := config["listTtl"].(string); ok && listTtlStr != "" {
+			if parsed, err := time.ParseDuration(listTtlStr); err == nil {
 				listTTL = parsed
 			}
 		}
@@ -75,7 +82,7 @@ func NewGenericCachedPolicyStore(config map[string]interface{}, filerAddressProv
 	}
 
 	// Create adapter and generic cached store
-	adapter := NewPolicyStoreAdapter(filerStore)
+	adapter := NewPolicyStoreAdapter(store)
 	cachedStore := util.NewCachedStore(
 		adapter,
 		genericCopyPolicyDocument, // Copy function
@@ -86,13 +93,10 @@ func NewGenericCachedPolicyStore(config map[string]interface{}, filerAddressProv
 		},
 	)
 
-	glog.V(2).Infof("Initialized GenericCachedPolicyStore with TTL %v, List TTL %v, Max Cache Size %d",
-		cacheTTL, listTTL, maxCacheSize)
-
 	return &GenericCachedPolicyStore{
 		CachedStore: cachedStore,
 		adapter:     adapter,
-	}, nil
+	}
 }
 
 // StorePolicy implements PolicyStore interface

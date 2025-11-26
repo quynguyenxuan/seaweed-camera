@@ -66,7 +66,9 @@
       "schema": "public",
       "sslmode": "disable",
       "table_name": "sts_policies",
-      "timeout": "30s"
+      "timeout": "30s",
+      "ttl": "5s",
+      "listTtl": "5s"
     }
   },
   "roleStore": {
@@ -80,7 +82,10 @@
       "schema": "public",
       "sslmode": "disable",
       "table_name": "iam_roles",
-      "timeout": "30s"
+      "timeout": "30s",
+      "ttl": "5s",
+      "listTtl": "5s"
+
     }
   },
   "policyStoreCassandra": {
