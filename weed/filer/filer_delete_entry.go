@@ -7,9 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seaweedfs/seaweedfs/weed/cluster"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
-	"github.com/seaweedfs/seaweedfs/weed/pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
 	"github.com/seaweedfs/seaweedfs/weed/util"
@@ -215,6 +213,9 @@ func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.Fu
 				// glog.Errorf("QUYNGUYEN list isEntryCreatedInTime %s: %v", fullPath, err)
 				// }
 				entryCount++
+				//Chunks được xóa khi gọi tới mastermaster server 
+				// Delete chunks before deleting metadata no
+				// f.DeleteChunks(ctx, entry.FullPath, entry.GetChunks())
 				storeDeletionErr := f.Store.DeleteOneEntry(ctx, entry)
 				glog.V(2).Infof("QUYNGUYEN delete collection DeleteOneEntry  %s: %v", entry.FullPath, storeDeletionErr)
 			}
@@ -271,44 +272,28 @@ func (f *Filer) DoDeleteFilerEntryWithTime(ctx context.Context, collectionName s
 	return nil
 }
 
-func (f *Filer) DoDeleteCollectionWithTime(ctx context.Context, p util.FullPath, collectionName string, fromTime, toTime uint64) (err error) {
-	// glog.V(2).Infof("QUYNGUYEN: DoDeleteCollectionWithTime    delete collection %s", collectionName)
-	//  // 1. Get the list of all filers in the cluster.
-	existingNodes := f.ListExistingPeerUpdates(ctx)
-	// 2. Call each filer to delete collection in time
-	for _, node := range existingNodes {
-		if node.NodeType != cluster.FilerType {
-			continue
-		}
-		glog.V(2).Infof("QUYNGUYEN: call other filer %s to delete collection %s", node.Address, collectionName)
-		// 	 // Launch a goroutine for each filer call to avoid blocking
-		go func(filerAddress pb.ServerAddress) {
-			pb.WithFilerClient(false, f.UniqueFilerId, filerAddress, f.GrpcDialOption, func(client filer_pb.SeaweedFilerClient) error {
-				_, err := client.DeleteCollection(context.Background(), &filer_pb.DeleteCollectionRequest{
-					Collection: collectionName,
-					FromTime:   fromTime,
-					ToTime:     toTime,
-				})
-				if err != nil {
-					glog.Errorf("failed to delete collection %s on filer %s: %v", collectionName, filerAddress, err)
-				}
-				return err
-			})
-		}(pb.ServerAddress(node.Address))
-	}
+func (f *Filer) DoDeleteCollectionWithTime(ctx context.Context, collectionName string, fromTime, toTime uint64) (err error) {
+	glog.V(2).Infof("QUYNGUYEN: DoDeleteCollectionWithTime delete collection %s", collectionName)
 
+	err = f.DoDeleteFilerEntryWithTime(ctx, collectionName, fromTime, toTime)
+	if err != nil {
+		glog.Errorf("Error delete filer entry: %v", err, err)
+		return err
+	}
+	// Use the new background detection function for master deletion
 	return f.MasterClient.WithClient(false, func(client master_pb.SeaweedClient) error {
-		_, err := client.CollectionDelete(context.Background(), &master_pb.CollectionDeleteRequest{
+		_, err := client.CollectionDelete(ctx, &master_pb.CollectionDeleteRequest{
 			Name:     collectionName,
 			FromTime: fromTime,
 			ToTime:   toTime,
 		})
 		if err != nil {
-			glog.Infof("delete collection %s: %v", collectionName, err)
+			glog.Errorf("Background detection failed to delete collection %s on master: %v", collectionName, err)
+			return err
 		}
-		return err
+		glog.V(3).Infof("Background detection successfully deleted collection %s on master", collectionName)
+		return nil
 	})
-	// return nil
 }
 
 func (f *Filer) maybeDeleteHardLinks(ctx context.Context, hardLinkIds []HardLinkId) {

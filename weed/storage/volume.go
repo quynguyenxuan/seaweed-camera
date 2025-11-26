@@ -47,6 +47,7 @@ type Volume struct {
 
 	isCompacting       bool
 	isCommitCompacting bool
+	isDeleting         bool // New: Track if volume is being deleted
 
 	volumeInfoRWLock sync.RWMutex
 	volumeInfo       *volume_server_pb.VolumeInfo

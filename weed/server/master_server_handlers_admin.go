@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/util/version"
 
@@ -34,13 +35,17 @@ func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 	glog.V(0).Infoln("QUYNGUYEN: delete collection ", collectionName, fromTime, toTime)
-	nowTimeStamp := 1732953640
-	if fromTime != 0 && fromTime < nowTimeStamp {
-		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("Time %s does not valid", fromTime))
+	nowTimeStamp := uint64(time.Now().Unix())
+	if fromTime != 0 && uint64(fromTime) > nowTimeStamp {
+		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("FromTime %d cannot be in the future (current: %d)", fromTime, nowTimeStamp))
 		return
 	}
-	if toTime != 0 && toTime < nowTimeStamp {
-		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("Time %s does not valid", toTime))
+	if toTime != 0 && uint64(toTime) > nowTimeStamp {
+		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("ToTime %d cannot be in the future (current: %d)", toTime, nowTimeStamp))
+		return
+	}
+	if fromTime != 0 && toTime != 0 && fromTime > toTime {
+		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("FromTime %d cannot be greater than ToTime %d", fromTime, toTime))
 		return
 	}
 

@@ -210,6 +210,39 @@ func (fs *FilerServer) move(ctx context.Context, w http.ResponseWriter, r *http.
 // curl -X DELETE http://localhost:8888/path/to?recursive=true
 // curl -X DELETE http://localhost:8888/path/to?recursive=true&ignoreRecursiveError=true
 // curl -X DELETE http://localhost:8888/path/to?recursive=true&skipChunkDeletion=true
+func (fs *FilerServer) DeleteCollectionHandler(w http.ResponseWriter, r *http.Request) {
+	collectionName := r.FormValue("collection")
+	fromTime, _ := strconv.Atoi(r.FormValue("fromTime"))
+	toTime, _ := strconv.Atoi(r.FormValue("toTime"))
+	nowTimeStamp := uint64(time.Now().Unix())
+	if collectionName == "" {
+		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("No collection param"))
+		return
+	}
+	if fromTime != 0 && uint64(fromTime) > nowTimeStamp {
+		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("FromTime %d cannot be in the future (current: %d)", fromTime, nowTimeStamp))
+		return
+	}
+	if toTime != 0 && uint64(toTime) > nowTimeStamp {
+		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("ToTime %d cannot be in the future (current: %d)", toTime, nowTimeStamp))
+		return
+	}
+	if fromTime != 0 && toTime != 0 && fromTime > toTime {
+		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("FromTime %d cannot be greater than ToTime %d", fromTime, toTime))
+		return
+	}
+
+
+	err := fs.filer.DoDeleteCollectionWithTime(context.Background(), collectionName, uint64(fromTime), uint64(toTime))
+	if err != nil {
+		glog.V(1).Infoln("deleting collection on time range :", err.Error())
+		writeJsonError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return
+}
+
 func (fs *FilerServer) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	isRecursive := r.FormValue("recursive") == "true"
 	if !isRecursive && fs.option.recursiveDelete {
@@ -220,18 +253,6 @@ func (fs *FilerServer) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	ignoreRecursiveError := r.FormValue("ignoreRecursiveError") == "true"
 	skipChunkDeletion := r.FormValue("skipChunkDeletion") == "true"
 
-	collectionName := r.FormValue("collection")
-	fromTime, _ := strconv.Atoi(r.FormValue("fromTime"))
-	toTime, _ := strconv.Atoi(r.FormValue("toTime"))
-	nowTimeStamp := 1732953640
-	if fromTime != 0 && fromTime < nowTimeStamp {
-		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("Time %s does not valid", fromTime))
-		return
-	}
-	if toTime != 0 && toTime < nowTimeStamp {
-		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("Time %s does not valid", toTime))
-		return
-	}
 	objectPath := r.URL.Path
 	if len(r.URL.Path) > 1 && strings.HasSuffix(objectPath, "/") {
 		objectPath = objectPath[0 : len(objectPath)-1]
@@ -243,17 +264,6 @@ func (fs *FilerServer) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if wormEnforced {
 		writeJsonError(w, r, http.StatusForbidden, errors.New(constants.ErrMsgOperationNotPermitted))
-		return
-	}
-
-	if collectionName != "" && fromTime != 0 && toTime != 0 {
-		err := fs.filer.DoDeleteCollectionWithTime(context.Background(), util.FullPath(objectPath), collectionName, uint64(fromTime), uint64(toTime))
-		if err != nil {
-			glog.V(1).Infoln("deleting collection on time range", objectPath, ":", err.Error())
-			writeJsonError(w, r, http.StatusInternalServerError, err)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 

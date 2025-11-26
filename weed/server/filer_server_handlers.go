@@ -3,13 +3,14 @@ package weed_server
 import (
 	"context"
 	"errors"
-	"github.com/seaweedfs/seaweedfs/weed/util/version"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/seaweedfs/seaweedfs/weed/util/version"
 
 	"github.com/seaweedfs/seaweedfs/weed/filer"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
@@ -88,7 +89,7 @@ func (fs *FilerServer) filerHandler(w http.ResponseWriter, r *http.Request) {
 		if _, ok := r.URL.Query()["tagging"]; ok {
 			fs.DeleteTaggingHandler(w, r)
 		} else if _, ok := r.URL.Query()["collection"]; ok {
-			fs.DeleteHandler(w, r)
+			fs.DeleteCollectionHandler(w, r)
 		} else {
 			fs.DeleteHandler(w, r)
 		}

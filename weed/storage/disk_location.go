@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -335,7 +334,7 @@ func (l *DiskLocation) DeleteCollectionFromDiskLocationByTime(collection string,
 	}
 
 	l.ecVolumesLock.Unlock()
-	log.Println("QUYNGUYEN: DeleteCollectionFromDiskLocationByTime 2", collection, len(delEcVolsMap), len(delVolsMap))
+	glog.V(2).Infof("QUYNGUYEN: DeleteCollectionFromDiskLocationByTime collected volumes: %s %d %d", collection, len(delEcVolsMap), len(delVolsMap))
 	volumeDeletionInterval, err := strconv.ParseInt(os.Getenv("VOLUME_DELETION_INTERVAL_MILLISECONDS"), 10, 64)
 	if err != nil {
 		volumeDeletionInterval = 0
@@ -446,7 +445,16 @@ func (l *DiskLocation) unmountVolumeByCollectionAndTime(collectionName string, f
 	for k, v := range l.volumes {
 		glog.V(2).Infoln("QUYNGUYEN: unmountVolumeByCollectionAndTime", v.Id, v.Collection, v.isCommitCompacting, v.isCompacting, v.lastModifiedTsSeconds, fromTime, toTime)
 
-		if v.Collection == collectionName && !v.isCompacting && !v.isCommitCompacting && v.lastModifiedTsSeconds >= fromTime && v.lastModifiedTsSeconds <= toTime {
+		// Atomic check and mark for deletion
+		if v.Collection == collectionName && 
+		   !v.isCompacting && 
+		   !v.isCommitCompacting && 
+		   !v.isDeleting &&  // New: Check if already being deleted
+		   v.lastModifiedTsSeconds >= fromTime && 
+		   v.lastModifiedTsSeconds <= toTime {
+			
+			// Mark as deleting to prevent race conditions
+			v.isDeleting = true
 			deltaVols[k] = v
 		}
 	}

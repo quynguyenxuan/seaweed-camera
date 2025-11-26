@@ -78,7 +78,9 @@ func (v *Volume) Destroy(onlyEmpty bool) (err error) {
 	storageName, storageKey := v.RemoteStorageNameKey()
 	if v.HasRemoteFile() && storageName != "" && storageKey != "" {
 		if backendStorage, found := backend.BackendStorages[storageName]; found {
-			backendStorage.DeleteFile(storageKey)
+			if deleteErr := backendStorage.DeleteFile(storageKey); deleteErr != nil {
+				glog.Warningf("Failed to delete remote file %s: %v", storageKey, deleteErr)
+			}
 		}
 	}
 	v.doClose()
