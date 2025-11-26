@@ -230,10 +230,11 @@ func (s3a *S3ApiServer) CopyObjectHandler(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// Check if destination bucket has versioning configured
-	dstVersioningConfigured, err := s3a.isVersioningConfigured(dstBucket)
+	// Check if destination bucket has versioning enabled
+	// Only create versions if versioning is explicitly "Enabled", not "Suspended" or unconfigured
+	dstVersioningState, err := s3a.getVersioningState(dstBucket)
 	if err != nil {
-		glog.Errorf("Error checking versioning status for destination bucket %s: %v", dstBucket, err)
+		glog.Errorf("Error checking versioning state for destination bucket %s: %v", dstBucket, err)
 		s3err.WriteErrorResponse(w, r, s3err.ErrInternalError)
 		return
 	}
@@ -241,7 +242,7 @@ func (s3a *S3ApiServer) CopyObjectHandler(w http.ResponseWriter, r *http.Request
 	var dstVersionId string
 	var etag string
 
-	if dstVersioningConfigured {
+	if shouldCreateVersionForCopy(dstVersioningState) {
 		// For versioned destination, create a new version
 		dstVersionId = generateVersionId()
 		glog.V(2).Infof("CopyObjectHandler: creating version %s for destination %s/%s", dstVersionId, dstBucket, dstObject)
@@ -294,6 +295,9 @@ func (s3a *S3ApiServer) CopyObjectHandler(w http.ResponseWriter, r *http.Request
 		w.Header().Set("x-amz-version-id", dstVersionId)
 	} else {
 		// For non-versioned destination, use regular copy
+		// Remove any versioning-related metadata from source that shouldn't carry over
+		cleanupVersioningMetadata(dstEntry.Extended)
+		
 		dstPath := util.FullPath(fmt.Sprintf("%s/%s%s", s3a.option.BucketsPath, dstBucket, dstObject))
 		dstDir, dstName := dstPath.DirAndName()
 
@@ -817,7 +821,7 @@ func (s3a *S3ApiServer) copySingleChunk(chunk *filer_pb.FileChunk, dstPath strin
 		return nil, fmt.Errorf("download chunk data: %w", err)
 	}
 
-	if err := s3a.uploadChunkData(chunkData, assignResult); err != nil {
+	if err := s3a.uploadChunkData(chunkData, assignResult, chunk.IsCompressed); err != nil {
 		return nil, fmt.Errorf("upload chunk data: %w", err)
 	}
 
@@ -852,7 +856,7 @@ func (s3a *S3ApiServer) copySingleChunkForRange(originalChunk, rangeChunk *filer
 		return nil, fmt.Errorf("download chunk range data: %w", err)
 	}
 
-	if err := s3a.uploadChunkData(chunkData, assignResult); err != nil {
+	if err := s3a.uploadChunkData(chunkData, assignResult, originalChunk.IsCompressed); err != nil {
 		return nil, fmt.Errorf("upload chunk range data: %w", err)
 	}
 
@@ -1140,13 +1144,14 @@ func (s3a *S3ApiServer) prepareChunkCopy(sourceFileId, dstPath string) (*filer_p
 }
 
 // uploadChunkData uploads chunk data to the destination using common upload logic
-func (s3a *S3ApiServer) uploadChunkData(chunkData []byte, assignResult *filer_pb.AssignVolumeResponse) error {
+// isCompressed indicates if the data is already compressed and should not be compressed again
+func (s3a *S3ApiServer) uploadChunkData(chunkData []byte, assignResult *filer_pb.AssignVolumeResponse, isCompressed bool) error {
 	dstUrl := fmt.Sprintf("http://%s/%s", assignResult.Location.Url, assignResult.FileId)
 
 	uploadOption := &operation.UploadOption{
 		UploadUrl:         dstUrl,
-		Cipher:            false,
-		IsInputCompressed: false,
+		Cipher:            false, // Data is already encrypted if source had CipherKey; don't re-encrypt
+		IsInputCompressed: isCompressed,
 		MimeType:          "",
 		PairMap:           nil,
 		Jwt:               security.EncodedJwt(assignResult.Auth),
@@ -1367,7 +1372,7 @@ func (s3a *S3ApiServer) copyMultipartSSEKMSChunk(chunk *filer_pb.FileChunk, dest
 	}
 
 	// Upload the final data
-	if err := s3a.uploadChunkData(finalData, assignResult); err != nil {
+	if err := s3a.uploadChunkData(finalData, assignResult, false); err != nil {
 		return nil, fmt.Errorf("upload chunk data: %w", err)
 	}
 
@@ -1497,7 +1502,7 @@ func (s3a *S3ApiServer) copyMultipartSSECChunk(chunk *filer_pb.FileChunk, copySo
 	}
 
 	// Upload the final data
-	if err := s3a.uploadChunkData(finalData, assignResult); err != nil {
+	if err := s3a.uploadChunkData(finalData, assignResult, false); err != nil {
 		return nil, nil, fmt.Errorf("upload chunk data: %w", err)
 	}
 
@@ -1780,7 +1785,7 @@ func (s3a *S3ApiServer) copyCrossEncryptionChunk(chunk *filer_pb.FileChunk, sour
 	// For unencrypted destination, finalData remains as decrypted plaintext
 
 	// Upload the final data
-	if err := s3a.uploadChunkData(finalData, assignResult); err != nil {
+	if err := s3a.uploadChunkData(finalData, assignResult, false); err != nil {
 		return nil, fmt.Errorf("upload chunk data: %w", err)
 	}
 
@@ -1991,7 +1996,7 @@ func (s3a *S3ApiServer) copyChunkWithReencryption(chunk *filer_pb.FileChunk, cop
 	}
 
 	// Upload the processed data
-	if err := s3a.uploadChunkData(finalData, assignResult); err != nil {
+	if err := s3a.uploadChunkData(finalData, assignResult, false); err != nil {
 		return nil, fmt.Errorf("upload processed chunk data: %w", err)
 	}
 
@@ -2214,7 +2219,7 @@ func (s3a *S3ApiServer) copyChunkWithSSEKMSReencryption(chunk *filer_pb.FileChun
 	}
 
 	// Upload the processed data
-	if err := s3a.uploadChunkData(finalData, assignResult); err != nil {
+	if err := s3a.uploadChunkData(finalData, assignResult, false); err != nil {
 		return nil, fmt.Errorf("upload processed chunk data: %w", err)
 	}
 
@@ -2324,6 +2329,25 @@ func (ctx *EncryptionHeaderContext) shouldSkipEncryptedToUnencryptedHeader() boo
 	isAnyEncryptionHeader := ctx.IsSSECHeader || ctx.IsSSEKMSHeader || ctx.IsSSES3Header
 
 	return hasSourceEncryption && !hasDestinationEncryption && isAnyEncryptionHeader
+}
+
+// cleanupVersioningMetadata removes versioning-related metadata from Extended attributes
+// when copying to non-versioned or suspended-versioning buckets.
+// This prevents objects in non-versioned buckets from carrying invalid versioning metadata.
+// It also removes the source ETag to prevent metadata inconsistency, as a new ETag will be
+// calculated for the destination object.
+func cleanupVersioningMetadata(metadata map[string][]byte) {
+	delete(metadata, s3_constants.ExtVersionIdKey)
+	delete(metadata, s3_constants.ExtDeleteMarkerKey)
+	delete(metadata, s3_constants.ExtIsLatestKey)
+	delete(metadata, s3_constants.ExtETagKey)
+}
+
+// shouldCreateVersionForCopy determines whether a version should be created during a copy operation
+// based on the destination bucket's versioning state.
+// Returns true only if versioning is explicitly "Enabled", not "Suspended" or unconfigured.
+func shouldCreateVersionForCopy(versioningState string) bool {
+	return versioningState == s3_constants.VersioningEnabled
 }
 
 // shouldSkipEncryptionHeader determines if a header should be skipped when copying extended attributes
