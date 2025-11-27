@@ -25,6 +25,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3_constants"
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3err"
 	"github.com/seaweedfs/seaweedfs/weed/util/mem"
+	util_http "github.com/seaweedfs/seaweedfs/weed/util/http"
 
 	"github.com/seaweedfs/seaweedfs/weed/glog"
 )
@@ -404,11 +405,11 @@ func newListEntry(entry *filer_pb.Entry, key string, dir string, name string, bu
 	return listEntry
 }
 
-func (s3a *S3ApiServer) toFilerUrl(bucket, object string) string {
-	object = urlPathEscape(removeDuplicateSlashes(object))
-	destUrl := fmt.Sprintf("http://%s%s/%s%s",
-		s3a.option.Filer.ToHttpAddress(), s3a.option.BucketsPath, bucket, object)
-	return destUrl
+func (s3a *S3ApiServer) toFilerPath(bucket, object string) string {
+	// Returns the raw file path - no URL escaping needed
+	// The path is used directly, not embedded in a URL
+	object = removeDuplicateSlashes(object)
+	return fmt.Sprintf("%s/%s%s", s3a.option.BucketsPath, bucket, object)
 }
 
 // hasConditionalHeaders checks if the request has any conditional headers
@@ -740,7 +741,12 @@ func (s3a *S3ApiServer) GetObjectHandler(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		// Response not yet written - safe to write S3 error response
-		s3err.WriteErrorResponse(w, r, s3err.ErrInternalError)
+		// Check if error is due to volume server rate limiting (HTTP 429)
+		if errors.Is(err, util_http.ErrTooManyRequests) {
+			s3err.WriteErrorResponse(w, r, s3err.ErrRequestBytesExceed)
+		} else {
+			s3err.WriteErrorResponse(w, r, s3err.ErrInternalError)
+		}
 		return
 	}
 }
@@ -874,7 +880,7 @@ func (s3a *S3ApiServer) streamFromVolumeServers(w http.ResponseWriter, r *http.R
 				return newStreamErrorWithResponse(fmt.Errorf("invalid range for inline content: start=%d, end=%d, len=%d", start, end, len(entry.Content)))
 			}
 			// Validation passed - now set headers and write
-			s3a.setResponseHeaders(w, entry, totalSize)
+			s3a.setResponseHeaders(w, r, entry, totalSize)
 			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, totalSize))
 			w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 			w.WriteHeader(http.StatusPartialContent)
@@ -882,7 +888,7 @@ func (s3a *S3ApiServer) streamFromVolumeServers(w http.ResponseWriter, r *http.R
 			return err
 		}
 		// Non-range request for inline content
-		s3a.setResponseHeaders(w, entry, totalSize)
+		s3a.setResponseHeaders(w, r, entry, totalSize)
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write(entry.Content)
 		return err
@@ -902,7 +908,7 @@ func (s3a *S3ApiServer) streamFromVolumeServers(w http.ResponseWriter, r *http.R
 			return newStreamErrorWithResponse(fmt.Errorf("data integrity error: size %d reported but no content available", totalSize))
 		}
 		// Empty object - set headers and write status
-		s3a.setResponseHeaders(w, entry, totalSize)
+		s3a.setResponseHeaders(w, r, entry, totalSize)
 		w.WriteHeader(http.StatusOK)
 		return nil
 	}
@@ -952,7 +958,7 @@ func (s3a *S3ApiServer) streamFromVolumeServers(w http.ResponseWriter, r *http.R
 
 	// All validation and preparation successful - NOW set headers and write status
 	tHeaderSet := time.Now()
-	s3a.setResponseHeaders(w, entry, totalSize)
+	s3a.setResponseHeaders(w, r, entry, totalSize)
 
 	// Override/add range-specific headers if this is a range request
 	if isRangeRequest {
@@ -1158,7 +1164,7 @@ func (s3a *S3ApiServer) streamFromVolumeServersWithSSE(w http.ResponseWriter, r 
 	// Set response headers
 	// IMPORTANT: Set ALL headers BEFORE calling WriteHeader (headers are ignored after WriteHeader)
 	tHeaderSet := time.Now()
-	s3a.setResponseHeaders(w, entry, totalSize)
+	s3a.setResponseHeaders(w, r, entry, totalSize)
 	s3a.addSSEResponseHeadersFromEntry(w, r, entry, sseType)
 
 	// Override/add range-specific headers if this is a range request
@@ -1888,7 +1894,7 @@ func (s3a *S3ApiServer) addSSEResponseHeadersFromEntry(w http.ResponseWriter, r 
 }
 
 // setResponseHeaders sets all standard HTTP response headers from entry metadata
-func (s3a *S3ApiServer) setResponseHeaders(w http.ResponseWriter, entry *filer_pb.Entry, totalSize int64) {
+func (s3a *S3ApiServer) setResponseHeaders(w http.ResponseWriter, r *http.Request, entry *filer_pb.Entry, totalSize int64) {
 	// Safety check: entry must be valid
 	if entry == nil {
 		glog.Errorf("setResponseHeaders: entry is nil")
@@ -1966,6 +1972,18 @@ func (s3a *S3ApiServer) setResponseHeaders(w http.ResponseWriter, entry *filer_p
 		}
 		if tagCount > 0 {
 			w.Header().Set(s3_constants.AmzTagCount, strconv.Itoa(tagCount))
+		}
+	}
+
+	// Apply S3 passthrough headers from query parameters
+	// AWS S3 supports overriding response headers via query parameters like:
+	// ?response-cache-control=no-cache&response-content-type=application/json
+	// This allows presigned URLs to control how browsers handle the downloaded content
+	if r != nil {
+		for queryParam, headerValue := range r.URL.Query() {
+			if normalizedHeader, ok := s3_constants.PassThroughHeaders[strings.ToLower(queryParam)]; ok && len(headerValue) > 0 && headerValue[0] != "" {
+				w.Header().Set(normalizedHeader, headerValue[0])
+			}
 		}
 	}
 }
@@ -2235,7 +2253,7 @@ func (s3a *S3ApiServer) HeadObjectHandler(w http.ResponseWriter, r *http.Request
 
 	// For HEAD requests, we already have all metadata - just set headers directly
 	totalSize := int64(filer.FileSize(objectEntryForSSE))
-	s3a.setResponseHeaders(w, objectEntryForSSE, totalSize)
+	s3a.setResponseHeaders(w, r, objectEntryForSSE, totalSize)
 
 	// Check if PartNumber query parameter is present (for multipart objects)
 	// This logic matches the filer handler for consistency

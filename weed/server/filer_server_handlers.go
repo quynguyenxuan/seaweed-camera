@@ -98,15 +98,35 @@ func (fs *FilerServer) filerHandler(w http.ResponseWriter, r *http.Request) {
 		contentLength := getContentLength(r)
 		fs.inFlightDataLimitCond.L.Lock()
 		inFlightDataSize := atomic.LoadInt64(&fs.inFlightDataSize)
-		for fs.option.ConcurrentUploadLimit != 0 && inFlightDataSize > fs.option.ConcurrentUploadLimit {
-			glog.V(4).Infof("wait because inflight data %d > %d", inFlightDataSize, fs.option.ConcurrentUploadLimit)
+		inFlightUploads := atomic.LoadInt64(&fs.inFlightUploads)
+
+		// Wait if either data size limit or file count limit is exceeded
+		for (fs.option.ConcurrentUploadLimit != 0 && inFlightDataSize > fs.option.ConcurrentUploadLimit) || (fs.option.ConcurrentFileUploadLimit != 0 && inFlightUploads >= fs.option.ConcurrentFileUploadLimit) {
+			if (fs.option.ConcurrentUploadLimit != 0 && inFlightDataSize > fs.option.ConcurrentUploadLimit) {
+				glog.V(4).Infof("wait because inflight data %d > %d", inFlightDataSize, fs.option.ConcurrentUploadLimit)
+			}
+			if (fs.option.ConcurrentFileUploadLimit != 0 && inFlightUploads >= fs.option.ConcurrentFileUploadLimit) {
+				glog.V(4).Infof("wait because inflight uploads %d >= %d", inFlightUploads, fs.option.ConcurrentFileUploadLimit)
+			}
 			fs.inFlightDataLimitCond.Wait()
 			inFlightDataSize = atomic.LoadInt64(&fs.inFlightDataSize)
+			inFlightUploads = atomic.LoadInt64(&fs.inFlightUploads)
 		}
 		fs.inFlightDataLimitCond.L.Unlock()
-		atomic.AddInt64(&fs.inFlightDataSize, contentLength)
+
+		// Increment counters
+		newUploads := atomic.AddInt64(&fs.inFlightUploads, 1)
+		newSize := atomic.AddInt64(&fs.inFlightDataSize, contentLength)
+		// Update metrics
+		stats.FilerInFlightUploadCountGauge.Set(float64(newUploads))
+		stats.FilerInFlightUploadBytesGauge.Set(float64(newSize))
 		defer func() {
-			atomic.AddInt64(&fs.inFlightDataSize, -contentLength)
+			// Decrement counters
+			newUploads := atomic.AddInt64(&fs.inFlightUploads, -1)
+			newSize := atomic.AddInt64(&fs.inFlightDataSize, -contentLength)
+			// Update metrics
+			stats.FilerInFlightUploadCountGauge.Set(float64(newUploads))
+			stats.FilerInFlightUploadBytesGauge.Set(float64(newSize))
 			fs.inFlightDataLimitCond.Signal()
 		}()
 
