@@ -325,6 +325,9 @@ func (fs *FilerServer) saveMetaData(ctx context.Context, r *http.Request, fileNa
 	// Save standard HTTP headers as extended attributes
 	// Note: S3 API now writes directly to volume servers and saves metadata via gRPC
 	// This handler is for non-S3 clients (WebDAV, SFTP, mount, curl, etc.)
+	if entry.Extended == nil {
+		entry.Extended = make(map[string][]byte)
+	}
 	for k, v := range r.Header {
 		if len(v) > 0 && len(v[0]) > 0 {
 			if strings.HasPrefix(k, needle.PairNamePrefix) || k == "Cache-Control" || k == "Expires" || k == "Content-Disposition" {
@@ -336,7 +339,7 @@ func (fs *FilerServer) saveMetaData(ctx context.Context, r *http.Request, fileNa
 		}
 	}
 
-	dbErr := fs.filer.CreateEntry(ctx, entry, false, false, nil, skipCheckParentDirEntry(r), so.MaxFileNameLength)
+	dbErr := fs.filer.CreateEntry(context.WithoutCancel(ctx), entry, false, false, nil, skipCheckParentDirEntry(r), so.MaxFileNameLength)
 	if dbErr != nil {
 		replyerr = dbErr
 		filerResult.Error = dbErr.Error()
@@ -377,7 +380,8 @@ func (fs *FilerServer) saveAsChunk(ctx context.Context, so *operation.StorageOpt
 			}
 
 			var uploadErr error
-			uploadResult, uploadErr, _ = uploader.Upload(ctx, reader, uploadOption)
+			uploadCtx := context.WithoutCancel(ctx)
+			uploadResult, uploadErr, _ = uploader.Upload(uploadCtx, reader, uploadOption)
 			if uploadErr != nil {
 				return uploadErr
 			}
@@ -433,7 +437,7 @@ func (fs *FilerServer) mkdir(ctx context.Context, w http.ResponseWriter, r *http
 		Name: util.FullPath(path).Name(),
 	}
 
-	if dbErr := fs.filer.CreateEntry(ctx, entry, false, false, nil, false, so.MaxFileNameLength); dbErr != nil {
+	if dbErr := fs.filer.CreateEntry(context.WithoutCancel(ctx), entry, false, false, nil, false, so.MaxFileNameLength); dbErr != nil {
 		replyerr = dbErr
 		filerResult.Error = dbErr.Error()
 		glog.V(0).InfofCtx(ctx, "failing to create dir %s on filer server : %v", path, dbErr)
