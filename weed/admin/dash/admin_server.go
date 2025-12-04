@@ -95,12 +95,42 @@ func NewAdminServer(masters string, templateFS http.FileSystem, dataDir string, 
 	// Initialize topic retention purger
 	server.topicRetentionPurger = NewTopicRetentionPurger(server)
 
-	// Initialize credential manager first
-	server.credentialManager = server.initCredentialManager()
+	// Initialize credential manager with defaults
+	credentialManager, err := credential.NewCredentialManagerWithDefaults("")
+	if err != nil {
+		glog.Warningf("Failed to initialize credential manager: %v", err)
+		// Continue without credential manager - will fall back to legacy approach
+	} else {
+		server.credentialManager = credentialManager
 
-	// Initialize IAM manager if config is provided
-	if iamConfig != "" {
-		server.initIAMManager(iamConfig)
+		// For stores that need filer address function, set them
+		if store := credentialManager.GetStore(); store != nil {
+			if filerFuncSetter, ok := store.(interface {
+				SetFilerAddressFunc(func() pb.ServerAddress, grpc.DialOption)
+			}); ok {
+				// Set up a goroutine to configure filer address function once we discover filers
+				go func() {
+					for {
+						filerAddr := server.GetFilerAddress()
+						if filerAddr != "" {
+							// Configure the function to dynamically return the current active filer (HA-aware)
+							filerFuncSetter.SetFilerAddressFunc(func() pb.ServerAddress {
+								return pb.ServerAddress(server.GetFilerAddress())
+							}, server.grpcDialOption)
+							glog.V(1).Infof("Set filer address function for credential manager: %s", filerAddr)
+							break
+						}
+						glog.V(1).Infof("Waiting for filer discovery for credential manager...")
+						time.Sleep(5 * time.Second)
+					}
+				}()
+			}
+		}
+		//QUNGUYEN add
+		if iamConfig != "" {
+			server.initIAMManager(iamConfig)
+		}
+		//QUYNGUYEN end
 	}
 
 
@@ -197,7 +227,7 @@ func (s *AdminServer) initCredentialManager() *credential.CredentialManager {
 
 	return credentialManager
 }
-
+//QUYNGUYEN add
 func (s *AdminServer) initIAMManager(iamConfig string) {
 	glog.V(1).Infof("Loading advanced IAM configuration from: %s", iamConfig)
 
@@ -217,6 +247,7 @@ func (s *AdminServer) initIAMManager(iamConfig string) {
 	s.iamManager = iamManager
 	glog.V(1).Infof("Advanced IAM system initialized successfully")
 }
+//QUYNGUYEN end
 
 func (s *AdminServer) GetCredentialManager() *credential.CredentialManager {
 	return s.credentialManager

@@ -35,33 +35,31 @@ var (
 )
 
 type VolumeServerOptions struct {
-	port                  *int
-	portGrpc              *int
-	publicPort            *int
-	folders               []string
-	folderMaxLimits       []int32
-	idxFolder             *string
-	ip                    *string
-	publicUrl             *string
-	bindIp                *string
-	mastersString         *string
-	mserverString         *string // deprecated, for backward compatibility
-	masters               []pb.ServerAddress
-	idleConnectionTimeout *int
-	dataCenter            *string
-	rack                  *string
-	whiteList             []string
-	indexType             *string
-	diskType              *string
-	fixJpgOrientation     *bool
-	readMode              *string
-	cpuProfile            *string
-	memProfile            *string
-	compactionMBPerSecond *int
-	fileSizeLimitMB       *int
-	//QUYNGUYEN add
-	// volumeDeletionInterval *time.Duration
-	// volumeSplitInSeconds      *time.Duration
+	port                      *int
+	portGrpc                  *int
+	publicPort                *int
+	folders                   []string
+	folderMaxLimits           []int32
+	idxFolder                 *string
+	ip                        *string
+	id                        *string
+	publicUrl                 *string
+	bindIp                    *string
+	mastersString             *string
+	mserverString             *string // deprecated, for backward compatibility
+	masters                   []pb.ServerAddress
+	idleConnectionTimeout     *int
+	dataCenter                *string
+	rack                      *string
+	whiteList                 []string
+	indexType                 *string
+	diskType                  *string
+	fixJpgOrientation         *bool
+	readMode                  *string
+	cpuProfile                *string
+	memProfile                *string
+	compactionMBPerSecond     *int
+	fileSizeLimitMB           *int
 	concurrentUploadLimitMB   *int
 	concurrentDownloadLimitMB *int
 	pprof                     *bool
@@ -82,6 +80,7 @@ func init() {
 	v.portGrpc = cmdVolume.Flag.Int("port.grpc", 0, "grpc listen port")
 	v.publicPort = cmdVolume.Flag.Int("port.public", 0, "port opened to public")
 	v.ip = cmdVolume.Flag.String("ip", util.DetectedHostAddress(), "ip or server name, also used as identifier")
+	v.id = cmdVolume.Flag.String("id", "", "volume server id. If empty, default to ip:port")
 	v.publicUrl = cmdVolume.Flag.String("publicUrl", "", "Publicly accessible address")
 	v.bindIp = cmdVolume.Flag.String("ip.bind", "", "ip address to bind to. If empty, default to same as -ip option.")
 	v.mastersString = cmdVolume.Flag.String("master", "localhost:9333", "comma-separated master servers")
@@ -261,8 +260,11 @@ func (v VolumeServerOptions) startVolumeServer(volumeFolders, maxVolumeCounts, v
 		volumeNeedleMapKind = storage.NeedleMapLevelDbLarge
 	}
 
+	// Determine volume server ID: if not specified, use ip:port
+	volumeServerId := util.GetVolumeServerId(*v.id, *v.ip, *v.port)
+
 	volumeServer := weed_server.NewVolumeServer(volumeMux, publicVolumeMux,
-		*v.ip, *v.port, *v.portGrpc, *v.publicUrl,
+		*v.ip, *v.port, *v.portGrpc, *v.publicUrl, volumeServerId,
 		v.folders, v.folderMaxLimits, minFreeSpaces, diskTypes,
 		*v.idxFolder,
 		volumeNeedleMapKind,
