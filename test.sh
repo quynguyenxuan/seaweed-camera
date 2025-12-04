@@ -20,7 +20,7 @@ do_put() {
     # --secret-key=-aJ20yurXb2RhF9pYwNG9shc-RKb \
 }
 
-
+curl -X DELETE "http://localhost:8888/buckets/camera2051?collection=camera2051&fromTime=1732953740&toTime=1764317882"
 curl -X DELETE "http://localhost:8888/buckets/camera2010/007?collection=camera2010_007&fromTime=1732953740&toTime=1744103784"
 
 curl -X DELETE "http://103.5.211.42:8800/buckets/camera2010/007?collection=camera2019_001&fromTime=1742112108&toTime=1742119308"

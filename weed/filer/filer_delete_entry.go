@@ -274,10 +274,10 @@ func (f *Filer) DoDeleteFilerEntryWithTime(ctx context.Context, collectionName s
 
 func (f *Filer) DoDeleteCollectionWithTime(ctx context.Context, collectionName string, fromTime, toTime uint64) (err error) {
 	glog.V(2).Infof("QUYNGUYEN: DoDeleteCollectionWithTime delete collection %s", collectionName)
-
+	//Do delete on curent and other filer
 	err = f.DoDeleteFilerEntryWithTime(ctx, collectionName, fromTime, toTime)
 	if err != nil {
-		glog.Errorf("Error delete filer entry: %v", err, err)
+		glog.Errorf("Error delete filer filerentry: %v", err, err)
 		return err
 	}
 	// Use the new background detection function for master deletion
