@@ -213,7 +213,7 @@ func (f *Filer) doDeleteFilerEntryWithTime(ctx context.Context, fullPath util.Fu
 				// glog.Errorf("QUYNGUYEN list isEntryCreatedInTime %s: %v", fullPath, err)
 				// }
 				entryCount++
-				//Chunks được xóa khi gọi tới mastermaster server 
+				//Chunks được xóa khi gọi tới mastermaster server
 				// Delete chunks before deleting metadata no
 				// f.DeleteChunks(ctx, entry.FullPath, entry.GetChunks())
 				storeDeletionErr := f.Store.DeleteOneEntry(ctx, entry)
@@ -274,13 +274,7 @@ func (f *Filer) DoDeleteFilerEntryWithTime(ctx context.Context, collectionName s
 
 func (f *Filer) DoDeleteCollectionWithTime(ctx context.Context, collectionName string, fromTime, toTime uint64) (err error) {
 	glog.V(2).Infof("QUYNGUYEN: DoDeleteCollectionWithTime delete collection %s", collectionName)
-	//Do delete on curent and other filer
-	err = f.DoDeleteFilerEntryWithTime(ctx, collectionName, fromTime, toTime)
-	if err != nil {
-		glog.Errorf("Error delete filer filerentry: %v", err, err)
-		return err
-	}
-	// Use the new background detection function for master deletion
+	//QUYNGUYEN: Filer chỉ gọi Master, Master sẽ điều phối tất cả
 	return f.MasterClient.WithClient(false, func(client master_pb.SeaweedClient) error {
 		_, err := client.CollectionDelete(ctx, &master_pb.CollectionDeleteRequest{
 			Name:     collectionName,
@@ -288,12 +282,13 @@ func (f *Filer) DoDeleteCollectionWithTime(ctx context.Context, collectionName s
 			ToTime:   toTime,
 		})
 		if err != nil {
-			glog.Errorf("Background detection failed to delete collection %s on master: %v", collectionName, err)
+			glog.Errorf("Failed to delete collection %s on master: %v", collectionName, err)
 			return err
 		}
-		glog.V(3).Infof("Background detection successfully deleted collection %s on master", collectionName)
+		glog.V(3).Infof("Successfully deleted collection %s via master", collectionName)
 		return nil
 	})
+	//Quynguyen end
 }
 
 func (f *Filer) maybeDeleteHardLinks(ctx context.Context, hardLinkIds []HardLinkId) {
