@@ -23,23 +23,35 @@ import (
 )
 
 func (vs *VolumeServer) DeleteCollection(ctx context.Context, req *volume_server_pb.DeleteCollectionRequest) (*volume_server_pb.DeleteCollectionResponse, error) {
+	//QUYNGUYEN
 	glog.V(2).Infoln("QUYNGUYEN: GRPC admin DeleteCollection filter received:  ", req.Collection, req.FromTime, req.ToTime)
 	resp := &volume_server_pb.DeleteCollectionResponse{}
 	var err error
+	var deletedVolumeIds []needle.VolumeId
 	if req.FromTime != 0 && req.ToTime != 0 {
-		err = vs.store.DeleteCollectionByTime(req.Collection, req.FromTime, req.ToTime)
+		deletedVolumeIds, err = vs.store.DeleteCollectionByTime(req.Collection, req.FromTime, req.ToTime)
 	} else {
-		err = vs.store.DeleteCollection(req.Collection)
+		deletedVolumeIds, err = vs.store.DeleteCollection(req.Collection)
 	}
 	if err != nil {
 		glog.Errorf("delete collection %s: %v", req.Collection, err)
 	} else {
 		glog.V(2).Infof("delete collection %v", req)
+		if len(deletedVolumeIds) > 0 {
+			glog.V(2).Infof("QUYNGUYEN: Deleted volume IDs in collection %s: %v", req.Collection, deletedVolumeIds)
+
+			// Set deleted volume IDs in response
+			resp.VolumeIds = make([]uint32, len(deletedVolumeIds))
+			for i, vid := range deletedVolumeIds {
+				resp.VolumeIds[i] = uint32(vid)
+			}
+		}
 	}
 
 	return resp, err
-
 }
+
+//QUYNGUYEN end
 
 func (vs *VolumeServer) AllocateVolume(ctx context.Context, req *volume_server_pb.AllocateVolumeRequest) (*volume_server_pb.AllocateVolumeResponse, error) {
 

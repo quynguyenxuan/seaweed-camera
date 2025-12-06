@@ -7,7 +7,9 @@ import (
 	"sort"
 	"time"
 
+	"github.com/seaweedfs/seaweedfs/weed/pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
+	"github.com/seaweedfs/seaweedfs/weed/pb/volume_server_pb"
 	"github.com/seaweedfs/seaweedfs/weed/storage/erasure_coding"
 )
 
@@ -297,6 +299,8 @@ func (s *AdminServer) sortVolumes(volumes []VolumeWithTopology, sortBy string, s
 			less = volumes[i].DiskType < volumes[j].DiskType
 		case "version":
 			less = volumes[i].Version < volumes[j].Version
+		case "ttl":
+			less = volumes[i].Ttl < volumes[j].Ttl
 		default:
 			less = volumes[i].Id < volumes[j].Id
 		}
@@ -559,3 +563,24 @@ func (s *AdminServer) GetClusterVolumeServers() (*ClusterVolumeServersData, erro
 		LastUpdated:        time.Now(),
 	}, nil
 }
+
+// DeleteVolume deletes a volume by ID from a specific server
+// QUYNGUYEN
+func (s *AdminServer) DeleteVolume(volumeID int, server string, onlyEmpty bool) error {
+	// Validate volumeID range before converting to uint32
+	if volumeID < 0 || uint64(volumeID) > math.MaxUint32 {
+		return fmt.Errorf("volume ID out of range: %d", volumeID)
+	}
+
+	return s.WithVolumeServerClient(pb.ServerAddress(server), func(client volume_server_pb.VolumeServerClient) error {
+		_, err := client.VolumeDelete(context.Background(), &volume_server_pb.VolumeDeleteRequest{
+			// lgtm[go/incorrect-integer-conversion]
+			// Safe conversion: volumeID has been validated to be in range [0, 0xFFFFFFFF] above
+			VolumeId:  uint32(volumeID),
+			OnlyEmpty: onlyEmpty,
+		})
+		return err
+	})
+}
+
+//QUYNGUYEN end

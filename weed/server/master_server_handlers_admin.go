@@ -14,8 +14,6 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
 
 	"github.com/seaweedfs/seaweedfs/weed/glog"
-	"github.com/seaweedfs/seaweedfs/weed/operation"
-	"github.com/seaweedfs/seaweedfs/weed/pb/volume_server_pb"
 	"github.com/seaweedfs/seaweedfs/weed/storage/backend/memory_map"
 	"github.com/seaweedfs/seaweedfs/weed/storage/needle"
 	"github.com/seaweedfs/seaweedfs/weed/storage/super_block"
@@ -48,30 +46,22 @@ func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.R
 		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("FromTime %d cannot be greater than ToTime %d", fromTime, toTime))
 		return
 	}
-
-	for _, server := range collection.ListVolumeServers() {
-		err := operation.WithVolumeServerClient(false, server.ServerAddress(), ms.grpcDialOption, func(client volume_server_pb.VolumeServerClient) error {
-			_, deleteErr := client.DeleteCollection(context.Background(), &volume_server_pb.DeleteCollectionRequest{
-				Collection: collection.Name,
+	_, err := ms.CollectionDelete(r.Context(), &master_pb.CollectionDeleteRequest {
+				Name: collection.Name,
 				FromTime:   uint64(fromTime),
 				ToTime:     uint64(toTime),
-			})
-			return deleteErr
-		})
-		if err != nil {
-			writeJsonError(w, r, http.StatusInternalServerError, err)
-			return
-		}
+	})
+	
+	if err != nil {
+		writeJsonError(w, r, http.StatusInternalServerError, err)
+		return
 	}
 	glog.V(0).Infoln("QUYNGUYEN: delete collection ", collectionName, fromTime, toTime)
 
 	if fromTime != 0 && toTime != 0 {
-
 		// DeleteEntryByCollectionAndTime(collectionName, uint64(fromTime), uint64(toTime))
-
 		w.WriteHeader(http.StatusNoContent)
 		return
-
 	}
 	glog.V(0).Infoln("QUYNGUYEN: delete collection 3", collectionName)
 	ms.Topo.DeleteCollection(collectionName)

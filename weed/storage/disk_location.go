@@ -264,8 +264,8 @@ func (l *DiskLocation) loadExistingVolumesWithId(needleMapKind NeedleMapKind, ld
 
 }
 
-func (l *DiskLocation) DeleteCollectionFromDiskLocation(collection string) (e error) {
-
+func (l *DiskLocation) DeleteCollectionFromDiskLocation(collection string) (deletedVolumeIds []needle.VolumeId, e error) {
+	//QUYNGUYEN
 	l.volumesLock.Lock()
 	delVolsMap := l.unmountVolumeByCollection(collection)
 	l.volumesLock.Unlock()
@@ -273,6 +273,15 @@ func (l *DiskLocation) DeleteCollectionFromDiskLocation(collection string) (e er
 	l.ecVolumesLock.Lock()
 	delEcVolsMap := l.unmountEcVolumeByCollection(collection)
 	l.ecVolumesLock.Unlock()
+
+	// Collect deleted volume IDs
+	deletedVolumeIds = make([]needle.VolumeId, 0, len(delVolsMap)+len(delEcVolsMap))
+	for vid := range delVolsMap {
+		deletedVolumeIds = append(deletedVolumeIds, vid)
+	}
+	for vid := range delEcVolsMap {
+		deletedVolumeIds = append(deletedVolumeIds, vid)
+	}
 
 	errChain := make(chan error, 2)
 	var wg sync.WaitGroup
@@ -310,7 +319,10 @@ func (l *DiskLocation) DeleteCollectionFromDiskLocation(collection string) (e er
 	return
 }
 
-func (l *DiskLocation) DeleteCollectionFromDiskLocationByTime(collection string, fromTime uint64, toTime uint64) (e error) {
+//QUYNGUYEN end
+
+func (l *DiskLocation) DeleteCollectionFromDiskLocationByTime(collection string, fromTime uint64, toTime uint64) (deletedVolumeIds []needle.VolumeId, e error) {
+	//QUYNGUYEN
 	glog.V(2).Infoln("QUYNGUYEN: DeleteCollectionFromDiskLocationByTime", collection, fromTime, toTime)
 	var delEcVolsMap map[needle.VolumeId]*erasure_coding.EcVolume
 	l.volumesLock.Lock()
@@ -335,6 +347,16 @@ func (l *DiskLocation) DeleteCollectionFromDiskLocationByTime(collection string,
 
 	l.ecVolumesLock.Unlock()
 	glog.V(2).Infof("QUYNGUYEN: DeleteCollectionFromDiskLocationByTime collected volumes: %s %d %d", collection, len(delEcVolsMap), len(delVolsMap))
+
+	// Collect deleted volume IDs
+	deletedVolumeIds = make([]needle.VolumeId, 0, len(delVolsMap)+len(delEcVolsMap))
+	for vid := range delVolsMap {
+		deletedVolumeIds = append(deletedVolumeIds, vid)
+	}
+	for vid := range delEcVolsMap {
+		deletedVolumeIds = append(deletedVolumeIds, vid)
+	}
+
 	volumeDeletionInterval, err := strconv.ParseInt(os.Getenv("VOLUME_DELETION_INTERVAL_MILLISECONDS"), 10, 64)
 	if err != nil {
 		volumeDeletionInterval = 0
@@ -377,6 +399,8 @@ func (l *DiskLocation) DeleteCollectionFromDiskLocationByTime(collection string,
 
 	return
 }
+
+//QUYNGUYEN end
 
 func (l *DiskLocation) deleteVolumeById(vid needle.VolumeId, onlyEmpty bool) (found bool, e error) {
 	v, ok := l.volumes[vid]
@@ -446,13 +470,13 @@ func (l *DiskLocation) unmountVolumeByCollectionAndTime(collectionName string, f
 		glog.V(2).Infoln("QUYNGUYEN: unmountVolumeByCollectionAndTime", v.Id, v.Collection, v.isCommitCompacting, v.isCompacting, v.lastModifiedTsSeconds, fromTime, toTime)
 
 		// Atomic check and mark for deletion
-		if v.Collection == collectionName && 
-		   !v.isCompacting && 
-		   !v.isCommitCompacting && 
-		   !v.isDeleting &&  // New: Check if already being deleted
-		   v.lastModifiedTsSeconds >= fromTime && 
-		   v.lastModifiedTsSeconds <= toTime {
-			
+		if v.Collection == collectionName &&
+			!v.isCompacting &&
+			!v.isCommitCompacting &&
+			!v.isDeleting && // New: Check if already being deleted
+			v.lastModifiedTsSeconds >= fromTime &&
+			v.lastModifiedTsSeconds <= toTime {
+
 			// Mark as deleting to prevent race conditions
 			v.isDeleting = true
 			deltaVols[k] = v

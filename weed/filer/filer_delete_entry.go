@@ -10,6 +10,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
+	"github.com/seaweedfs/seaweedfs/weed/storage/needle"
 	"github.com/seaweedfs/seaweedfs/weed/util"
 )
 
@@ -297,4 +298,112 @@ func (f *Filer) maybeDeleteHardLinks(ctx context.Context, hardLinkIds []HardLink
 			glog.ErrorfCtx(ctx, "delete hard link id %d : %v", hardLinkId, err)
 		}
 	}
+}
+
+// QUYNGUYEN: Delete filer entries by volume IDs
+func (f *Filer) DoDeleteFilerEntryByVolumeIds(ctx context.Context, collectionName string, volumeIds []uint32) (err error) {
+	glog.V(2).Infof("QUYNGUYEN: DoDeleteFilerEntryByVolumeIds deleting %d volume IDs in collection %s", len(volumeIds), collectionName)
+
+	// Get locations for the collection
+	locations := f.FilerConf.GetCollectionLocations(collectionName)
+	glog.V(2).Infoln("QUYNGUYEN GetCollectionLocations ", collectionName, len(locations), locations)
+	if len(locations) == 0 {
+		return fmt.Errorf("QUYNGUYEN delete collection error1 %s: no locations found", collectionName)
+	}
+
+	// Convert volume IDs to needle.VolumeId slice
+	vids := make([]needle.VolumeId, len(volumeIds))
+	for i, vid := range volumeIds {
+		vids[i] = needle.VolumeId(vid)
+	}
+
+	// Delete entries in each location
+	for _, location := range locations {
+		p := util.FullPath(location)
+		err = f.doDeleteFilerEntryByVolumeIds(ctx, p, vids)
+		if err != nil {
+			glog.V(2).Infof("QUYNGUYEN: Error deleting entries in location %s: %v", location, err)
+			return err
+		}
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: Successfully deleted entries for %d volume IDs in collection %s", len(volumeIds), collectionName)
+	return nil
+}
+
+// QUYNGUYEN: Helper function to delete entries by volume IDs in a specific path
+func (f *Filer) doDeleteFilerEntryByVolumeIds(ctx context.Context, fullPath util.FullPath, volumeIds []needle.VolumeId) (err error) {
+	glog.V(4).Infof("QUYNGUYEN: doDeleteFilerEntryByVolumeIds in path %s for %d volume IDs", fullPath, len(volumeIds))
+	
+	// Create a map for faster lookup
+	volumeIdMap := make(map[needle.VolumeId]bool)
+	for _, vid := range volumeIds {
+		volumeIdMap[vid] = true
+	}
+
+	// Optimized: Use larger batch size and early termination
+	const batchSize = 4096 // Increased from 1024 for better performance
+	deletedCount := 0
+	
+	lastFileName := ""
+	includeLastFile := false
+	
+	for {
+		entries, hasMore, err := f.ListDirectoryEntries(ctx, fullPath, lastFileName, includeLastFile, batchSize, "", "", "")
+		if err != nil {
+			glog.V(2).Infof("QUYNGUYEN: Error listing directory %s: %v", fullPath, err)
+			return err
+		}
+		
+		if len(entries) == 0 {
+			break
+		}
+
+		// Process entries with optimized chunk checking
+		batchDeleted := 0
+		for _, entry := range entries {
+			lastFileName = entry.Name()
+			includeLastFile = false
+			
+			// Quick check: skip if no chunks
+			if entry.Chunks == nil || len(entry.Chunks) == 0 {
+				continue
+			}
+			
+			// Optimized: early termination on first matching volume ID
+			shouldDelete := false
+			for _, chunk := range entry.Chunks {
+				if chunk.Fid != nil && volumeIdMap[needle.VolumeId(chunk.Fid.VolumeId)] {
+					shouldDelete = true
+					break // Found matching volume ID, no need to check other chunks
+				}
+			}
+			
+			if shouldDelete {
+				glog.V(4).Infof("QUYNGUYEN: Deleting entry %s in path %s", entry.Name(), fullPath)
+				err = f.DeleteEntryMetaAndData(ctx, fullPath, true, false, false, false, nil, 0)
+				if err != nil {
+					glog.V(2).Infof("QUYNGUYEN: Error deleting entry %s: %v", entry.Name(), err)
+					// Continue with other entries even if one fails
+				} else {
+					batchDeleted++
+				}
+			}
+		}
+		
+		deletedCount += batchDeleted
+		includeLastFile = true
+		
+		// Log progress for large directories
+		if deletedCount > 0 && deletedCount%100 == 0 {
+			glog.V(3).Infof("QUYNGUYEN: Deleted %d entries so far in path %s", deletedCount, fullPath)
+		}
+		
+		if !hasMore {
+			break
+		}
+	}
+	
+	glog.V(4).Infof("QUYNGUYEN: Completed deletion in path %s: deleted %d entries", fullPath, deletedCount)
+	return nil
 }

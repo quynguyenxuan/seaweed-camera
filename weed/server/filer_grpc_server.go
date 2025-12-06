@@ -362,6 +362,15 @@ func (fs *FilerServer) CollectionList(ctx context.Context, req *filer_pb.Collect
 func (fs *FilerServer) DeleteCollection(ctx context.Context, req *filer_pb.DeleteCollectionRequest) (resp *filer_pb.DeleteCollectionResponse, err error) {
 
 	glog.V(2).Infof("QUYNGUYEN: Filer receive DeleteCollection %v", req)
+
+	//QUYNGUYEN: Handle volumeIds deletion
+	if len(req.GetVolumeIds()) > 0 {
+		glog.V(2).Infof("QUYNGUYEN: Deleting entries for %d volume IDs in collection %s", len(req.GetVolumeIds()), req.GetCollection())
+		err = fs.filer.DoDeleteFilerEntryByVolumeIds(ctx, req.GetCollection(), req.GetVolumeIds())
+		return &filer_pb.DeleteCollectionResponse{}, err
+	}
+	//QUYNGUYEN end
+
 	if req.GetFromTime() != 0 || req.GetToTime() != 0 {
 		err = fs.filer.DoDeleteFilerEntryWithTime(context.Background(), req.GetCollection(), req.GetFromTime(), req.GetToTime())
 		return &filer_pb.DeleteCollectionResponse{}, err

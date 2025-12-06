@@ -123,33 +123,49 @@ func (s *Store) AddVolume(volumeId needle.VolumeId, collection string, needleMap
 	e = s.addVolume(volumeId, collection, needleMapKind, rt, ttl, preallocate, ver, MemoryMapMaxSizeMb, diskType, ldbTimeout)
 	return e
 }
-func (s *Store) DeleteCollection(collection string) (e error) {
+func (s *Store) DeleteCollection(collection string) (deletedVolumeIds []needle.VolumeId, e error) {
+	//QUYNGUYEN
 	log.Println("QUYNGUYEN: Store DeleteCollection filter received: ")
 
+	allDeletedVolumeIds := make([]needle.VolumeId, 0)
+
 	for _, location := range s.Locations {
-		e = location.DeleteCollectionFromDiskLocation(collection)
-		if e != nil {
+		locationDeletedIds, err := location.DeleteCollectionFromDiskLocation(collection)
+		if err != nil {
+			e = err
 			return
 		}
+		allDeletedVolumeIds = append(allDeletedVolumeIds, locationDeletedIds...)
 		stats.DeleteCollectionMetrics(collection)
 		// let the heartbeat send the list of volumes, instead of sending the deleted volume ids to DeletedVolumesChan
 	}
+	deletedVolumeIds = allDeletedVolumeIds
 	return
 }
 
-func (s *Store) DeleteCollectionByTime(collection string, fromTime uint64, toTime uint64) (e error) {
+//QUYNGUYEN end
+
+func (s *Store) DeleteCollectionByTime(collection string, fromTime uint64, toTime uint64) (deletedVolumeIds []needle.VolumeId, e error) {
+	//QUYNGUYEN
 	glog.V(2).Infoln("QUYNGUYEN: Store DeleteCollectionByTime filter received: ")
 
+	allDeletedVolumeIds := make([]needle.VolumeId, 0)
+
 	for _, location := range s.Locations {
-		e = location.DeleteCollectionFromDiskLocationByTime(collection, fromTime, toTime)
-		if e != nil {
+		locationDeletedIds, err := location.DeleteCollectionFromDiskLocationByTime(collection, fromTime, toTime)
+		if err != nil {
+			e = err
 			return
 		}
-		// stats.DeleteCollectionMetrics(collection)
+		allDeletedVolumeIds = append(allDeletedVolumeIds, locationDeletedIds...)
+		stats.DeleteCollectionMetrics(collection)
 		// let the heartbeat send the list of volumes, instead of sending the deleted volume ids to DeletedVolumesChan
 	}
+	deletedVolumeIds = allDeletedVolumeIds
 	return
 }
+
+//QUYNGUYEN end
 
 func (s *Store) findVolume(vid needle.VolumeId) *Volume {
 	for _, location := range s.Locations {

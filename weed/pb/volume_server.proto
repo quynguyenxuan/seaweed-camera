@@ -176,6 +176,7 @@ message DeleteCollectionRequest {
     uint64 to_time = 3;
 }
 message DeleteCollectionResponse {
+    repeated uint32 volume_ids = 1;
 }
 
 message AllocateVolumeRequest {

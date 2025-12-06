@@ -315,6 +315,7 @@ message DeleteCollectionRequest {
     string collection = 1;
     uint64 from_time = 2;
     uint64 to_time = 3;
+    repeated uint32 volume_ids = 4;
 }
 
 message DeleteCollectionResponse {

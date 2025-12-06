@@ -192,6 +192,9 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 			volumeApi := api.Group("/volumes")
 			{
 				volumeApi.POST("/:id/:server/vacuum", h.clusterHandlers.VacuumVolume)
+				//QUYNGUYEN
+				volumeApi.DELETE("/:id/:server", h.clusterHandlers.DeleteVolume)
+				//QUYNGUYEN end
 			}
 
 			// Maintenance API routes
@@ -231,7 +234,6 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 		r.GET("/object-store/policies", h.policyHandlers.ShowPolicies)
 		r.GET("/object-store/roles", h.roleHandlers.ShowRoles)
 		r.GET("/object-store/iam-policies", h.iamPolicyHandlers.ShowIAMPolicies)
-
 
 		// File browser routes
 		r.GET("/files", h.fileBrowserHandlers.ShowFileBrowser)
@@ -316,7 +318,6 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 				objectStoreRolesApi.POST("/validate", h.roleHandlers.ValidateRole)
 			}
 
-
 			// IAM Policy management API routes
 			iamPoliciesApi := api.Group("/object-store/iam-policies")
 			{
@@ -344,6 +345,9 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 			volumeApi := api.Group("/volumes")
 			{
 				volumeApi.POST("/:id/:server/vacuum", h.clusterHandlers.VacuumVolume)
+				//QUYNGUYEN
+				volumeApi.DELETE("/:id/:server", h.clusterHandlers.DeleteVolume)
+				//QUYNGUYEN end
 			}
 
 			// Maintenance API routes

@@ -423,3 +423,46 @@ func (h *ClusterHandlers) VacuumVolume(c *gin.Context) {
 		"server":    server,
 	})
 }
+
+// DeleteVolume handles volume deletion requests via API
+// QUYNGUYEN
+func (h *ClusterHandlers) DeleteVolume(c *gin.Context) {
+	volumeIDStr := c.Param("id")
+	server := c.Param("server")
+
+	if volumeIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Volume ID is required"})
+		return
+	}
+
+	volumeID, err := strconv.Atoi(volumeIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid volume ID"})
+		return
+	}
+
+	// Get onlyEmpty parameter from query (default to false for force delete)
+	onlyEmptyStr := c.Query("only_empty")
+	onlyEmpty := false
+	if onlyEmptyStr == "true" {
+		onlyEmpty = true
+	}
+
+	// Perform delete operation
+	err = h.adminServer.DeleteVolume(volumeID, server, onlyEmpty)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to delete volume: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Volume deleted successfully",
+		"volume_id":  volumeID,
+		"server":     server,
+		"only_empty": onlyEmpty,
+	})
+}
+
+//QUYNGUYEN end

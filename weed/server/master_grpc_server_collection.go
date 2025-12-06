@@ -81,7 +81,7 @@ func (ms *MasterServer) deleteCollectionOnAllFilers(ctx context.Context, collect
 		wg.Add(1)
 		go func(filerAddress string) {
 			defer wg.Done()
-			err := ms.deleteCollectionOnFiler(ctx, filerAddress, collectionName, fromTime, toTime)
+			err := ms.deleteCollectionOnFiler(ctx, filerAddress, collectionName, fromTime, toTime, nil)
 			if err != nil {
 				errChan <- fmt.Errorf("failed to delete on filer %s: %v", filerAddress, err)
 			}
@@ -125,17 +125,79 @@ func (ms *MasterServer) getFilerNodes() ([]*master_pb.ListClusterNodesResponse_C
 }
 
 // QUYNGUYEN: Delete collection trên một filer cụ thể
-func (ms *MasterServer) deleteCollectionOnFiler(ctx context.Context, filerAddress, collectionName string, fromTime, toTime uint64) error {
-	glog.V(3).Infof("QUYNGUYEN: Deleting collection %s on filer %s", collectionName, filerAddress)
+func (ms *MasterServer) deleteCollectionOnFiler(ctx context.Context, filerAddress, collectionName string, fromTime, toTime uint64, volumeIds []uint32) error {
+	glog.V(3).Infof("QUYNGUYEN: Deleting collection %s on filer %s with %d volume IDs", collectionName, filerAddress, len(volumeIds))
 
 	return pb.WithFilerClient(false, 0, pb.ServerAddress(filerAddress), ms.grpcDialOption, func(client filer_pb.SeaweedFilerClient) error {
 		_, err := client.DeleteCollection(ctx, &filer_pb.DeleteCollectionRequest{
 			Collection: collectionName,
 			FromTime:   fromTime,
 			ToTime:     toTime,
+			VolumeIds:  volumeIds,
 		})
 		return err
 	})
+}
+
+// QUYNGUYEN: Common function to collect deleted volume IDs from volume servers
+func (ms *MasterServer) collectDeletedVolumeIdsFromServers(servers []string, collectionName string, fromTime, toTime uint64) ([]uint32, error) {
+	allDeletedVolumeIds := make([]uint32, 0)
+
+	for _, server := range servers {
+		err := operation.WithVolumeServerClient(false, pb.ServerAddress(server), ms.grpcDialOption, func(client volume_server_pb.VolumeServerClient) error {
+			resp, deleteErr := client.DeleteCollection(context.Background(), &volume_server_pb.DeleteCollectionRequest{
+				Collection: collectionName,
+				FromTime:   fromTime,
+				ToTime:     toTime,
+			})
+			if deleteErr != nil {
+				return deleteErr
+			}
+			// Collect volume IDs from response
+			if resp != nil && len(resp.VolumeIds) > 0 {
+				allDeletedVolumeIds = append(allDeletedVolumeIds, resp.VolumeIds...)
+				glog.V(2).Infof("QUYNGUYEN: Collected %d volume IDs from server %s: %v", len(resp.VolumeIds), server, resp.VolumeIds)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return allDeletedVolumeIds, nil
+}
+
+// QUYNGUYEN: Common function to send deleted volume IDs to all filer servers
+func (ms *MasterServer) sendDeletedVolumeIdsToFilers(ctx context.Context, collectionName string, fromTime, toTime uint64, volumeIds []uint32) error {
+	if len(volumeIds) == 0 {
+		return nil
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: Sending %d deleted volume IDs to filers: %v", len(volumeIds), volumeIds)
+
+	filerNodes := ms.Cluster.ListClusterNode("", cluster.FilerType)
+	for _, node := range filerNodes {
+		err := pb.WithFilerClient(false, 0, node.Address, ms.grpcDialOption, func(client filer_pb.SeaweedFilerClient) error {
+			_, deleteErr := client.DeleteCollection(ctx, &filer_pb.DeleteCollectionRequest{
+				Collection: collectionName,
+				FromTime:   fromTime,
+				ToTime:     toTime,
+				VolumeIds:  volumeIds,
+			})
+			if deleteErr != nil {
+				glog.V(2).Infof("QUYNGUYEN: Failed to delete entries from filer %s: %v", node.Address, deleteErr)
+				return deleteErr
+			}
+			glog.V(2).Infof("QUYNGUYEN: Successfully deleted entries for %d volumes from filer %s", len(volumeIds), node.Address)
+			return nil
+		})
+		if err != nil {
+			glog.V(2).Infof("QUYNGUYEN: Error connecting to filer %s: %v", node.Address, err)
+			// Continue with other filers even if one fails
+		}
+	}
+	return nil
 }
 
 // QUYNGUYEN:add fromTime, toTime
@@ -145,19 +207,24 @@ func (ms *MasterServer) doDeleteNormalCollection(collectionName string, fromTime
 		return nil
 	}
 
+	// Get list of normal volume servers
+	serverAddresses := make([]string, 0)
 	for _, server := range collection.ListVolumeServers() {
-		err := operation.WithVolumeServerClient(false, server.ServerAddress(), ms.grpcDialOption, func(client volume_server_pb.VolumeServerClient) error {
-			_, deleteErr := client.DeleteCollection(context.Background(), &volume_server_pb.DeleteCollectionRequest{
-				Collection: collectionName,
-				FromTime:   fromTime,
-				ToTime:     toTime,
-			})
-			return deleteErr
-		})
-		if err != nil {
-			return err
-		}
+		serverAddresses = append(serverAddresses, string(server.ServerAddress()))
 	}
+
+	// Collect deleted volume IDs from all normal volume servers
+	allDeletedVolumeIds, err := ms.collectDeletedVolumeIdsFromServers(serverAddresses, collectionName, fromTime, toTime)
+	if err != nil {
+		return err
+	}
+
+	// Send deleted volume IDs to all filer servers using common function
+	err = ms.sendDeletedVolumeIdsToFilers(context.Background(), collectionName, fromTime, toTime, allDeletedVolumeIds)
+	if err != nil {
+		return err
+	}
+
 	//QUYNGUYEN: delete entry in ec collection
 	if fromTime != 0 && toTime != 0 {
 		return nil
@@ -170,21 +237,25 @@ func (ms *MasterServer) doDeleteNormalCollection(collectionName string, fromTime
 //QUYNGUYEN:add fromTime, toTime
 
 func (ms *MasterServer) doDeleteEcCollection(collectionName string, fromTime, toTime uint64) error {
-
+	//QUYNGUYEN
 	listOfEcServers := ms.Topo.ListEcServersByCollection(collectionName)
+	
+	// Convert []pb.ServerAddress to []string
+	serverAddresses := make([]string, len(listOfEcServers))
+	for i, server := range listOfEcServers {
+		serverAddresses[i] = string(server)
+	}
 
-	for _, server := range listOfEcServers {
-		err := operation.WithVolumeServerClient(false, server, ms.grpcDialOption, func(client volume_server_pb.VolumeServerClient) error {
-			_, deleteErr := client.DeleteCollection(context.Background(), &volume_server_pb.DeleteCollectionRequest{
-				Collection: collectionName,
-				FromTime:   fromTime,
-				ToTime:     toTime,
-			})
-			return deleteErr
-		})
-		if err != nil {
-			return err
-		}
+	// Collect deleted volume IDs from all EC volume servers using common function
+	allDeletedVolumeIds, err := ms.collectDeletedVolumeIdsFromServers(serverAddresses, collectionName, fromTime, toTime)
+	if err != nil {
+		return err
+	}
+
+	// Send deleted volume IDs to all filer servers using common function
+	err = ms.sendDeletedVolumeIdsToFilers(context.Background(), collectionName, fromTime, toTime, allDeletedVolumeIds)
+	if err != nil {
+		return err
 	}
 	//QUYNGUYEN: delete entry in ec collection
 	if fromTime != 0 && toTime != 0 {

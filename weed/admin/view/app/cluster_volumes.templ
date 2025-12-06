@@ -3,6 +3,7 @@ package app
 import (
     "fmt"
     "strings"
+    "time"
     "github.com/seaweedfs/seaweedfs/weed/admin/dash"
 )
 
@@ -306,6 +307,12 @@ templ ClusterVolumes(data dash.ClusterVolumesData) {
                                             </a>
                                         </th>
                                     }
+                                    <th>
+                                        <a href="#" onclick="sortTable('ttl')" class="text-decoration-none text-dark">
+                                            TTL
+                                            @getSortIcon("ttl", data.SortBy, data.SortOrder)
+                                        </a>
+                                    </th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -405,6 +412,17 @@ templ ClusterVolumes(data dash.ClusterVolumesData) {
                                                 <span class="badge bg-dark">{fmt.Sprintf("v%d", volume.Version)}</span>
                                             </td>
                                         }
+                                        <td>
+                                            if volume.Ttl > 0 {
+                                                <span class="badge bg-info" title="Time To Live">
+                                                    <i class="fas fa-clock me-1"></i>{formatTTL(volume.Ttl)}
+                                                </span>
+                                            } else {
+                                                <span class="text-muted">
+                                                    <i class="fas fa-infinity me-1"></i>None
+                                                </span>
+                                            }
+                                        </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
                                                 <button type="button" class="btn btn-outline-primary btn-sm view-details-btn" 
@@ -660,6 +678,35 @@ templ ClusterVolumes(data dash.ClusterVolumesData) {
             }, 5000);
         }
     </script>
+}
+
+func formatTTL(ttlSeconds uint32) string {
+    if ttlSeconds == 0 {
+        return "No TTL"
+    }
+    
+    duration := time.Duration(ttlSeconds) * time.Second
+    
+    // Convert to human readable format
+    days := int(duration.Hours()) / 24
+    hours := int(duration.Hours()) % 24
+    minutes := int(duration.Minutes()) % 60
+    
+    if days > 0 {
+        if hours > 0 {
+            return fmt.Sprintf("%dd %dh", days, hours)
+        }
+        return fmt.Sprintf("%d days", days)
+    } else if hours > 0 {
+        if minutes > 0 {
+            return fmt.Sprintf("%dh %dm", hours, minutes)
+        }
+        return fmt.Sprintf("%d hours", hours)
+    } else if minutes > 0 {
+        return fmt.Sprintf("%d minutes", minutes)
+    } else {
+        return fmt.Sprintf("%d seconds", int(duration.Seconds()))
+    }
 }
 
 func countActiveVolumes(volumes []dash.VolumeWithTopology) int {
