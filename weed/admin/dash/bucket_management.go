@@ -1,14 +1,20 @@
 package dash
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/seaweedfs/seaweedfs/weed/filer"
+	"github.com/seaweedfs/seaweedfs/weed/glog"
+	"github.com/seaweedfs/seaweedfs/weed/pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/s3api"
 )
@@ -284,6 +290,143 @@ func (s *AdminServer) SetBucketQuota(bucketName string, quotaBytes int64, quotaE
 
 		return nil
 	})
+}
+
+// SetBucketTTL sets the TTL for a bucket using filer configuration
+func (s *AdminServer) SetBucketTTL(bucketName string, ttl string) error {
+	return s.WithFilerClient(func(client filer_pb.SeaweedFilerClient) error {
+		// Use filer configuration from filers
+		if len(s.cachedFilers) == 0 {
+			return fmt.Errorf("no filers available")
+		}
+
+		// Convert []string to []pb.ServerAddress
+		filerAddresses := make([]pb.ServerAddress, len(s.cachedFilers))
+		for i, filer := range s.cachedFilers {
+			filerAddresses[i] = pb.ServerAddress(filer)
+		}
+
+		// Read filer configuration
+		fc, err := filer.ReadFilerConfFromFilers(filerAddresses, s.grpcDialOption, nil)
+		if err != nil {
+			return fmt.Errorf("failed to read filer config: %w", err)
+		}
+
+		// Get collection name for bucket
+		collectionName := s.getCollectionName(bucketName)
+		
+		// Create location prefix for bucket
+		locationPrefix := fmt.Sprintf("/buckets/%s/", bucketName)
+		
+		if ttl != "" {
+			// Parse TTL to validate format
+			_, err = parseTTLToDuration(ttl)
+			if err != nil {
+				return fmt.Errorf("invalid TTL format: %w", err)
+			}
+			
+			// Add location configuration with TTL
+			locConf := &filer_pb.FilerConf_PathConf{
+				LocationPrefix: locationPrefix,
+				Collection:     collectionName,
+				Ttl:            ttl,
+			}
+			
+			if err := fc.AddLocationConf(locConf); err != nil {
+				return fmt.Errorf("failed to add location config: %w", err)
+			}
+			
+			glog.V(2).Infof("Added TTL configuration for bucket %s: %s", bucketName, ttl)
+		} else {
+			// Remove TTL configuration
+			fc.DeleteLocationConf(locationPrefix)
+			glog.V(2).Infof("Removed TTL configuration for bucket %s", bucketName)
+		}
+
+		// Save configuration to filer
+		var buf bytes.Buffer
+		if err := fc.ToText(&buf); err != nil {
+			return fmt.Errorf("failed to save config to text: %w", err)
+		}
+		
+		if err := filer.SaveInsideFiler(client, filer.DirectoryEtcSeaweedFS, filer.FilerConfName, buf.Bytes()); err != nil {
+			return fmt.Errorf("failed to save config to filer: %w", err)
+		}
+
+		glog.V(2).Infof("SetBucketTTL: bucket=%s, ttl=%s", bucketName, ttl)
+		return nil
+	})
+}
+
+// parseTTLToSeconds converts TTL string to seconds
+func parseTTLToSeconds(ttl string) int64 {
+	if ttl == "" {
+		return 0
+	}
+	
+	duration, err := parseTTLToDuration(ttl)
+	if err != nil {
+		return 0
+	}
+	
+	return int64(duration.Seconds())
+}
+
+// getCollectionName gets collection name for bucket using filer group detection
+func (s *AdminServer) getCollectionName(bucketName string) string {
+	// Get filer configuration to determine FilerGroup
+	var filerGroup string
+	err := s.WithFilerClient(func(client filer_pb.SeaweedFilerClient) error {
+		configResp, err := client.GetFilerConfiguration(context.Background(), &filer_pb.GetFilerConfigurationRequest{})
+		if err != nil {
+			glog.Warningf("Failed to get filer configuration: %v", err)
+			// Continue without filer group
+		} else {
+			filerGroup = configResp.FilerGroup
+		}
+		return nil
+	})
+
+	if err != nil {
+		glog.Warningf("Failed to detect filer group for bucket %s: %v", bucketName, err)
+	}
+
+	// Return collection name based on filer group
+	if filerGroup != "" {
+		return fmt.Sprintf("%s_%s", filerGroup, bucketName)
+	}
+	return bucketName
+}
+
+// parseTTLToDuration converts TTL string to time.Duration
+func parseTTLToDuration(ttl string) (time.Duration, error) {
+	if ttl == "" {
+		return 0, nil
+	}
+
+	// Support formats: 7d, 24h, 30m, 1h30m
+	re := regexp.MustCompile(`^(\d+)([dhm])$`)
+	matches := re.FindStringSubmatch(ttl)
+	if len(matches) != 3 {
+		return 0, fmt.Errorf("invalid TTL format: %s (expected format: 7d, 24h, 30m)", ttl)
+	}
+
+	value, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid TTL number: %s", matches[1])
+	}
+
+	unit := matches[2]
+	switch unit {
+	case "d":
+		return time.Duration(value) * 24 * time.Hour, nil
+	case "h":
+		return time.Duration(value) * time.Hour, nil
+	case "m":
+		return time.Duration(value) * time.Minute, nil
+	default:
+		return 0, fmt.Errorf("unsupported TTL unit: %s", unit)
+	}
 }
 
 // CreateS3BucketWithQuota creates a new S3 bucket with quota settings

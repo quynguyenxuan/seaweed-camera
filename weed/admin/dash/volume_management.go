@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"time"
 
+	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/pb"
+	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/volume_server_pb"
 	"github.com/seaweedfs/seaweedfs/weed/storage/erasure_coding"
@@ -299,6 +302,7 @@ func (s *AdminServer) sortVolumes(volumes []VolumeWithTopology, sortBy string, s
 			less = volumes[i].DiskType < volumes[j].DiskType
 		case "version":
 			less = volumes[i].Version < volumes[j].Version
+		//QUYNGUYEN add
 		case "ttl":
 			less = volumes[i].Ttl < volumes[j].Ttl
 		default:
@@ -411,6 +415,137 @@ func (s *AdminServer) VacuumVolume(volumeID int, server string) error {
 		})
 		return err
 	})
+}
+
+// QUYNGUYEN: Delete volume files from filer servers
+func (s *AdminServer) DeleteVolumeFiles(volumeID int, server string, collection string) (int, error) {
+	// Validate volumeID range before converting to uint32
+	if volumeID < 0 || uint64(volumeID) > math.MaxUint32 {
+		return 0, fmt.Errorf("volume ID out of range: %d", volumeID)
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: AdminServer.DeleteVolumeFiles - volumeID: %d, server: %s, collection: %s", volumeID, server, collection)
+
+	// Step 1: Delete volume from volume server directly
+	err := s.DeleteVolume(volumeID, server, false) // Delete even if not empty
+	if err != nil {
+		glog.V(2).Infof("QUYNGUYEN: Failed to delete volume: %v", err)
+		return 0, fmt.Errorf("failed to delete volume: %v", err)
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: Successfully deleted volume %d from server %s", volumeID, server)
+
+	// Step 2: Send volume ID to filer servers to delete entries directly
+	var deletedEntries int
+
+	// Get all filer servers using existing method
+	filerServers := s.GetAllFilers()
+	if len(filerServers) == 0 {
+		glog.V(2).Infof("QUYNGUYEN: No filer servers found")
+		// Volume was deleted but no filers to clean up - still consider success
+		return -1, nil
+	}
+
+	// Call each filer server directly to delete entries
+	volumeIds := []uint32{uint32(volumeID)}
+	for _, filerServer := range filerServers {
+		err = pb.WithFilerClient(false, 0, pb.ServerAddress(filerServer), s.grpcDialOption, func(client filer_pb.SeaweedFilerClient) error {
+			_, err := client.DeleteCollection(context.Background(), &filer_pb.DeleteCollectionRequest{
+				Collection: collection,
+				VolumeIds:  volumeIds,
+			})
+			return err
+		})
+
+		if err != nil {
+			glog.V(2).Infof("QUYNGUYEN: Failed to delete entries from filer %s: %v", filerServer, err)
+			// Continue with other filers even if one fails
+		} else {
+			glog.V(2).Infof("QUYNGUYEN: Successfully sent delete request to filer %s", filerServer)
+			deletedEntries = -1 // At least one filer succeeded
+		}
+	}
+
+	if err != nil {
+		glog.V(2).Infof("QUYNGUYEN: Failed to delete volume files from filers: %v", err)
+		// Volume was deleted but filer cleanup failed - still consider success
+		glog.V(2).Infof("QUYNGUYEN: Volume deleted but filer cleanup incomplete")
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: DeleteVolumeFiles completed - volume: %d, filer cleanup: %v", volumeID, err == nil)
+
+	return deletedEntries, nil
+}
+
+// QUYNGUYEN: Cleanup collection (delete expired files)
+func (s *AdminServer) CleanupCollection(collection string) (int, error) {
+	glog.V(2).Infof("QUYNGUYEN: AdminServer.CleanupCollection - collection: %s", collection)
+
+	// Get TTL from bucket configuration instead of volumes
+	fc, err := s.getAllBucketTTLs()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get filer configuration for collection %s: %v", collection, err)
+	}
+
+	ttls := fc.GetCollectionTtls(collection)
+	if len(ttls) == 0 {
+		return 0, fmt.Errorf("no TTL found in bucket configuration for collection %s", collection)
+	}
+
+	// Get the first TTL found
+	bucketTtl := ""
+	for _, t := range ttls {
+		if t != "" {
+			bucketTtl = t
+			break
+		}
+	}
+
+	if bucketTtl == "" {
+		return 0, fmt.Errorf("no TTL found in bucket configuration for collection %s", collection)
+	}
+
+	// Parse TTL string to seconds
+	ttlSeconds, err := parseTTLString(bucketTtl)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse TTL '%s' for collection %s: %v", bucketTtl, collection, err)
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: TTL cleanup - collection: %s, bucketTtl: %s, ttlSeconds: %d", collection, bucketTtl, ttlSeconds)
+
+	// Calculate from/to dates based on TTL
+	// For TTL-based cleanup: fromTime = 0, toTime = now - TTL
+	now := time.Now().Unix()
+	cutoffTime := now - int64(ttlSeconds)
+
+	fromTime := uint64(0)                     // Delete from beginning
+	toTime := uint64(cutoffTime) * 1000000000 // Convert to nanoseconds
+
+	// Call master server to delete expired files
+	var deletedEntries int
+	err = s.WithMasterClient(func(client master_pb.SeaweedClient) error {
+		_, err := client.CollectionDelete(context.Background(), &master_pb.CollectionDeleteRequest{
+			Name:     collection,
+			FromTime: fromTime,
+			ToTime:   toTime,
+		})
+		if err != nil {
+			return err
+		}
+
+		// CollectionDelete doesn't return deleted count, so we return -1
+		deletedEntries = -1
+		return nil
+	})
+
+	if err != nil {
+		glog.V(2).Infof("QUYNGUYEN: Failed to cleanup collection via master: %v", err)
+		return 0, err
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: CleanupCollection completed - collection: %s, fromTime: %d, toTime: %d", collection, fromTime, toTime)
+
+	return deletedEntries, nil
 }
 
 // GetClusterVolumeServers retrieves cluster volume servers data including EC shard information
@@ -581,6 +716,51 @@ func (s *AdminServer) DeleteVolume(volumeID int, server string, onlyEmpty bool) 
 		})
 		return err
 	})
+}
+
+// parseTTLString parses TTL string (e.g., "7d", "24h", "30m") to seconds
+func parseTTLString(ttlStr string) (int64, error) {
+	if len(ttlStr) == 0 {
+		return 0, fmt.Errorf("empty TTL string")
+	}
+
+	// Extract number and unit
+	var numStr string
+	var unit string
+
+	for i, r := range ttlStr {
+		if r >= '0' && r <= '9' {
+			numStr += string(r)
+		} else {
+			unit = ttlStr[i:]
+			break
+		}
+	}
+
+	if numStr == "" || unit == "" {
+		return 0, fmt.Errorf("invalid TTL format: %s", ttlStr)
+	}
+
+	num, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid TTL number: %s", numStr)
+	}
+
+	var seconds int64
+	switch unit {
+	case "s":
+		seconds = num
+	case "m":
+		seconds = num * 60
+	case "h":
+		seconds = num * 3600
+	case "d":
+		seconds = num * 86400
+	default:
+		return 0, fmt.Errorf("unsupported TTL unit: %s", unit)
+	}
+
+	return seconds, nil
 }
 
 //QUYNGUYEN end

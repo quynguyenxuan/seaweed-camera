@@ -116,6 +116,7 @@ templ S3Buckets(data dash.S3BucketsData) {
                                         <th>Created</th>
                                         <th>Objects</th>
                                         <th>Size</th>
+                                        <th>TTL</th>
                                         <th>Quota</th>
                                         <th>Versioning</th>
                                         <th>Object Lock</th>
@@ -135,6 +136,15 @@ templ S3Buckets(data dash.S3BucketsData) {
                                             <td>{bucket.CreatedAt.Format("2006-01-02 15:04")}</td>
                                             <td>{fmt.Sprintf("%d", bucket.ObjectCount)}</td>
                                             <td>{formatBytes(bucket.Size)}</td>
+                                            <td>
+                                                if bucket.Ttl != "" {
+                                                    <span class="badge bg-info">
+                                                        <i class="fas fa-clock me-1"></i>{bucket.Ttl}
+                                                    </span>
+                                                } else {
+                                                    <span class="text-muted">No TTL</span>
+                                                }
+                                            </td>
                                             <td>
                                                 if bucket.Quota > 0 {
                                                     <div>
@@ -194,12 +204,26 @@ templ S3Buckets(data dash.S3BucketsData) {
                                                         <i class="fas fa-eye"></i>
                                                     </button>
                                                     <button type="button" 
-                                                            class="btn btn-outline-warning btn-sm quota-btn"
+                                                            class="btn btn-outline-warning btn-sm manage-quota-btn"
                                                             data-bucket-name={bucket.Name}
-                                                            data-current-quota={fmt.Sprintf("%d", getQuotaInMB(bucket.Quota))}
+                                                            data-quota={fmt.Sprintf("%d", bucket.Quota)}
                                                             data-quota-enabled={fmt.Sprintf("%t", bucket.QuotaEnabled)}
                                                             title="Manage Quota">
                                                         <i class="fas fa-tachometer-alt"></i>
+                                                    </button>
+                                                    <button type="button" 
+                                                            class="btn btn-outline-primary btn-sm edit-ttl-btn"
+                                                            data-bucket-name={bucket.Name}
+                                                            data-current-ttl={bucket.Ttl}
+                                                            title="Edit TTL">
+                                                        <i class="fas fa-clock"></i>
+                                                    </button>
+                                                    <button type="button" 
+                                                            class="btn btn-outline-info btn-sm cleanup-bucket-btn"
+                                                            data-bucket-name={bucket.Name}
+                                                            data-bucket-ttl={bucket.Ttl}
+                                                            title="Cleanup Expired Files">
+                                                        <i class="fas fa-broom"></i>
                                                     </button>
                                                     <button type="button" 
                                                             class="btn btn-outline-danger btn-sm delete-bucket-btn"
@@ -213,7 +237,7 @@ templ S3Buckets(data dash.S3BucketsData) {
                                     }
                                     if len(data.Buckets) == 0 {
                                         <tr>
-                                            <td colspan="8" class="text-center text-muted py-4">
+                                            <td colspan="9" class="text-center text-muted py-4">
                                                 <i class="fas fa-cube fa-3x mb-3 text-muted"></i>
                                                 <div>
                                                     					<h5>No Object Store buckets found</h5>
@@ -396,6 +420,37 @@ templ S3Buckets(data dash.S3BucketsData) {
         </div>
     </div>
 
+    <!-- Cleanup Confirmation Modal -->
+    <div class="modal fade" id="cleanupBucketModal" tabindex="-1" aria-labelledby="cleanupBucketModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cleanupBucketModalLabel">
+                        <i class="fas fa-broom me-2 text-info"></i>Cleanup Bucket
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to cleanup expired files in bucket <strong id="cleanupBucketName"></strong>?</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Bucket TTL:</strong> <span id="cleanupBucketTtl"></span>
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> This will permanently delete all expired files based on the bucket's TTL configuration.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-info" id="confirmCleanupBucket">
+                        <i class="fas fa-broom me-1"></i>Cleanup Bucket
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Manage Quota Modal -->
     <div class="modal fade" id="manageQuotaModal" tabindex="-1" aria-labelledby="manageQuotaModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -450,6 +505,56 @@ templ S3Buckets(data dash.S3BucketsData) {
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit TTL Modal -->
+    <div class="modal fade" id="editTtlModal" tabindex="-1" aria-labelledby="editTtlModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editTtlModalLabel">
+                        <i class="fas fa-clock me-2 text-primary"></i>Edit Bucket TTL
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Update the TTL (Time To Live) configuration for bucket <strong id="editTtlBucketName"></strong>.</p>
+                    
+                    <div class="mb-3">
+                        <label for="bucketTtlInput" class="form-label">
+                            <i class="fas fa-clock me-1"></i>TTL Configuration
+                        </label>
+                        <input type="text" class="form-control" id="bucketTtlInput" placeholder="e.g., 7d, 24h, 30m">
+                        <div class="form-text">
+                            Enter TTL duration (e.g., 7d for 7 days, 24h for 24 hours, 30m for 30 minutes). Leave empty to disable TTL.
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>TTL Format Examples:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li><code>7d</code> - 7 days</li>
+                            <li><code>24h</code> - 24 hours</li>
+                            <li><code>30m</code> - 30 minutes</li>
+                            <li><code>1h30m</code> - 1 hour 30 minutes</li>
+                            <li><code>empty</code> - No TTL (disable)</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> Changing TTL will affect when files are automatically cleaned up. Files older than the new TTL will be cleaned up on the next cleanup operation.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmEditTtl">
+                        <i class="fas fa-save me-1"></i>Update TTL
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -587,6 +692,69 @@ templ S3Buckets(data dash.S3BucketsData) {
             });
         });
 
+        // Handle cleanup bucket
+        let cleanupModalInstance = null;
+        document.querySelectorAll('.cleanup-bucket-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const bucketName = this.dataset.bucketName;
+                const bucketTtl = this.dataset.bucketTtl;
+                
+                document.getElementById('cleanupBucketName').textContent = bucketName;
+                document.getElementById('cleanupBucketTtl').textContent = bucketTtl || 'No TTL';
+                window.currentBucketToCleanup = bucketName;
+                
+                // Dispose of existing modal instance if it exists
+                if (cleanupModalInstance) {
+                    cleanupModalInstance.dispose();
+                }
+                
+                // Create new modal instance
+                cleanupModalInstance = new bootstrap.Modal(document.getElementById('cleanupBucketModal'));
+                cleanupModalInstance.show();
+            });
+        });
+
+        // Add event listener to properly dispose of cleanup modal when hidden
+        document.getElementById('cleanupBucketModal').addEventListener('hidden.bs.modal', function() {
+            if (cleanupModalInstance) {
+                cleanupModalInstance.dispose();
+                cleanupModalInstance = null;
+            }
+        });
+
+        // Handle cleanup bucket confirmation
+        document.getElementById('confirmCleanupBucket').addEventListener('click', function() {
+            if (window.currentBucketToCleanup) {
+                fetch('/api/s3/buckets/' + encodeURIComponent(window.currentBucketToCleanup) + '/cleanup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showAlert('danger', data.error);
+                    } else {
+                        showAlert('success', 'Bucket cleanup completed successfully. Deleted ' + data.deleted_count + ' expired files.');
+                        // Refresh the page after successful cleanup
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    }
+                    
+                    // Close modal
+                    if (cleanupModalInstance) {
+                        cleanupModalInstance.hide();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cleaning up bucket:', error);
+                    showAlert('danger', 'Failed to cleanup bucket: ' + error.message);
+                });
+            }
+        });
+
         // Add event listener to properly dispose of delete modal when hidden
         document.getElementById('deleteBucketModal').addEventListener('hidden.bs.modal', function() {
             if (deleteModalInstance) {
@@ -643,6 +811,75 @@ templ S3Buckets(data dash.S3BucketsData) {
             // Ensure body classes are removed
             document.body.classList.remove('modal-open');
             document.body.style.removeProperty('padding-right');
+        });
+
+        // Handle edit TTL button
+        let editTtlModalInstance = null;
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.edit-ttl-btn')) {
+                const button = e.target.closest('.edit-ttl-btn');
+                const bucketName = button.dataset.bucketName;
+                const currentTtl = button.dataset.currentTtl;
+                
+                document.getElementById('editTtlBucketName').textContent = bucketName;
+                document.getElementById('bucketTtlInput').value = currentTtl || '';
+                window.currentBucketToEditTtl = bucketName;
+                
+                // Dispose of existing modal instance if it exists
+                if (editTtlModalInstance) {
+                    editTtlModalInstance.dispose();
+                }
+                
+                // Create new modal instance
+                editTtlModalInstance = new bootstrap.Modal(document.getElementById('editTtlModal'));
+                editTtlModalInstance.show();
+            }
+        });
+
+        // Add event listener to properly dispose of edit TTL modal when hidden
+        document.getElementById('editTtlModal').addEventListener('hidden.bs.modal', function() {
+            if (editTtlModalInstance) {
+                editTtlModalInstance.dispose();
+                editTtlModalInstance = null;
+            }
+        });
+
+        // Handle edit TTL confirmation
+        document.getElementById('confirmEditTtl').addEventListener('click', function() {
+            if (window.currentBucketToEditTtl) {
+                const newTtl = document.getElementById('bucketTtlInput').value.trim();
+                
+                fetch('/api/s3/buckets/' + encodeURIComponent(window.currentBucketToEditTtl) + '/ttl', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ttl: newTtl
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showAlert('danger', data.error);
+                    } else {
+                        showAlert('success', 'Bucket TTL updated successfully.');
+                        // Refresh the page after successful update
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    }
+                    
+                    // Close modal
+                    if (editTtlModalInstance) {
+                        editTtlModalInstance.hide();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating bucket TTL:', error);
+                    showAlert('danger', 'Failed to update bucket TTL: ' + error.message);
+                });
+            }
         });
 
         // Handle quota form submission
@@ -857,6 +1094,15 @@ templ S3Buckets(data dash.S3BucketsData) {
             '<tr>' +
             '<td><strong>Object Count:</strong></td>' +
             '<td>' + bucket.object_count + '</td>' +
+            '</tr>' +
+            '<tr>' +
+            '<td><strong>TTL:</strong></td>' +
+            '<td>' +
+            (bucket.ttl ? 
+                '<span class="badge bg-info"><i class="fas fa-clock me-1"></i>' + bucket.ttl + '</span>' : 
+                '<span class="text-muted">No TTL</span>'
+            ) +
+            '</td>' +
             '</tr>' +
             '</table>' +
             '</div>' +

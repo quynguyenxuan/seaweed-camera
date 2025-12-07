@@ -424,6 +424,71 @@ func (h *ClusterHandlers) VacuumVolume(c *gin.Context) {
 	})
 }
 
+// QUYNGUYEN: Delete volume files from filer servers
+func (h *ClusterHandlers) DeleteVolumeFiles(c *gin.Context) {
+	volumeIDStr := c.Param("id")
+	server := c.Param("server")
+	collection := c.Query("collection")
+
+	if volumeIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Volume ID is required"})
+		return
+	}
+
+	if collection == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Collection is required"})
+		return
+	}
+
+	volumeID, err := strconv.Atoi(volumeIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid volume ID"})
+		return
+	}
+
+	// Perform delete volume files operation
+	deletedEntries, err := h.adminServer.DeleteVolumeFiles(volumeID, server, collection)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to delete volume files: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Volume files deleted successfully",
+		"volume_id":       volumeID,
+		"server":          server,
+		"collection":      collection,
+		"deleted_entries": deletedEntries,
+	})
+}
+
+// QUYNGUYEN: Cleanup collection (delete expired files)
+func (h *ClusterHandlers) CleanupCollection(c *gin.Context) {
+	collection := c.Param("collection")
+
+	if collection == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Collection is required"})
+		return
+	}
+
+	// Perform cleanup collection operation
+	deletedEntries, err := h.adminServer.CleanupCollection(collection)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to cleanup collection: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Collection cleaned up successfully",
+		"collection":      collection,
+		"deleted_entries": deletedEntries,
+	})
+}
+
 // DeleteVolume handles volume deletion requests via API
 // QUYNGUYEN
 func (h *ClusterHandlers) DeleteVolume(c *gin.Context) {

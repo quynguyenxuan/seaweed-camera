@@ -182,6 +182,7 @@ templ FileBrowser(data dash.FileBrowserData) {
 								<th>Type</th>
 								<th>Modified</th>
 								<th>Permissions</th>
+								<th>TTL</th>
 								<th>Actions</th>
 							</tr>
 						</thead>
@@ -229,6 +230,17 @@ templ FileBrowser(data dash.FileBrowserData) {
 									</td>
 									<td>
 										<code class="small permissions-display" data-mode={ entry.Mode } data-is-directory={ fmt.Sprintf("%t", entry.IsDirectory) }>{ entry.Mode }</code>
+									</td>
+									<td>
+										if entry.IsDirectory {
+											<span class="text-muted">—</span>
+										} else {
+											if entry.TtlSec > 0 {
+												<span class="badge bg-info">{ formatFileTTL(entry.TtlSec) }</span>
+											} else {
+												<span class="text-muted">No TTL</span>
+											}
+										}
 									</td>
 									<td>
 										<div class="btn-group btn-group-sm" role="group">
@@ -809,4 +821,37 @@ func getMimeDisplayName(mime string) string {
 		}
 		return "File"
 	}
+}
+
+// formatFileTTL formats TTL seconds to human readable string
+func formatFileTTL(ttlSeconds int32) string {
+	if ttlSeconds == 0 {
+		return "No TTL"
+	}
+	
+	intervals := []struct {
+		label  string
+		seconds int32
+	}{
+		{"d", 86400},
+		{"h", 3600},
+		{"m", 60},
+		{"s", 1},
+	}
+	
+	remaining := ttlSeconds
+	var result strings.Builder
+	
+	for _, interval := range intervals {
+		if remaining >= interval.seconds {
+			value := remaining / interval.seconds
+			result.WriteString(fmt.Sprintf("%d%s", value, interval.label))
+			remaining %= interval.seconds
+			if remaining > 0 {
+				result.WriteString(" ")
+			}
+		}
+	}
+	
+	return result.String()
 } 

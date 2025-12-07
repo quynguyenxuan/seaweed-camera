@@ -82,6 +82,7 @@ type S3Bucket struct {
 	ObjectLockEnabled  bool      `json:"object_lock_enabled"`  // Whether object lock is enabled
 	ObjectLockMode     string    `json:"object_lock_mode"`     // Object lock mode: "GOVERNANCE" or "COMPLIANCE"
 	ObjectLockDuration int32     `json:"object_lock_duration"` // Default retention duration in days
+	Ttl                string    `json:"ttl"`                  // Bucket TTL (e.g., "7d", "24h")
 }
 
 type S3Object struct {
@@ -253,6 +254,7 @@ type CollectionInfo struct {
 	FileCount     int64    `json:"file_count"`
 	TotalSize     int64    `json:"total_size"`
 	DiskTypes     []string `json:"disk_types"`
+	Ttl           string   `json:"ttl"` // TTL from bucket configuration
 }
 
 type ClusterCollectionsData struct {
@@ -540,6 +542,7 @@ type CollectionDetailsData struct {
 	TotalSize      int64                `json:"total_size"`
 	DataCenters    []string             `json:"data_centers"`
 	DiskTypes      []string             `json:"disk_types"`
+	Ttl            string               `json:"ttl"` // TTL from bucket configuration
 	LastUpdated    time.Time            `json:"last_updated"`
 
 	// Pagination

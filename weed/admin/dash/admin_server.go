@@ -127,7 +127,6 @@ func NewAdminServer(masters string, templateFS http.FileSystem, dataDir string, 
 		//QUYNGUYEN end
 	}
 
-
 	// Initialize maintenance system - always initialize even without persistent storage
 	var maintenanceConfig *maintenance.MaintenanceConfig
 	if server.configPersistence.IsConfigured() {
@@ -221,7 +220,8 @@ func (s *AdminServer) initCredentialManager() *credential.CredentialManager {
 
 	return credentialManager
 }
-//QUYNGUYEN add
+
+// QUYNGUYEN add
 func (s *AdminServer) initIAMManager(iamConfig string) {
 	glog.V(1).Infof("Loading advanced IAM configuration from: %s", iamConfig)
 
@@ -241,12 +241,12 @@ func (s *AdminServer) initIAMManager(iamConfig string) {
 	s.iamManager = iamManager
 	glog.V(1).Infof("Advanced IAM system initialized successfully")
 }
+
 //QUYNGUYEN end
 
 func (s *AdminServer) GetCredentialManager() *credential.CredentialManager {
 	return s.credentialManager
 }
-
 
 // GetPolicyEngine returns the IAM policy engine instance
 func (s *AdminServer) GetPolicyEngine() *policy.PolicyEngine {
@@ -327,9 +327,9 @@ func (s *AdminServer) GetS3Buckets() ([]S3Bucket, error) {
 		if err != nil {
 			glog.Warningf("Failed to get filer configuration: %v", err)
 			// Continue without filer group
-			return nil
+		} else {
+			filerGroup = configResp.FilerGroup
 		}
-		filerGroup = configResp.FilerGroup
 		return nil
 	})
 
@@ -402,6 +402,9 @@ func (s *AdminServer) GetS3Buckets() ([]S3Bucket, error) {
 					objectLockEnabled, objectLockMode, objectLockDuration = extractObjectLockInfoFromEntry(resp.Entry)
 				}
 
+				// Get TTL for this bucket
+				bucketTTL := s.getBucketTTL(bucketName)
+
 				bucket := S3Bucket{
 					Name:               bucketName,
 					CreatedAt:          time.Unix(resp.Entry.Attributes.Crtime, 0),
@@ -414,6 +417,7 @@ func (s *AdminServer) GetS3Buckets() ([]S3Bucket, error) {
 					ObjectLockEnabled:  objectLockEnabled,
 					ObjectLockMode:     objectLockMode,
 					ObjectLockDuration: objectLockDuration,
+					Ttl:                bucketTTL,
 				}
 				buckets = append(buckets, bucket)
 			}
@@ -2045,4 +2049,162 @@ func getBoolFromMap(m map[string]interface{}, key string) bool {
 		}
 	}
 	return false
+}
+
+// getAllBucketTTLs gets filer configuration for all collections at once to avoid multiple filer calls
+func (s *AdminServer) getAllBucketTTLs() (*filer.FilerConf, error) {
+	var fc *filer.FilerConf
+	err := s.WithFilerClient(func(client filer_pb.SeaweedFilerClient) error {
+		// Use filer configuration from filers
+		if len(s.cachedFilers) == 0 {
+			return fmt.Errorf("no filers available")
+		}
+
+		// Convert []string to []pb.ServerAddress
+		filerAddresses := make([]pb.ServerAddress, len(s.cachedFilers))
+		for i, filer := range s.cachedFilers {
+			filerAddresses[i] = pb.ServerAddress(filer)
+		}
+
+		var err error
+		fc, err = filer.ReadFilerConfFromFilers(filerAddresses, s.grpcDialOption, nil)
+		return err
+	})
+
+	if err != nil {
+		glog.Warningf("Failed to get filer configuration: %v", err)
+		return nil, err
+	}
+
+	return fc, nil
+}
+
+// getBucketTTL gets TTL configuration for a specific bucket
+func (s *AdminServer) getBucketTTL(bucketName string) string {
+	var ttl string
+	err := s.WithFilerClient(func(client filer_pb.SeaweedFilerClient) error {
+		// Use filer configuration from filers
+		if len(s.cachedFilers) == 0 {
+			return fmt.Errorf("no filers available")
+		}
+
+		// Convert []string to []pb.ServerAddress
+		filerAddresses := make([]pb.ServerAddress, len(s.cachedFilers))
+		for i, filer := range s.cachedFilers {
+			filerAddresses[i] = pb.ServerAddress(filer)
+		}
+
+		fc, err := filer.ReadFilerConfFromFilers(filerAddresses, s.grpcDialOption, nil)
+		if err != nil {
+			return err
+		}
+
+		// Get TTLs for the bucket's collection
+		ttls := fc.GetCollectionTtls(bucketName)
+		if len(ttls) > 0 {
+			// Return the first TTL found (could be multiple for different paths)
+			for _, t := range ttls {
+				if t != "" {
+					ttl = t
+					break
+				}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		glog.Warningf("Failed to get TTL for bucket %s: %v", bucketName, err)
+	}
+
+	return ttl
+}
+
+// CleanupBucket deletes expired files in a bucket based on its TTL configuration
+func (s *AdminServer) CleanupBucket(c *gin.Context) {
+	bucketName := c.Param("bucket")
+
+	glog.V(2).Infof("QUYNGUYEN: AdminServer.CleanupBucket - bucket: %s", bucketName)
+
+	// Get TTL from bucket configuration
+	bucketTtl := s.getBucketTTL(bucketName)
+	if bucketTtl == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("no TTL found in bucket configuration for bucket %s", bucketName)})
+		return
+	}
+
+	// Parse TTL string to seconds
+	ttlSeconds, err := parseTTLString(bucketTtl)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("failed to parse TTL '%s' for bucket %s: %v", bucketTtl, bucketName, err)})
+		return
+	}
+
+	// Calculate cutoff time
+	now := time.Now()
+	cutoffTime := now.Add(-time.Duration(ttlSeconds) * time.Second)
+	fromTime := cutoffTime.Unix()
+	toTime := now.Unix()
+
+	// Use collection delete API to cleanup expired files
+	glog.V(2).Infof("QUYNGUYEN: CleanupBucket - bucket: %s, TTL: %s, fromTime: %d, toTime: %d", bucketName, bucketTtl, fromTime, toTime)
+
+	deletedCount, err := s.CleanupCollection(bucketName)
+	if err != nil {
+		glog.Errorf("QUYNGUYEN: CleanupBucket failed - bucket: %s, error: %v", bucketName, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to cleanup bucket %s: %v", bucketName, err)})
+		return
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: CleanupBucket completed - bucket: %s, deleted: %d files", bucketName, deletedCount)
+	c.JSON(http.StatusOK, gin.H{
+		"message":       fmt.Sprintf("Bucket %s cleanup completed successfully", bucketName),
+		"deleted_count": deletedCount,
+		"ttl":           bucketTtl,
+	})
+}
+
+// QUYNGUYEN: Update bucket TTL
+func (s *AdminServer) UpdateBucketTTL(c *gin.Context) {
+	bucketName := c.Param("bucket")
+	
+	if bucketName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bucket name is required"})
+		return
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: AdminServer.UpdateBucketTTL - bucket: %s", bucketName)
+
+	// Parse request body
+	var request struct {
+		TTL string `json:"ttl"`
+	}
+	
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		return
+	}
+
+	// Get current bucket configuration
+	bucketDetails, err := s.GetBucketDetails(bucketName)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Bucket not found: " + err.Error()})
+		return
+	}
+
+	// Update bucket TTL using SetBucketTTL function
+	err = s.SetBucketTTL(bucketName, request.TTL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: Updated bucket %s TTL from %s to %s", bucketName, bucketDetails.Bucket.Ttl, request.TTL)
+	
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Bucket TTL updated successfully",
+		"bucket":  bucketName,
+		"old_ttl": bucketDetails.Bucket.Ttl,
+		"new_ttl": request.TTL,
+	})
 }

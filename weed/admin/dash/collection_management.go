@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
 )
 
@@ -164,6 +165,31 @@ func (s *AdminServer) GetClusterCollections() (*ClusterCollectionsData, error) {
 	sort.Slice(collections, func(i, j int) bool {
 		return collections[i].Name < collections[j].Name
 	})
+
+	// Get TTL for all collections at once from bucket configuration (batch lookup for performance)
+	if len(collections) > 0 {
+		fc, err := s.getAllBucketTTLs()
+		if err != nil {
+			glog.Warningf("Failed to get filer configuration: %v", err)
+			// Continue without TTLs if batch lookup fails
+		} else {
+			// Apply TTLs to collections using the filer config
+			for i := range collections {
+				ttls := fc.GetCollectionTtls(collections[i].Name)
+				if len(ttls) > 0 {
+					// Return the first TTL found (could be multiple for different paths)
+					for _, t := range ttls {
+						if t != "" {
+							collections[i].Ttl = t
+							break
+						}
+					}
+				} else {
+					collections[i].Ttl = ""
+				}
+			}
+		}
+	}
 
 	// If no collections found, show a message indicating no collections exist
 	if len(collections) == 0 {
@@ -365,6 +391,27 @@ func (s *AdminServer) GetCollectionDetails(collectionName string, page int, page
 	}
 	sort.Strings(diskTypeList)
 
+	// Get TTL from bucket configuration (collection name usually matches bucket name)
+	var collectionTtl string
+	fc, err := s.getAllBucketTTLs()
+	if err != nil {
+		glog.Warningf("Failed to get filer configuration for collection %s: %v", collectionName, err)
+		collectionTtl = ""
+	} else {
+		ttls := fc.GetCollectionTtls(collectionName)
+		if len(ttls) > 0 {
+			// Return the first TTL found (could be multiple for different paths)
+			for _, t := range ttls {
+				if t != "" {
+					collectionTtl = t
+					break
+				}
+			}
+		} else {
+			collectionTtl = ""
+		}
+	}
+
 	return &CollectionDetailsData{
 		CollectionName: collectionName,
 		RegularVolumes: paginatedRegularVolumes,
@@ -375,6 +422,7 @@ func (s *AdminServer) GetCollectionDetails(collectionName string, page int, page
 		TotalSize:      totalSize,
 		DataCenters:    dcList,
 		DiskTypes:      diskTypeList,
+		Ttl:            collectionTtl,
 		LastUpdated:    time.Now(),
 		Page:           page,
 		PageSize:       pageSize,

@@ -98,6 +98,65 @@ templ CollectionDetails(data dash.CollectionDetailsData) {
 				</div>
 			</div>
 		</div>
+		<div class="col-md-3">
+			<div class="card text-bg-info">
+				<div class="card-body">
+					<div class="d-flex justify-content-between">
+						<div>
+							<h6 class="card-title">TTL</h6>
+							<h4 class="mb-0">
+								if data.Ttl != "" {
+									{data.Ttl}
+								} else {
+									No TTL
+								}
+							</h4>
+							<small>From bucket configuration</small>
+						</div>
+						<div class="align-self-center">
+							<i class="fas fa-clock fa-2x"></i>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Collection Actions Card -->
+	<div class="row mb-4">
+		<div class="col-12">
+			<div class="card shadow">
+				<div class="card-header py-3">
+					<h6 class="m-0 font-weight-bold text-primary">
+						<i class="fas fa-tools me-2"></i>Collection Actions
+					</h6>
+				</div>
+				<div class="card-body">
+					if data.Ttl != "" {
+						<div class="btn-group" role="group">
+							<button type="button" class="btn btn-outline-warning delete-expired-files-btn" 
+									title="Clean Up" 
+									data-collection={data.CollectionName}>
+								<i class="fas fa-clock me-1"></i>Clean Up
+							</button>
+						</div>
+						<div class="mt-3">
+							<small class="text-muted">
+								<i class="fas fa-info-circle me-1"></i>
+								Delete all files in this collection that have exceeded their TTL (Time To Live): {data.Ttl}.
+							</small>
+						</div>
+					} else {
+						<div class="alert alert-secondary">
+							<i class="fas fa-info-circle me-1"></i>
+							<small class="text-muted">
+								<strong>No Cleanup Available:</strong> This collection has no TTL configured. Set a TTL in the bucket configuration to enable cleanup of expired files.
+							</small>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
 	</div>
 
 	<!-- Size Information Note -->
@@ -337,6 +396,86 @@ templ CollectionDetails(data dash.CollectionDetailsData) {
 	}
 
 	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			// Add click handler for cleanup collection button
+			const cleanupBtn = document.querySelector('.delete-expired-files-btn');
+			if (cleanupBtn) {
+				cleanupBtn.addEventListener('click', function() {
+					const collection = this.getAttribute('data-collection');
+					performCleanupCollection(collection, this);
+				});
+			}
+		});
+
+		function performCleanupCollection(collection, button) {
+			if (!confirm(`Are you sure you want to cleanup collection "${collection}"?\n\nThis will permanently remove all files that have exceeded their TTL.`)) {
+				return;
+			}
+
+			// Disable button and show loading
+			const originalText = button.innerHTML;
+			button.disabled = true;
+			button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Cleaning...';
+
+			// Call API to cleanup collection
+			fetch(`/cluster/collections/${encodeURIComponent(collection)}/cleanup`, {
+				method: 'DELETE',
+				headers: {
+					'Content-Type': 'application/json',
+				}
+			})
+			.then(response => {
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+				return response.json();
+			})
+			.then(data => {
+				if (data.error) {
+					throw new Error(data.error);
+				}
+				showMessage(`Successfully cleaned up collection "${collection}". Deleted entries: ${data.deleted_entries || 'unknown'}`, 'success');
+				
+				// Refresh page after 2 seconds to show updated stats
+				setTimeout(() => {
+					window.location.reload();
+				}, 2000);
+			})
+			.catch(error => {
+				console.error('Error:', error);
+				showMessage(`Failed to cleanup collection: ${error.message}`, 'error');
+			})
+			.finally(() => {
+				// Re-enable button
+				button.disabled = false;
+				button.innerHTML = originalText;
+			});
+		}
+
+		function showMessage(message, type) {
+			// Create toast notification
+			const toast = document.createElement('div');
+			toast.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show position-fixed`;
+			toast.style.top = '20px';
+			toast.style.right = '20px';
+			toast.style.zIndex = '9999';
+			toast.style.minWidth = '300px';
+			
+			toast.innerHTML = `
+				${message}
+				<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+			`;
+			
+			document.body.appendChild(toast);
+			
+			// Auto-remove after 5 seconds
+			setTimeout(() => {
+				if (toast.parentNode) {
+					toast.parentNode.removeChild(toast);
+				}
+			}, 5000);
+		}
+
 		// Sorting functionality
 		function sortBy(field) {
 			const currentSort = new URLSearchParams(window.location.search).get('sort_by');
@@ -392,7 +531,8 @@ templ CollectionDetails(data dash.CollectionDetailsData) {
 				alert('Repair functionality will be implemented soon.');
 			}
 		}
-	</script>
+
+		</script>
 }
 
  
