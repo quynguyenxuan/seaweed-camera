@@ -1,57 +1,50 @@
 package collection_cleanup
 
 import (
-	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/glog"
-	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
+	"github.com/seaweedfs/seaweedfs/weed/pb/worker_pb"
+	"github.com/seaweedfs/seaweedfs/weed/worker/tasks/base"
 	"github.com/seaweedfs/seaweedfs/weed/worker/types"
 )
 
-// CollectionCleanupDetector detects collections that need cleanup
-type CollectionCleanupDetector struct {
-	// No base detector needed for now
-}
-
-// NewCollectionCleanupDetector creates a new collection cleanup detector
-func NewCollectionCleanupDetector() *CollectionCleanupDetector {
-	return &CollectionCleanupDetector{}
-}
-
-// DetectTasks implements the Detector interface
-func (d *CollectionCleanupDetector) DetectTasks(ctx context.Context, masterClient master_pb.SeaweedClient) ([]*types.TaskDetectionResult, error) {
-	glog.V(3).Infof("Starting collection cleanup detection")
-
-	var tasks []*types.TaskDetectionResult
-
-	// Get all collections with TTL configuration
-	collections, err := d.getCollectionsWithTtl(ctx, masterClient)
-	if err != nil {
-		glog.Errorf("Failed to get collections with TTL: %v", err)
-		return nil, fmt.Errorf("failed to get collections with TTL: %w", err)
+// Detection implements the detection logic for collection cleanup tasks
+func Detection(metrics []*types.VolumeHealthMetrics, clusterInfo *types.ClusterInfo, config base.TaskConfig) ([]*types.TaskDetectionResult, error) {
+	if !config.IsEnabled() {
+		return nil, nil
 	}
 
-	glog.V(3).Infof("Found %d collections with TTL configuration", len(collections))
+	cleanupConfig := config.(*Config)
+	var results []*types.TaskDetectionResult
 
-	// Create cleanup task for each collection
+	glog.V(3).Infof("Starting collection cleanup detection")
+
+	// Get collections that need cleanup
+	collections := getCollectionsNeedingCleanup()
+
 	for _, collection := range collections {
-		task := &types.TaskDetectionResult{
-			TaskID:     fmt.Sprintf("collection_cleanup_%s_%d", collection.Name, time.Now().Unix()),
+		taskID := fmt.Sprintf("collection_cleanup_%s_%d", collection.Name, time.Now().Unix())
+
+		result := &types.TaskDetectionResult{
+			TaskID:     taskID,
 			TaskType:   types.TaskTypeCollectionCleanup,
 			Collection: collection.Name,
 			Priority:   types.TaskPriorityNormal,
 			Reason:     fmt.Sprintf("Collection %s has TTL of %d days", collection.Name, collection.TtlDays),
 			ScheduleAt: time.Now(),
 		}
-		tasks = append(tasks, task)
+
+		// Create typed parameters for collection cleanup task
+		result.TypedParams = createCollectionCleanupTaskParams(result, collection, cleanupConfig, clusterInfo)
+		results = append(results, result)
+
 		glog.V(4).Infof("Created collection cleanup task for %s (TTL: %d days)", collection.Name, collection.TtlDays)
 	}
 
-	glog.V(3).Infof("Collection cleanup detection completed: created %d tasks", len(tasks))
-	return tasks, nil
+	glog.V(3).Infof("Collection cleanup detection completed: created %d tasks", len(results))
+	return results, nil
 }
 
 // CollectionWithTtl represents a collection with its TTL configuration
@@ -60,59 +53,45 @@ type CollectionWithTtl struct {
 	TtlDays int
 }
 
-// getCollectionsWithTtl gets all collections that have TTL configuration
-func (d *CollectionCleanupDetector) getCollectionsWithTtl(ctx context.Context, masterClient master_pb.SeaweedClient) ([]*CollectionWithTtl, error) {
-	// This would typically involve:
-	// 1. Getting all collections from master
-	// 2. Getting TTL configuration from filer configuration
-	// 3. Filtering collections that have TTL configured
+// getCollectionsNeedingCleanup returns collections that need cleanup
+func getCollectionsNeedingCleanup() []*CollectionWithTtl {
+	// In real implementation, this would:
+	// 1. Query master for all collections
+	// 2. Check TTL configuration for each collection
+	// 3. Return collections that have TTL configured
 
-	// For now, we'll simulate with some example collections
-	// In real implementation, this would call actual master APIs
-
-	var collections []*CollectionWithTtl
-
-	// Simulate some collections with TTL
-	collections = append(collections, &CollectionWithTtl{
-		Name:    "temp_collection",
-		TtlDays: 7,
-	})
-	collections = append(collections, &CollectionWithTtl{
-		Name:    "backup_collection",
-		TtlDays: 90,
-	})
-	collections = append(collections, &CollectionWithTtl{
-		Name:    "log_collection",
-		TtlDays: 30,
-	})
-
-	return collections, nil
+	// For demo purposes, return some example collections
+	return []*CollectionWithTtl{
+		{Name: "temp_collection", TtlDays: 7},
+		{Name: "backup_collection", TtlDays: 90},
+		{Name: "log_collection", TtlDays: 30},
+	}
 }
 
-// getCollectionTtl gets the TTL configuration for a collection
-// This is a placeholder - in real implementation, this would read from filer configuration
-func (d *CollectionCleanupDetector) getCollectionTtl(collectionName string) int {
-	// Placeholder implementation
-	// In real scenario, this would:
-	// 1. Read filer configuration
-	// 2. Find TTL settings for this collection
-	// 3. Parse TTL string (e.g., "30d", "7d") to days
+// createCollectionCleanupTaskParams creates typed parameters for collection cleanup tasks
+func createCollectionCleanupTaskParams(task *types.TaskDetectionResult, collection *CollectionWithTtl, cleanupConfig *Config, clusterInfo *types.ClusterInfo) *worker_pb.TaskParams {
+	return &worker_pb.TaskParams{
+		TaskId:     task.TaskID,
+		VolumeId:   0, // Collection cleanup doesn't target specific volume
+		Collection: task.Collection,
 
-	// For demo purposes, return different TTLs for different collections
-	if strings.Contains(collectionName, "temp") {
-		return 7 // 7 days for temp collections
-	}
-	if strings.Contains(collectionName, "backup") {
-		return 90 // 90 days for backup collections
-	}
-	if strings.Contains(collectionName, "log") {
-		return 30 // 30 days for log collections
-	}
+		Sources: []*worker_pb.TaskSource{
+			{
+				Node:          "localhost:9333", // Master server
+				VolumeId:      0,
+				EstimatedSize: 0,
+				DataCenter:    "default", // Use default data center
+				Rack:          "default",
+			},
+		},
 
-	// Default TTL for collections that match certain patterns
-	if strings.HasPrefix(collectionName, "user_") {
-		return 30
+		TaskParams: &worker_pb.TaskParams_VacuumParams{
+			VacuumParams: &worker_pb.VacuumTaskParams{
+				// Use existing VacuumTaskParams as placeholder
+				// In real implementation, CollectionCleanupTaskParams should be added to protobuf
+				GarbageThreshold: 0.3,
+				ForceVacuum:      false,
+			},
+		},
 	}
-
-	return 0 // No TTL configured
 }

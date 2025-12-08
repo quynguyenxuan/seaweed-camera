@@ -23,6 +23,8 @@ service Seaweed {
   }
   rpc CollectionDelete (CollectionDeleteRequest) returns (CollectionDeleteResponse) {
   }
+  rpc CollectionCleanup (CollectionCleanupRequest) returns (CollectionCleanupResponse) {
+  }
   rpc VolumeList (VolumeListRequest) returns (VolumeListResponse) {
   }
   rpc LookupEcVolume (LookupEcVolumeRequest) returns (LookupEcVolumeResponse) {
@@ -272,6 +274,17 @@ message CollectionDeleteRequest {
   uint64 to_time = 3;
 }
 message CollectionDeleteResponse {
+}
+
+message CollectionCleanupRequest {
+  string name = 1;
+  bool dry_run = 2;   // If true, only report what would be deleted without actually deleting
+}
+message CollectionCleanupResponse {
+  int64 deleted_files = 1;         // Number of files deleted
+  int64 deleted_size = 2;          // Total size of deleted files in bytes
+  string status = 3;               // Status message
+  repeated string volume_ids = 4;  // List of volume IDs that were processed
 }
 
 //

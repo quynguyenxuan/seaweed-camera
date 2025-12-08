@@ -3,12 +3,14 @@ package collection_cleanup
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	"github.com/seaweedfs/seaweedfs/weed/pb"
+	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/worker_pb"
 	"github.com/seaweedfs/seaweedfs/weed/worker/types"
 	"github.com/seaweedfs/seaweedfs/weed/worker/types/base"
+	"google.golang.org/grpc"
 )
 
 // CollectionCleanupTask implements the Task interface
@@ -34,22 +36,10 @@ func (t *CollectionCleanupTask) Execute(ctx context.Context, params *worker_pb.T
 		return fmt.Errorf("task parameters are required")
 	}
 
-	// For now, use default TTL of 30 days
-	// In future, this could be extracted from task parameters
-	ttlDays := int32(30)
+	glog.V(3).Infof("Starting collection cleanup for %s", t.collection)
 
-	glog.V(3).Infof("Starting collection cleanup for %s with TTL %d days", t.collection, ttlDays)
-
-	// Calculate time range based on TTL configuration
-	now := time.Now()
-	fromTime := uint64(0) // From beginning
-	toTime := uint64(now.AddDate(0, 0, -int(ttlDays)).Unix())
-
-	glog.V(3).Infof("Cleaning collection %s: deleting files older than %d days (before %s)",
-		t.collection, ttlDays, time.Unix(int64(toTime), 0).Format("2006-01-02 15:04:05"))
-
-	// Call master API to delete collection with time range
-	err := t.cleanupCollectionWithTime(ctx, fromTime, toTime)
+	// Call CollectionCleanup API which will automatically handle TTL
+	err := t.cleanupCollection(ctx)
 	if err != nil {
 		glog.Errorf("Collection cleanup failed for %s: %v", t.collection, err)
 		return fmt.Errorf("collection cleanup failed: %w", err)
@@ -61,46 +51,43 @@ func (t *CollectionCleanupTask) Execute(ctx context.Context, params *worker_pb.T
 }
 
 // cleanupCollectionWithTime calls master API to delete collection with time range
-func (t *CollectionCleanupTask) cleanupCollectionWithTime(ctx context.Context, fromTime, toTime uint64) error {
+func (t *CollectionCleanupTask) cleanupCollection(ctx context.Context) error {
 	if t.collection == "" {
 		return fmt.Errorf("collection name is required")
 	}
 
 	glog.V(3).Infof("Connecting to master at %s to cleanup collection %s", t.server, t.collection)
 
-	// Create gRPC dial option
-	// grpcDialOption := grpc.WithInsecure()
+	// Parse master server address
+	masterAddress := pb.ServerAddress(t.server)
 
-	// // Parse master server address
-	// masterAddress := pb.ServerAddress(t.server)
+	// Create gRPC dial option
+	grpcDialOption := grpc.WithInsecure()
 
 	// Use pb.WithMasterClient to connect and call CollectionDelete
-	// err := pb.WithMasterClient(false, masterAddress, grpcDialOption, false, func(client master_pb.SeaweedClient) error {
-	// 	glog.V(4).Infof("Calling CollectionDelete for collection %s: fromTime=%d, toTime=%d",
-	// 		t.collection, fromTime, toTime)
+	err := pb.WithMasterClient(false, masterAddress, grpcDialOption, false, func(client master_pb.SeaweedClient) error {
+		glog.V(4).Infof("Calling CollectionDelete for collection %s",
+			t.collection)
 
-	// 	resp, err := client.CollectionDelete(ctx, &master_pb.CollectionDeleteRequest{
-	// 		Name:     t.collection,
-	// 		FromTime: fromTime,
-	// 		ToTime:   toTime,
-	// 	})
+		resp, err := client.CollectionCleanup(ctx, &master_pb.CollectionCleanupRequest{
+			Name:     t.collection,
+		})
 
-	// 	if err != nil {
-	// 		glog.Errorf("Failed to delete collection %s on master: %v", t.collection, err)
-	// 		return fmt.Errorf("master API call failed: %w", err)
-	// 	}
+		if err != nil {
+			glog.Errorf("Failed to delete collection %s on master: %v", t.collection, err)
+			return fmt.Errorf("master API call failed: %w", err)
+		}
 
-	// 	glog.V(3).Infof("CollectionDelete response for %s: %v", t.collection, resp)
-	// 	return nil
-	// })
+		glog.V(3).Infof("CollectionDelete response for %s: %v", t.collection, resp)
+		return nil
+	})
 
-	// if err != nil {
-	// 	glog.Errorf("Collection cleanup failed for %s: %v", t.collection, err)
-	// 	return fmt.Errorf("collection cleanup failed: %w", err)
-	// }
+	if err != nil {
+		glog.Errorf("Collection cleanup failed for %s: %v", t.collection, err)
+		return fmt.Errorf("collection cleanup failed: %w", err)
+	}
 
-	// glog.V(3).Infof("Successfully cleaned up collection %s from time %d to %d",
-	// 	t.collection, fromTime, toTime)
+	glog.V(3).Infof("Successfully cleaned up collection %s", t.collection)
 
 	return nil
 }

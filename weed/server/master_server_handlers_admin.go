@@ -46,12 +46,12 @@ func (ms *MasterServer) collectionDeleteHandler(w http.ResponseWriter, r *http.R
 		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("FromTime %d cannot be greater than ToTime %d", fromTime, toTime))
 		return
 	}
-	_, err := ms.CollectionDelete(r.Context(), &master_pb.CollectionDeleteRequest {
-				Name: collection.Name,
-				FromTime:   uint64(fromTime),
-				ToTime:     uint64(toTime),
+	_, err := ms.CollectionDelete(r.Context(), &master_pb.CollectionDeleteRequest{
+		Name:     collection.Name,
+		FromTime: uint64(fromTime),
+		ToTime:   uint64(toTime),
 	})
-	
+
 	if err != nil {
 		writeJsonError(w, r, http.StatusInternalServerError, err)
 		return
@@ -257,4 +257,35 @@ func (ms *MasterServer) collectionInfoHandler(w http.ResponseWriter, r *http.Req
 		//write it
 		writeJsonQuiet(w, r, http.StatusOK, collectionStats)
 	}
+}
+
+// collectionCleanupHandler handles HTTP requests for collection cleanup with TTL
+func (ms *MasterServer) collectionCleanupHandler(w http.ResponseWriter, r *http.Request) {
+	collectionName := r.FormValue("collection")
+	dryRun, _ := strconv.ParseBool(r.FormValue("dryRun"))
+
+	if collectionName == "" {
+		writeJsonError(w, r, http.StatusBadRequest, fmt.Errorf("collection parameter is required"))
+		return
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: HTTP collection cleanup request: collection=%s, dry_run=%v",
+		collectionName, dryRun)
+
+	// Call the gRPC CollectionCleanup method
+	resp, err := ms.CollectionCleanup(r.Context(), &master_pb.CollectionCleanupRequest{
+		Name:   collectionName,
+		DryRun: dryRun,
+	})
+
+	if err != nil {
+		glog.Errorf("Collection cleanup failed for %s: %v", collectionName, err)
+		writeJsonError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	glog.V(2).Infof("Collection cleanup completed for %s: status=%s, deleted_files=%d",
+		collectionName, resp.Status, resp.DeletedFiles)
+
+	writeJsonQuiet(w, r, http.StatusOK, resp)
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/seaweedfs/seaweedfs/weed/glog"
@@ -481,53 +480,11 @@ func (s *AdminServer) DeleteVolumeFiles(volumeID int, server string, collection 
 func (s *AdminServer) CleanupCollection(collection string) (int, error) {
 	glog.V(2).Infof("QUYNGUYEN: AdminServer.CleanupCollection - collection: %s", collection)
 
-	// Get TTL from bucket configuration instead of volumes
-	fc, err := s.getAllBucketTTLs()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get filer configuration for collection %s: %v", collection, err)
-	}
-
-	ttls := fc.GetCollectionTtls(collection)
-	if len(ttls) == 0 {
-		return 0, fmt.Errorf("no TTL found in bucket configuration for collection %s", collection)
-	}
-
-	// Get the first TTL found
-	bucketTtl := ""
-	for _, t := range ttls {
-		if t != "" {
-			bucketTtl = t
-			break
-		}
-	}
-
-	if bucketTtl == "" {
-		return 0, fmt.Errorf("no TTL found in bucket configuration for collection %s", collection)
-	}
-
-	// Parse TTL string to seconds
-	ttlSeconds, err := parseTTLString(bucketTtl)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse TTL '%s' for collection %s: %v", bucketTtl, collection, err)
-	}
-
-	glog.V(2).Infof("QUYNGUYEN: TTL cleanup - collection: %s, bucketTtl: %s, ttlSeconds: %d", collection, bucketTtl, ttlSeconds)
-
-	// Calculate from/to dates based on TTL
-	// For TTL-based cleanup: fromTime = 0, toTime = now - TTL
-	now := time.Now().Unix()
-	cutoffTime := now - int64(ttlSeconds)
-
-	fromTime := uint64(0)                     // Delete from beginning
-	toTime := uint64(cutoffTime) * 1000000000 // Convert to nanoseconds
-
 	// Call master server to delete expired files
 	var deletedEntries int
-	err = s.WithMasterClient(func(client master_pb.SeaweedClient) error {
-		_, err := client.CollectionDelete(context.Background(), &master_pb.CollectionDeleteRequest{
+	err := s.WithMasterClient(func(client master_pb.SeaweedClient) error {
+		_, err := client.CollectionCleanup(context.Background(), &master_pb.CollectionCleanupRequest{
 			Name:     collection,
-			FromTime: fromTime,
-			ToTime:   toTime,
 		})
 		if err != nil {
 			return err
@@ -543,7 +500,7 @@ func (s *AdminServer) CleanupCollection(collection string) (int, error) {
 		return 0, err
 	}
 
-	glog.V(2).Infof("QUYNGUYEN: CleanupCollection completed - collection: %s, fromTime: %d, toTime: %d", collection, fromTime, toTime)
+	glog.V(2).Infof("QUYNGUYEN: CleanupCollection completed - collection: %s, fromTime: %d, toTime: %d", collection)
 
 	return deletedEntries, nil
 }
@@ -717,50 +674,3 @@ func (s *AdminServer) DeleteVolume(volumeID int, server string, onlyEmpty bool) 
 		return err
 	})
 }
-
-// parseTTLString parses TTL string (e.g., "7d", "24h", "30m") to seconds
-func parseTTLString(ttlStr string) (int64, error) {
-	if len(ttlStr) == 0 {
-		return 0, fmt.Errorf("empty TTL string")
-	}
-
-	// Extract number and unit
-	var numStr string
-	var unit string
-
-	for i, r := range ttlStr {
-		if r >= '0' && r <= '9' {
-			numStr += string(r)
-		} else {
-			unit = ttlStr[i:]
-			break
-		}
-	}
-
-	if numStr == "" || unit == "" {
-		return 0, fmt.Errorf("invalid TTL format: %s", ttlStr)
-	}
-
-	num, err := strconv.ParseInt(numStr, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid TTL number: %s", numStr)
-	}
-
-	var seconds int64
-	switch unit {
-	case "s":
-		seconds = num
-	case "m":
-		seconds = num * 60
-	case "h":
-		seconds = num * 3600
-	case "d":
-		seconds = num * 86400
-	default:
-		return 0, fmt.Errorf("unsupported TTL unit: %s", unit)
-	}
-
-	return seconds, nil
-}
-
-//QUYNGUYEN end

@@ -127,6 +127,17 @@ templ Layout(c *gin.Context, content templ.Component) {
                     </ul>
                     
                     <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted">
+                        <span>LOGS</span>
+                    </h6>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/system/logs">
+                                <i class="fas fa-file-alt me-2"></i>System Logs
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted">
                         <span>MANAGEMENT</span>
                     </h6>
                     <ul class="nav flex-column">
@@ -231,11 +242,6 @@ templ Layout(c *gin.Context, content templ.Component) {
                         <li class="nav-item">
                             <a class="nav-link" href="/metrics">
                                 <i class="fas fa-chart-line me-2"></i>Metrics
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/logs">
-                                <i class="fas fa-file-alt me-2"></i>Logs
                             </a>
                         </li>
                     </ul>

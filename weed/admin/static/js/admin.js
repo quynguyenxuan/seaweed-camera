@@ -2661,6 +2661,149 @@ function showModal(title, content, noFooter = false ) {
     });
 }
 
+// Perform delete volume files operation
+function performDeleteVolumeFiles(volumeId, server, collection, button) {
+    if (!confirm(`Are you sure you want to delete all file entries from filer servers for volume ${volumeId}?\n\nThis will remove file metadata but keep the volume data intact.\n\nCollection: ${collection}\nServer: ${server}`)) {
+        return;
+    }
+
+    // Disable button and show loading
+    const originalHTML = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+
+    // Call API to delete volume files
+    fetch(`/api/cluster/volumes/${volumeId}/${encodeURIComponent(server)}?collection=${encodeURIComponent(collection)}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            showMessage(data.error, 'error');
+        } else {
+            showMessage(data.message || 'Volume files deleted successfully', 'success');
+            // Optionally refresh the page after a delay to show updated status
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('Failed to delete volume files', 'error');
+    })
+    .finally(() => {
+        // Re-enable button
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+    });
+}
+
+// Perform cleanup collection operation
+function performCleanupCollection(collectionName, button) {
+    if (!confirm(`Are you sure you want to cleanup collection "${collectionName}"?\n\nThis will delete expired files based on the collection's TTL configuration.`)) {
+        return;
+    }
+
+    // Disable button and show loading
+    const originalHTML = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Cleaning...';
+
+    // Call API to cleanup collection
+    fetch(`/cluster/collections/${encodeURIComponent(collectionName)}/cleanup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            showMessage(data.error, 'error');
+        } else {
+            showMessage(data.message || `Collection ${collectionName} cleanup completed successfully`, 'success');
+            // Optionally refresh the page after a delay to show updated status
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('Failed to cleanup collection', 'error');
+    })
+    .finally(() => {
+        // Re-enable button
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+    });
+}
+
+// Perform delete collection operation
+function performDeleteCollection(collectionName, button) {
+    if (!confirm(`Are you sure you want to delete collection "${collectionName}"?\n\n⚠️ WARNING: This will permanently delete the collection and all its volumes!\nThis action cannot be undone.`)) {
+        return;
+    }
+
+    // Double confirmation for destructive action
+    if (!confirm(`This is the final confirmation!\n\nDelete collection "${collectionName}" and all its data?`)) {
+        return;
+    }
+
+    // Disable button and show loading
+    const originalHTML = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+
+    // Call API to delete collection
+    fetch(`/cluster/collections/${encodeURIComponent(collectionName)}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            showMessage(data.error, 'error');
+        } else {
+            showMessage(data.message || `Collection ${collectionName} deleted successfully`, 'success');
+            // Redirect to collections list after deletion
+            setTimeout(() => {
+                window.location.href = '/cluster/collections';
+            }, 1500);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('Failed to delete collection', 'error');
+    })
+    .finally(() => {
+        // Re-enable button
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+    });
+}
+
 
 
  

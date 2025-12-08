@@ -1,13 +1,19 @@
 package handlers
 
 import (
+	"bufio"
 	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/seaweedfs/seaweedfs/weed/admin/dash"
 	"github.com/seaweedfs/seaweedfs/weed/admin/view/app"
 	"github.com/seaweedfs/seaweedfs/weed/admin/view/layout"
+	"github.com/seaweedfs/seaweedfs/weed/glog"
 )
 
 // AdminHandlers contains all the HTTP handlers for the admin interface
@@ -77,6 +83,9 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 		protected.GET("/object-store/buckets", h.ShowS3Buckets)
 		protected.GET("/object-store/buckets/:bucket", h.ShowBucketDetails)
 		protected.GET("/object-store/users", h.userHandlers.ShowObjectStoreUsers)
+
+		// System management routes
+		protected.GET("/system/logs", h.ShowSystemLogs)
 		protected.GET("/object-store/policies", h.policyHandlers.ShowPolicies)
 		protected.GET("/object-store/roles", h.roleHandlers.ShowRoles)
 		protected.GET("/object-store/iam-policies", h.iamPolicyHandlers.ShowIAMPolicies)
@@ -212,6 +221,15 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 				maintenanceApi.GET("/stats", h.adminServer.GetMaintenanceStats)
 				maintenanceApi.GET("/config", h.adminServer.GetMaintenanceConfigAPI)
 				maintenanceApi.PUT("/config", h.adminServer.UpdateMaintenanceConfigAPI)
+
+				// System logs API routes
+				logsApi := api.Group("/logs")
+				{
+					logsApi.GET("", h.adminServer.GetSystemLogs)
+					logsApi.GET("/file", h.adminServer.GetLogFile)
+					logsApi.GET("/search", h.adminServer.SearchLogs)
+					logsApi.GET("/collections/:name/cleanup", h.adminServer.GetCollectionCleanupLogs)
+				}
 			}
 
 			// Message Queue API routes
@@ -496,6 +514,156 @@ func (h *AdminHandlers) getAdminData(c *gin.Context) dash.AdminData {
 	}
 
 	return adminData
+}
+
+// ShowSystemLogs renders the system logs page
+func (h *AdminHandlers) ShowSystemLogs(c *gin.Context) {
+	glog.V(2).Infof("QUYNGUYEN: ShowSystemLogs called")
+
+	// Get log files from the log management system
+	logDir := os.TempDir()
+	if os.Getenv("LOG_DIR") != "" {
+		logDir = os.Getenv("LOG_DIR")
+	}
+
+	var logFiles []dash.LogFileInfo
+
+	// Look for log files with common patterns
+	patterns := []string{
+		"weed.INFO.*",
+		"weed.WARNING.*",
+		"weed.ERROR.*",
+		"weed.FATAL.*",
+		"weed.*.INFO.*",
+		"weed.*.WARNING.*",
+		"weed.*.ERROR.*",
+		"weed.*.FATAL.*",
+	}
+
+	for _, pattern := range patterns {
+		files, err := filepath.Glob(filepath.Join(logDir, pattern))
+		if err != nil {
+			glog.Errorf("QUYNGUYEN: Failed to glob pattern %s: %v", pattern, err)
+			continue
+		}
+
+		for _, file := range files {
+			stat, err := os.Stat(file)
+			if err != nil {
+				glog.Errorf("QUYNGUYEN: Failed to stat file %s: %v", file, err)
+				continue
+			}
+
+			// Extract log level from filename
+			level := "INFO"
+			if strings.Contains(file, "WARNING") {
+				level = "WARNING"
+			} else if strings.Contains(file, "ERROR") {
+				level = "ERROR"
+			}
+
+			logFiles = append(logFiles, dash.LogFileInfo{
+				Name:         filepath.Base(file),
+				Path:         file,
+				Size:         stat.Size(),
+				ModifiedTime: stat.ModTime(),
+				Level:        level,
+			})
+		}
+	}
+
+	// Sort by modified time (newest first)
+	sort.Slice(logFiles, func(i, j int) bool {
+		return logFiles[i].ModifiedTime.After(logFiles[j].ModifiedTime)
+	})
+
+	// Render the template
+	c.Header("Content-Type", "text/html")
+	systemLogsComponent := app.SystemLogs(logFiles)
+	layoutComponent := layout.Layout(c, systemLogsComponent)
+	err := layoutComponent.Render(c.Request.Context(), c.Writer)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to render template: " + err.Error()})
+		return
+	}
+}
+
+// searchInFile searches for query in a single log file
+func (h *AdminHandlers) searchInFile(filePath, query string, maxResults int) ([]dash.LogEntry, error) {
+	var entries []dash.LogEntry
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return entries, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		line := scanner.Text()
+
+		if strings.Contains(strings.ToLower(line), strings.ToLower(query)) {
+			// Parse log entry
+			entry := h.parseLogLine(line, filePath, lineNum)
+			if !entry.Timestamp.IsZero() {
+				entries = append(entries, entry)
+
+				if len(entries) >= maxResults {
+					break
+				}
+			}
+		}
+	}
+
+	return entries, nil
+}
+
+// parseLogLine parses a single log line into LogEntry
+func (h *AdminHandlers) parseLogLine(line, filename string, lineNum int) dash.LogEntry {
+	entry := dash.LogEntry{
+		File: filename,
+		Line: lineNum,
+	}
+
+	// Try to parse glog format: I2025/12/08 10:30:00.123456 12345 file.go:123] message
+	parts := strings.SplitN(line, "]", 2)
+	if len(parts) < 2 {
+		return entry
+	}
+
+	header := strings.TrimSpace(parts[0])
+	message := strings.TrimSpace(parts[1])
+
+	// Extract level from first character
+	if len(header) > 0 {
+		levelChar := header[0]
+		switch levelChar {
+		case 'I':
+			entry.Level = "INFO"
+		case 'W':
+			entry.Level = "WARNING"
+		case 'E':
+			entry.Level = "ERROR"
+		case 'F':
+			entry.Level = "FATAL"
+		default:
+			entry.Level = "UNKNOWN"
+		}
+	}
+
+	// Extract timestamp
+	if len(header) > 2 {
+		timestampStr := header[1:] // Remove level character
+		if timestamp, err := time.Parse("2006/01/02 15:04:05.999999", timestampStr[:26]); err == nil {
+			entry.Timestamp = timestamp
+		}
+	}
+
+	entry.Message = message
+	return entry
 }
 
 // Helper functions

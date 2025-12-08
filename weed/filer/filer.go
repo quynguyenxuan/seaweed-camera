@@ -82,7 +82,6 @@ func NewFiler(masters pb.ServerDiscovery, grpcDialOption grpc.DialOption, filerH
 	f.metaLogReplication = replication
 
 	go f.loopProcessingDeletion()
-	go f.loopBackgroundDetection() // Simple background detection
 
 	return f
 }

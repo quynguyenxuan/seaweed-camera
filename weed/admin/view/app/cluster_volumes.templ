@@ -435,6 +435,13 @@ templ ClusterVolumes(data dash.ClusterVolumesData) {
                                                         data-server={volume.Server}>
                                                     <i class="fas fa-compress-alt"></i>
                                                 </button>
+                                                <button type="button" class="btn btn-outline-warning btn-sm delete-volume-files-btn" 
+                                                        title="Delete Volume Files"
+                                                        data-volume-id={fmt.Sprintf("%d", volume.Id)}
+                                                        data-server={volume.Server}
+                                                        data-collection={volume.Collection}>
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -569,6 +576,17 @@ templ ClusterVolumes(data dash.ClusterVolumesData) {
                     const volumeId = this.getAttribute('data-volume-id');
                     const server = this.getAttribute('data-server');
                     performVacuum(volumeId, server, this);
+                });
+            });
+
+            // Add click handlers to delete volume files buttons
+            document.querySelectorAll('.delete-volume-files-btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const volumeId = this.getAttribute('data-volume-id');
+                    const server = this.getAttribute('data-server');
+                    const collection = this.getAttribute('data-collection');
+                    performDeleteVolumeFiles(volumeId, server, collection, this);
                 });
             });
         });

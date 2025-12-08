@@ -201,19 +201,33 @@ templ ClusterCollections(data dash.ClusterCollectionsData) {
                                             }
                                         </td>
                                         <td>
-                                            <button type="button" 
-                                                    class="btn btn-outline-primary btn-sm" 
-                                                    title="View Details"
-                                                    data-action="view-details"
-                                                    data-name={collection.Name}
-                                                    data-datacenter={collection.DataCenter}
-                                                    data-volume-count={fmt.Sprintf("%d", collection.VolumeCount)}
-                                                    data-ec-volume-count={fmt.Sprintf("%d", collection.EcVolumeCount)}
-                                                    data-file-count={fmt.Sprintf("%d", collection.FileCount)}
-                                                    data-total-size={fmt.Sprintf("%d", collection.TotalSize)}
-                                                    data-disk-types={formatDiskTypes(collection.DiskTypes)}>
-                                                <i class="fas fa-eye"></i>
-                                            </button>
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" 
+                                                        class="btn btn-outline-primary btn-sm" 
+                                                        title="View Details"
+                                                        data-action="view-details"
+                                                        data-name={collection.Name}
+                                                        data-datacenter={collection.DataCenter}
+                                                        data-volume-count={fmt.Sprintf("%d", collection.VolumeCount)}
+                                                        data-ec-volume-count={fmt.Sprintf("%d", collection.EcVolumeCount)}
+                                                        data-file-count={fmt.Sprintf("%d", collection.FileCount)}
+                                                        data-total-size={fmt.Sprintf("%d", collection.TotalSize)}
+                                                        data-disk-types={formatDiskTypes(collection.DiskTypes)}>
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-outline-warning btn-sm cleanup-collection-btn" 
+                                                        title="Cleanup Collection"
+                                                        data-collection={collection.Name}>
+                                                    <i class="fas fa-broom"></i>
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-outline-danger btn-sm delete-collection-btn" 
+                                                        title="Delete Collection"
+                                                        data-collection={collection.Name}>
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 }
@@ -269,6 +283,24 @@ templ ClusterCollections(data dash.ClusterCollectionsData) {
                     showCollectionDetails(collectionData);
                     break;
             }
+        });
+
+        // Handle cleanup collection buttons
+        document.querySelectorAll('.cleanup-collection-btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const collectionName = this.getAttribute('data-collection');
+                performCleanupCollection(collectionName, this);
+            });
+        });
+
+        // Handle delete collection buttons
+        document.querySelectorAll('.delete-collection-btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const collectionName = this.getAttribute('data-collection');
+                performDeleteCollection(collectionName, this);
+            });
         });
     });
     

@@ -22,13 +22,12 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/mq_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/schema_pb"
+	"github.com/seaweedfs/seaweedfs/weed/s3api"
 	"github.com/seaweedfs/seaweedfs/weed/security"
 	"github.com/seaweedfs/seaweedfs/weed/util"
 	"github.com/seaweedfs/seaweedfs/weed/wdclient"
-	"google.golang.org/grpc"
-
-	"github.com/seaweedfs/seaweedfs/weed/s3api"
 	"github.com/seaweedfs/seaweedfs/weed/worker/tasks"
+	"google.golang.org/grpc"
 )
 
 type AdminServer struct {
@@ -2124,31 +2123,6 @@ func (s *AdminServer) getBucketTTL(bucketName string) string {
 func (s *AdminServer) CleanupBucket(c *gin.Context) {
 	bucketName := c.Param("bucket")
 
-	glog.V(2).Infof("QUYNGUYEN: AdminServer.CleanupBucket - bucket: %s", bucketName)
-
-	// Get TTL from bucket configuration
-	bucketTtl := s.getBucketTTL(bucketName)
-	if bucketTtl == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("no TTL found in bucket configuration for bucket %s", bucketName)})
-		return
-	}
-
-	// Parse TTL string to seconds
-	ttlSeconds, err := parseTTLString(bucketTtl)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("failed to parse TTL '%s' for bucket %s: %v", bucketTtl, bucketName, err)})
-		return
-	}
-
-	// Calculate cutoff time
-	now := time.Now()
-	cutoffTime := now.Add(-time.Duration(ttlSeconds) * time.Second)
-	fromTime := cutoffTime.Unix()
-	toTime := now.Unix()
-
-	// Use collection delete API to cleanup expired files
-	glog.V(2).Infof("QUYNGUYEN: CleanupBucket - bucket: %s, TTL: %s, fromTime: %d, toTime: %d", bucketName, bucketTtl, fromTime, toTime)
-
 	deletedCount, err := s.CleanupCollection(bucketName)
 	if err != nil {
 		glog.Errorf("QUYNGUYEN: CleanupBucket failed - bucket: %s, error: %v", bucketName, err)
@@ -2160,14 +2134,13 @@ func (s *AdminServer) CleanupBucket(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":       fmt.Sprintf("Bucket %s cleanup completed successfully", bucketName),
 		"deleted_count": deletedCount,
-		"ttl":           bucketTtl,
 	})
 }
 
 // QUYNGUYEN: Update bucket TTL
 func (s *AdminServer) UpdateBucketTTL(c *gin.Context) {
 	bucketName := c.Param("bucket")
-	
+
 	if bucketName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bucket name is required"})
 		return
@@ -2179,7 +2152,7 @@ func (s *AdminServer) UpdateBucketTTL(c *gin.Context) {
 	var request struct {
 		TTL string `json:"ttl"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
 		return
@@ -2200,11 +2173,73 @@ func (s *AdminServer) UpdateBucketTTL(c *gin.Context) {
 	}
 
 	glog.V(2).Infof("QUYNGUYEN: Updated bucket %s TTL from %s to %s", bucketName, bucketDetails.Bucket.Ttl, request.TTL)
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Bucket TTL updated successfully",
 		"bucket":  bucketName,
 		"old_ttl": bucketDetails.Bucket.Ttl,
 		"new_ttl": request.TTL,
+	})
+}
+
+// CleanupCollection handles cleanup collection requests
+func (s *AdminServer) CleanupCollectionHandler(c *gin.Context) {
+	collectionName := c.Param("name")
+
+	if collectionName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Collection name is required"})
+		return
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: AdminServer.CleanupCollectionHandler - collection: %s", collectionName)
+
+	deletedCount, err := s.CleanupCollection(collectionName)
+	if err != nil {
+		glog.Errorf("QUYNGUYEN: CleanupCollection failed - collection: %s, error: %v", collectionName, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to cleanup collection %s: %v", collectionName, err)})
+		return
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: CleanupCollection completed - collection: %s, deleted: %d files", collectionName, deletedCount)
+	c.JSON(http.StatusOK, gin.H{
+		"message":       fmt.Sprintf("Collection %s cleanup completed successfully", collectionName),
+		"deleted_count": deletedCount,
+	})
+}
+
+// DeleteCollection handles delete collection requests
+func (s *AdminServer) DeleteCollectionHandler(c *gin.Context) {
+	collectionName := c.Param("name")
+
+	if collectionName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Collection name is required"})
+		return
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: AdminServer.DeleteCollectionHandler - collection: %s", collectionName)
+
+	err := s.DeleteCollection(collectionName)
+	if err != nil {
+		glog.Errorf("QUYNGUYEN: DeleteCollection failed - collection: %s, error: %v", collectionName, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to delete collection %s: %v", collectionName, err)})
+		return
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: DeleteCollection completed - collection: %s", collectionName)
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("Collection %s deleted successfully", collectionName),
+	})
+}
+
+// DeleteCollection deletes a collection and all its volumes
+func (s *AdminServer) DeleteCollection(collection string) error {
+	glog.V(2).Infof("QUYNGUYEN: AdminServer.DeleteCollection - collection: %s", collection)
+
+	// Call master server to delete collection
+	return s.WithMasterClient(func(client master_pb.SeaweedClient) error {
+		_, err := client.CollectionDelete(context.Background(), &master_pb.CollectionDeleteRequest{
+			Name: collection,
+		})
+		return err
 	})
 }

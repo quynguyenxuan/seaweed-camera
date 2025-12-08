@@ -284,14 +284,14 @@ func ClusterCollections(data dash.ClusterCollectionsData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</td><td><button type=\"button\" class=\"btn btn-outline-primary btn-sm\" title=\"View Details\" data-action=\"view-details\" data-name=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</td><td><div class=\"btn-group btn-group-sm\"><button type=\"button\" class=\"btn btn-outline-primary btn-sm\" title=\"View Details\" data-action=\"view-details\" data-name=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(collection.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 208, Col: 78}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 209, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -304,7 +304,7 @@ func ClusterCollections(data dash.ClusterCollectionsData) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(collection.DataCenter)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 209, Col: 90}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 210, Col: 94}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -317,7 +317,7 @@ func ClusterCollections(data dash.ClusterCollectionsData) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", collection.VolumeCount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 210, Col: 112}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 211, Col: 116}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -330,7 +330,7 @@ func ClusterCollections(data dash.ClusterCollectionsData) templ.Component {
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", collection.EcVolumeCount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 211, Col: 117}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 212, Col: 121}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
@@ -343,7 +343,7 @@ func ClusterCollections(data dash.ClusterCollectionsData) templ.Component {
 				var templ_7745c5c3_Var22 string
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", collection.FileCount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 212, Col: 108}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 213, Col: 112}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
@@ -356,7 +356,7 @@ func ClusterCollections(data dash.ClusterCollectionsData) templ.Component {
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", collection.TotalSize))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 213, Col: 108}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 214, Col: 112}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
@@ -369,41 +369,67 @@ func ClusterCollections(data dash.ClusterCollectionsData) templ.Component {
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(formatDiskTypes(collection.DiskTypes))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 214, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 215, Col: 110}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\"><i class=\"fas fa-eye\"></i></button></td></tr>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\"><i class=\"fas fa-eye\"></i></button> <button type=\"button\" class=\"btn btn-outline-warning btn-sm cleanup-collection-btn\" title=\"Cleanup Collection\" data-collection=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var25 string
+				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(collection.Name)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 221, Col: 88}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "\"><i class=\"fas fa-broom\"></i></button> <button type=\"button\" class=\"btn btn-outline-danger btn-sm delete-collection-btn\" title=\"Delete Collection\" data-collection=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var26 string
+				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(collection.Name)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 227, Col: 88}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\"><i class=\"fas fa-trash\"></i></button></div></td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</tbody></table></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</tbody></table></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<div class=\"text-center py-5\"><i class=\"fas fa-layer-group fa-3x text-muted mb-3\"></i><h5 class=\"text-muted\">No Collections Found</h5><p class=\"text-muted\">No collections are currently configured in the cluster.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<div class=\"text-center py-5\"><i class=\"fas fa-layer-group fa-3x text-muted mb-3\"></i><h5 class=\"text-muted\">No Collections Found</h5><p class=\"text-muted\">No collections are currently configured in the cluster.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</div></div><!-- Last Updated --><div class=\"row\"><div class=\"col-12\"><small class=\"text-muted\"><i class=\"fas fa-clock me-1\"></i> Last updated: ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</div></div><!-- Last Updated --><div class=\"row\"><div class=\"col-12\"><small class=\"text-muted\"><i class=\"fas fa-clock me-1\"></i> Last updated: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var25 string
-		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(data.LastUpdated.Format("2006-01-02 15:04:05"))
+		var templ_7745c5c3_Var27 string
+		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(data.LastUpdated.Format("2006-01-02 15:04:05"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 238, Col: 81}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/app/cluster_collections.templ`, Line: 252, Col: 81}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</small></div></div></div><!-- JavaScript for cluster collections functionality --><script>\n    document.addEventListener('DOMContentLoaded', function() {\n        // Handle collection action buttons\n        document.addEventListener('click', function(e) {\n            const button = e.target.closest('[data-action]');\n            if (!button) return;\n            \n            const action = button.getAttribute('data-action');\n            \n            switch(action) {\n                case 'view-details':\n                    const collectionData = {\n                        name: button.getAttribute('data-name'),\n                        datacenter: button.getAttribute('data-datacenter'),\n                        volumeCount: parseInt(button.getAttribute('data-volume-count')),\n                        ecVolumeCount: parseInt(button.getAttribute('data-ec-volume-count')),\n                        fileCount: parseInt(button.getAttribute('data-file-count')),\n                        totalSize: parseInt(button.getAttribute('data-total-size')),\n                        diskTypes: button.getAttribute('data-disk-types')\n                    };\n                    showCollectionDetails(collectionData);\n                    break;\n            }\n        });\n    });\n    \n    function showCollectionDetails(collection) {\n        const modalHtml = '<div class=\"modal fade\" id=\"collectionDetailsModal\" tabindex=\"-1\">' +\n            '<div class=\"modal-dialog modal-lg\">' +\n            '<div class=\"modal-content\">' +\n            '<div class=\"modal-header\">' +\n            '<h5 class=\"modal-title\"><i class=\"fas fa-layer-group me-2\"></i>Collection Details: ' + collection.name + '</h5>' +\n            '<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\"></button>' +\n            '</div>' +\n            '<div class=\"modal-body\">' +\n            '<div class=\"row\">' +\n            '<div class=\"col-md-6\">' +\n            '<h6 class=\"text-primary\"><i class=\"fas fa-info-circle me-1\"></i>Basic Information</h6>' +\n            '<table class=\"table table-sm\">' +\n            '<tr><td><strong>Collection Name:</strong></td><td><code>' + collection.name + '</code></td></tr>' +\n            '<tr><td><strong>Data Center:</strong></td><td>' +\n            (collection.datacenter ? '<span class=\"badge bg-light text-dark\">' + collection.datacenter + '</span>' : '<span class=\"text-muted\">N/A</span>') +\n            '</td></tr>' +\n            '<tr><td><strong>Disk Types:</strong></td><td>' +\n            (collection.diskTypes ? collection.diskTypes.split(', ').map(type => \n                '<span class=\"badge bg-' + getDiskTypeBadgeColor(type) + ' me-1\">' + type + '</span>'\n            ).join('') : '<span class=\"text-muted\">Unknown</span>') +\n            '</td></tr>' +\n            '</table>' +\n            '</div>' +\n            '<div class=\"col-md-6\">' +\n            '<h6 class=\"text-primary\"><i class=\"fas fa-chart-bar me-1\"></i>Storage Statistics</h6>' +\n            '<table class=\"table table-sm\">' +\n            '<tr><td><strong>Regular Volumes:</strong></td><td>' +\n            '<div class=\"d-flex align-items-center\">' +\n            '<i class=\"fas fa-database me-2 text-muted\"></i>' +\n            '<span>' + collection.volumeCount.toLocaleString() + '</span>' +\n            '</div>' +\n            '</td></tr>' +\n            '<tr><td><strong>EC Volumes:</strong></td><td>' +\n            '<div class=\"d-flex align-items-center\">' +\n            '<i class=\"fas fa-th-large me-2 text-muted\"></i>' +\n            '<span>' + collection.ecVolumeCount.toLocaleString() + '</span>' +\n            '</div>' +\n            '</td></tr>' +\n            '<tr><td><strong>Total Files:</strong></td><td>' +\n            '<div class=\"d-flex align-items-center\">' +\n            '<i class=\"fas fa-file me-2 text-muted\"></i>' +\n            '<span>' + collection.fileCount.toLocaleString() + '</span>' +\n            '</div>' +\n            '</td></tr>' +\n            '<tr><td><strong>Total Size (Logical):</strong></td><td>' +\n            '<div class=\"d-flex align-items-center\">' +\n            '<i class=\"fas fa-hdd me-2 text-muted\"></i>' +\n            '<span>' + formatBytes(collection.totalSize) + '</span>' +\n            '</div>' +\n            '</td></tr>' +\n            '</table>' +\n            '</div>' +\n            '</div>' +\n            '<div class=\"row mt-3\">' +\n            '<div class=\"col-12\">' +\n            '<h6 class=\"text-primary\"><i class=\"fas fa-link me-1\"></i>Quick Actions</h6>' +\n            '<div class=\"d-grid gap-2 d-md-flex\">' +\n            '<a href=\"/cluster/volumes?collection=' + encodeURIComponent(collection.name) + '\" class=\"btn btn-outline-primary\">' +\n            '<i class=\"fas fa-database me-1\"></i>View Volumes' +\n            '</a>' +\n            '<a href=\"/cluster/ec-shards?collection=' + encodeURIComponent(collection.name) + '\" class=\"btn btn-outline-secondary\">' +\n            '<i class=\"fas fa-th-large me-1\"></i>View EC Volumes' +\n            '</a>' +\n            '<a href=\"/files?collection=' + encodeURIComponent(collection.name) + '\" class=\"btn btn-outline-info\">' +\n            '<i class=\"fas fa-folder me-1\"></i>Browse Files' +\n            '</a>' +\n            '</div>' +\n            '</div>' +\n            '</div>' +\n            '</div>' +\n            '</div>' +\n            '<div class=\"modal-footer\">' +\n            '<button type=\"button\" class=\"btn btn-secondary\" data-bs-dismiss=\"modal\">Close</button>' +\n            '</div>' +\n            '</div>' +\n            '</div>' +\n            '</div>';\n        \n        // Remove existing modal if present\n        const existingModal = document.getElementById('collectionDetailsModal');\n        if (existingModal) {\n            existingModal.remove();\n        }\n        \n        // Add modal to body and show\n        document.body.insertAdjacentHTML('beforeend', modalHtml);\n        const modal = new bootstrap.Modal(document.getElementById('collectionDetailsModal'));\n        modal.show();\n        \n        // Remove modal when hidden\n        document.getElementById('collectionDetailsModal').addEventListener('hidden.bs.modal', function() {\n            this.remove();\n        });\n    }\n    \n    function getDiskTypeBadgeColor(diskType) {\n        switch(diskType.toLowerCase()) {\n            case 'ssd':\n                return 'primary';\n            case 'hdd':\n            case '':\n                return 'secondary';\n            default:\n                return 'info';\n        }\n    }\n    \n    function formatBytes(bytes) {\n        if (bytes === 0) return '0 Bytes';\n        const k = 1024;\n        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];\n        const i = Math.floor(Math.log(bytes) / Math.log(k));\n        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];\n    }\n    \n    function exportCollections() {\n        // Simple CSV export of collections list\n        const rows = Array.from(document.querySelectorAll('#collectionsTable tbody tr')).map(row => {\n            const cells = row.querySelectorAll('td');\n            if (cells.length > 1) {\n                return {\n                    name: cells[0].textContent.trim(),\n                    volumes: cells[1].textContent.trim(),\n                    files: cells[2].textContent.trim(),\n                    size: cells[3].textContent.trim(),\n                    diskTypes: cells[4].textContent.trim()\n                };\n            }\n            return null;\n        }).filter(row => row !== null);\n        \n        const csvContent = \"data:text/csv;charset=utf-8,\" + \n            \"Collection Name,Volumes,Files,Size,Disk Types\\n\" +\n            rows.map(r => '\"' + r.name + '\",\"' + r.volumes + '\",\"' + r.files + '\",\"' + r.size + '\",\"' + r.diskTypes + '\"').join(\"\\n\");\n        \n        const encodedUri = encodeURI(csvContent);\n        const link = document.createElement(\"a\");\n        link.setAttribute(\"href\", encodedUri);\n        link.setAttribute(\"download\", \"collections.csv\");\n        document.body.appendChild(link);\n        link.click();\n        document.body.removeChild(link);\n    }\n    </script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</small></div></div></div><!-- JavaScript for cluster collections functionality --><script>\n    document.addEventListener('DOMContentLoaded', function() {\n        // Handle collection action buttons\n        document.addEventListener('click', function(e) {\n            const button = e.target.closest('[data-action]');\n            if (!button) return;\n            \n            const action = button.getAttribute('data-action');\n            \n            switch(action) {\n                case 'view-details':\n                    const collectionData = {\n                        name: button.getAttribute('data-name'),\n                        datacenter: button.getAttribute('data-datacenter'),\n                        volumeCount: parseInt(button.getAttribute('data-volume-count')),\n                        ecVolumeCount: parseInt(button.getAttribute('data-ec-volume-count')),\n                        fileCount: parseInt(button.getAttribute('data-file-count')),\n                        totalSize: parseInt(button.getAttribute('data-total-size')),\n                        diskTypes: button.getAttribute('data-disk-types')\n                    };\n                    showCollectionDetails(collectionData);\n                    break;\n            }\n        });\n\n        // Handle cleanup collection buttons\n        document.querySelectorAll('.cleanup-collection-btn').forEach(button => {\n            button.addEventListener('click', function(e) {\n                e.preventDefault();\n                const collectionName = this.getAttribute('data-collection');\n                performCleanupCollection(collectionName, this);\n            });\n        });\n\n        // Handle delete collection buttons\n        document.querySelectorAll('.delete-collection-btn').forEach(button => {\n            button.addEventListener('click', function(e) {\n                e.preventDefault();\n                const collectionName = this.getAttribute('data-collection');\n                performDeleteCollection(collectionName, this);\n            });\n        });\n    });\n    \n    function showCollectionDetails(collection) {\n        const modalHtml = '<div class=\"modal fade\" id=\"collectionDetailsModal\" tabindex=\"-1\">' +\n            '<div class=\"modal-dialog modal-lg\">' +\n            '<div class=\"modal-content\">' +\n            '<div class=\"modal-header\">' +\n            '<h5 class=\"modal-title\"><i class=\"fas fa-layer-group me-2\"></i>Collection Details: ' + collection.name + '</h5>' +\n            '<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\"></button>' +\n            '</div>' +\n            '<div class=\"modal-body\">' +\n            '<div class=\"row\">' +\n            '<div class=\"col-md-6\">' +\n            '<h6 class=\"text-primary\"><i class=\"fas fa-info-circle me-1\"></i>Basic Information</h6>' +\n            '<table class=\"table table-sm\">' +\n            '<tr><td><strong>Collection Name:</strong></td><td><code>' + collection.name + '</code></td></tr>' +\n            '<tr><td><strong>Data Center:</strong></td><td>' +\n            (collection.datacenter ? '<span class=\"badge bg-light text-dark\">' + collection.datacenter + '</span>' : '<span class=\"text-muted\">N/A</span>') +\n            '</td></tr>' +\n            '<tr><td><strong>Disk Types:</strong></td><td>' +\n            (collection.diskTypes ? collection.diskTypes.split(', ').map(type => \n                '<span class=\"badge bg-' + getDiskTypeBadgeColor(type) + ' me-1\">' + type + '</span>'\n            ).join('') : '<span class=\"text-muted\">Unknown</span>') +\n            '</td></tr>' +\n            '</table>' +\n            '</div>' +\n            '<div class=\"col-md-6\">' +\n            '<h6 class=\"text-primary\"><i class=\"fas fa-chart-bar me-1\"></i>Storage Statistics</h6>' +\n            '<table class=\"table table-sm\">' +\n            '<tr><td><strong>Regular Volumes:</strong></td><td>' +\n            '<div class=\"d-flex align-items-center\">' +\n            '<i class=\"fas fa-database me-2 text-muted\"></i>' +\n            '<span>' + collection.volumeCount.toLocaleString() + '</span>' +\n            '</div>' +\n            '</td></tr>' +\n            '<tr><td><strong>EC Volumes:</strong></td><td>' +\n            '<div class=\"d-flex align-items-center\">' +\n            '<i class=\"fas fa-th-large me-2 text-muted\"></i>' +\n            '<span>' + collection.ecVolumeCount.toLocaleString() + '</span>' +\n            '</div>' +\n            '</td></tr>' +\n            '<tr><td><strong>Total Files:</strong></td><td>' +\n            '<div class=\"d-flex align-items-center\">' +\n            '<i class=\"fas fa-file me-2 text-muted\"></i>' +\n            '<span>' + collection.fileCount.toLocaleString() + '</span>' +\n            '</div>' +\n            '</td></tr>' +\n            '<tr><td><strong>Total Size (Logical):</strong></td><td>' +\n            '<div class=\"d-flex align-items-center\">' +\n            '<i class=\"fas fa-hdd me-2 text-muted\"></i>' +\n            '<span>' + formatBytes(collection.totalSize) + '</span>' +\n            '</div>' +\n            '</td></tr>' +\n            '</table>' +\n            '</div>' +\n            '</div>' +\n            '<div class=\"row mt-3\">' +\n            '<div class=\"col-12\">' +\n            '<h6 class=\"text-primary\"><i class=\"fas fa-link me-1\"></i>Quick Actions</h6>' +\n            '<div class=\"d-grid gap-2 d-md-flex\">' +\n            '<a href=\"/cluster/volumes?collection=' + encodeURIComponent(collection.name) + '\" class=\"btn btn-outline-primary\">' +\n            '<i class=\"fas fa-database me-1\"></i>View Volumes' +\n            '</a>' +\n            '<a href=\"/cluster/ec-shards?collection=' + encodeURIComponent(collection.name) + '\" class=\"btn btn-outline-secondary\">' +\n            '<i class=\"fas fa-th-large me-1\"></i>View EC Volumes' +\n            '</a>' +\n            '<a href=\"/files?collection=' + encodeURIComponent(collection.name) + '\" class=\"btn btn-outline-info\">' +\n            '<i class=\"fas fa-folder me-1\"></i>Browse Files' +\n            '</a>' +\n            '</div>' +\n            '</div>' +\n            '</div>' +\n            '</div>' +\n            '</div>' +\n            '<div class=\"modal-footer\">' +\n            '<button type=\"button\" class=\"btn btn-secondary\" data-bs-dismiss=\"modal\">Close</button>' +\n            '</div>' +\n            '</div>' +\n            '</div>' +\n            '</div>';\n        \n        // Remove existing modal if present\n        const existingModal = document.getElementById('collectionDetailsModal');\n        if (existingModal) {\n            existingModal.remove();\n        }\n        \n        // Add modal to body and show\n        document.body.insertAdjacentHTML('beforeend', modalHtml);\n        const modal = new bootstrap.Modal(document.getElementById('collectionDetailsModal'));\n        modal.show();\n        \n        // Remove modal when hidden\n        document.getElementById('collectionDetailsModal').addEventListener('hidden.bs.modal', function() {\n            this.remove();\n        });\n    }\n    \n    function getDiskTypeBadgeColor(diskType) {\n        switch(diskType.toLowerCase()) {\n            case 'ssd':\n                return 'primary';\n            case 'hdd':\n            case '':\n                return 'secondary';\n            default:\n                return 'info';\n        }\n    }\n    \n    function formatBytes(bytes) {\n        if (bytes === 0) return '0 Bytes';\n        const k = 1024;\n        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];\n        const i = Math.floor(Math.log(bytes) / Math.log(k));\n        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];\n    }\n    \n    function exportCollections() {\n        // Simple CSV export of collections list\n        const rows = Array.from(document.querySelectorAll('#collectionsTable tbody tr')).map(row => {\n            const cells = row.querySelectorAll('td');\n            if (cells.length > 1) {\n                return {\n                    name: cells[0].textContent.trim(),\n                    volumes: cells[1].textContent.trim(),\n                    files: cells[2].textContent.trim(),\n                    size: cells[3].textContent.trim(),\n                    diskTypes: cells[4].textContent.trim()\n                };\n            }\n            return null;\n        }).filter(row => row !== null);\n        \n        const csvContent = \"data:text/csv;charset=utf-8,\" + \n            \"Collection Name,Volumes,Files,Size,Disk Types\\n\" +\n            rows.map(r => '\"' + r.name + '\",\"' + r.volumes + '\",\"' + r.files + '\",\"' + r.size + '\",\"' + r.diskTypes + '\"').join(\"\\n\");\n        \n        const encodedUri = encodeURI(csvContent);\n        const link = document.createElement(\"a\");\n        link.setAttribute(\"href\", encodedUri);\n        link.setAttribute(\"download\", \"collections.csv\");\n        document.body.appendChild(link);\n        link.click();\n        document.body.removeChild(link);\n    }\n    </script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

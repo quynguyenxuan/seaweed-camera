@@ -27,6 +27,7 @@ const (
 	Seaweed_Statistics_FullMethodName             = "/master_pb.Seaweed/Statistics"
 	Seaweed_CollectionList_FullMethodName         = "/master_pb.Seaweed/CollectionList"
 	Seaweed_CollectionDelete_FullMethodName       = "/master_pb.Seaweed/CollectionDelete"
+	Seaweed_CollectionCleanup_FullMethodName      = "/master_pb.Seaweed/CollectionCleanup"
 	Seaweed_VolumeList_FullMethodName             = "/master_pb.Seaweed/VolumeList"
 	Seaweed_LookupEcVolume_FullMethodName         = "/master_pb.Seaweed/LookupEcVolume"
 	Seaweed_VacuumVolume_FullMethodName           = "/master_pb.Seaweed/VacuumVolume"
@@ -56,6 +57,7 @@ type SeaweedClient interface {
 	Statistics(ctx context.Context, in *StatisticsRequest, opts ...grpc.CallOption) (*StatisticsResponse, error)
 	CollectionList(ctx context.Context, in *CollectionListRequest, opts ...grpc.CallOption) (*CollectionListResponse, error)
 	CollectionDelete(ctx context.Context, in *CollectionDeleteRequest, opts ...grpc.CallOption) (*CollectionDeleteResponse, error)
+	CollectionCleanup(ctx context.Context, in *CollectionCleanupRequest, opts ...grpc.CallOption) (*CollectionCleanupResponse, error)
 	VolumeList(ctx context.Context, in *VolumeListRequest, opts ...grpc.CallOption) (*VolumeListResponse, error)
 	LookupEcVolume(ctx context.Context, in *LookupEcVolumeRequest, opts ...grpc.CallOption) (*LookupEcVolumeResponse, error)
 	VacuumVolume(ctx context.Context, in *VacuumVolumeRequest, opts ...grpc.CallOption) (*VacuumVolumeResponse, error)
@@ -164,6 +166,16 @@ func (c *seaweedClient) CollectionDelete(ctx context.Context, in *CollectionDele
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CollectionDeleteResponse)
 	err := c.cc.Invoke(ctx, Seaweed_CollectionDelete_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *seaweedClient) CollectionCleanup(ctx context.Context, in *CollectionCleanupRequest, opts ...grpc.CallOption) (*CollectionCleanupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CollectionCleanupResponse)
+	err := c.cc.Invoke(ctx, Seaweed_CollectionCleanup_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -332,6 +344,7 @@ type SeaweedServer interface {
 	Statistics(context.Context, *StatisticsRequest) (*StatisticsResponse, error)
 	CollectionList(context.Context, *CollectionListRequest) (*CollectionListResponse, error)
 	CollectionDelete(context.Context, *CollectionDeleteRequest) (*CollectionDeleteResponse, error)
+	CollectionCleanup(context.Context, *CollectionCleanupRequest) (*CollectionCleanupResponse, error)
 	VolumeList(context.Context, *VolumeListRequest) (*VolumeListResponse, error)
 	LookupEcVolume(context.Context, *LookupEcVolumeRequest) (*LookupEcVolumeResponse, error)
 	VacuumVolume(context.Context, *VacuumVolumeRequest) (*VacuumVolumeResponse, error)
@@ -380,6 +393,9 @@ func (UnimplementedSeaweedServer) CollectionList(context.Context, *CollectionLis
 }
 func (UnimplementedSeaweedServer) CollectionDelete(context.Context, *CollectionDeleteRequest) (*CollectionDeleteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CollectionDelete not implemented")
+}
+func (UnimplementedSeaweedServer) CollectionCleanup(context.Context, *CollectionCleanupRequest) (*CollectionCleanupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CollectionCleanup not implemented")
 }
 func (UnimplementedSeaweedServer) VolumeList(context.Context, *VolumeListRequest) (*VolumeListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VolumeList not implemented")
@@ -554,6 +570,24 @@ func _Seaweed_CollectionDelete_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SeaweedServer).CollectionDelete(ctx, req.(*CollectionDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Seaweed_CollectionCleanup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CollectionCleanupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SeaweedServer).CollectionCleanup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Seaweed_CollectionCleanup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SeaweedServer).CollectionCleanup(ctx, req.(*CollectionCleanupRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -854,6 +888,10 @@ var Seaweed_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CollectionDelete",
 			Handler:    _Seaweed_CollectionDelete_Handler,
+		},
+		{
+			MethodName: "CollectionCleanup",
+			Handler:    _Seaweed_CollectionCleanup_Handler,
 		},
 		{
 			MethodName: "VolumeList",

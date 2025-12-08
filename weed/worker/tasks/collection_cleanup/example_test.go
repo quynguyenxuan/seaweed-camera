@@ -65,7 +65,7 @@ func TestCollectionCleanupTaskType(t *testing.T) {
 
 	// Verify task type
 	if task.Type() != types.TaskTypeCollectionCleanup {
-		t.Errorf("Expected task type %s, got %s", 
+		t.Errorf("Expected task type %s, got %s",
 			types.TaskTypeCollectionCleanup, task.Type())
 	}
 }
@@ -74,9 +74,9 @@ func TestCollectionCleanupTaskType(t *testing.T) {
 func TestCollectionCleanupTaskExecution(t *testing.T) {
 	// This test would require a running master server to work fully
 	// For now, we just test the task creation and basic properties
-	
+
 	task := NewCollectionCleanupTask("test-cleanup", "localhost:9333", "mock_collection")
-	
+
 	// Test with nil parameters (should fail)
 	ctx := context.Background()
 	err := task.Execute(ctx, nil)
@@ -91,7 +91,7 @@ func TestCollectionCleanupTaskExecution(t *testing.T) {
 	if err == nil {
 		t.Error("Expected connection error without running master server")
 	}
-	
+
 	t.Logf("Expected error (no master server): %v", err)
 }
 
@@ -101,7 +101,7 @@ func TestCollectionCleanupFactory(t *testing.T) {
 
 	// Verify factory properties
 	if factory.Type() != string(types.TaskTypeCollectionCleanup) {
-		t.Errorf("Expected factory type %s, got %s", 
+		t.Errorf("Expected factory type %s, got %s",
 			string(types.TaskTypeCollectionCleanup), factory.Type())
 	}
 
@@ -130,7 +130,7 @@ func TestCollectionCleanupFactoryCreate(t *testing.T) {
 
 	// Verify task type
 	if task.Type() != types.TaskTypeCollectionCleanup {
-		t.Errorf("Expected task type %s, got %s", 
+		t.Errorf("Expected task type %s, got %s",
 			types.TaskTypeCollectionCleanup, task.Type())
 	}
 }

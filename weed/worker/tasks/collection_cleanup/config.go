@@ -1,6 +1,8 @@
 package collection_cleanup
 
 import (
+	"github.com/seaweedfs/seaweedfs/weed/admin/config"
+	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/worker/tasks/base"
 )
 
@@ -16,12 +18,17 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		BaseConfig: base.BaseConfig{
-			Enabled:             false,        // Disabled by default
-			ScanIntervalSeconds: 24 * 60 * 60, // 24 hours
+			Enabled:             true,        // Disabled by default
+			ScanIntervalSeconds: 60 * 60, // 24 hours
 			MaxConcurrent:       1,            // Only one cleanup at a time
 		},
-		DefaultTtlDays: 30, // Default 30 days
+		DefaultTtlDays: 30*12*10, // Default 30 days
 	}
+}
+
+// NewDefaultConfig creates a new configuration with default values
+func NewDefaultConfig() *Config {
+	return DefaultConfig()
 }
 
 // NewConfig creates a new configuration with default values
@@ -50,4 +57,21 @@ func (c *Config) IsEnabled() bool {
 // SetEnabled sets whether collection cleanup is enabled
 func (c *Config) SetEnabled(enabled bool) {
 	c.Enabled = enabled
+}
+
+// LoadConfigFromPersistence loads configuration from persistence
+func LoadConfigFromPersistence(configPersistence interface{}) *Config {
+	// In real implementation, this would load from actual persistence
+	// For now, return default config
+	glog.V(1).Infof("Loading collection cleanup config from persistence")
+	return DefaultConfig()
+}
+
+// GetConfigSpec returns the configuration specification for this task
+func GetConfigSpec() base.ConfigSpec {
+	return base.ConfigSpec{
+		Fields: []*config.Field{
+			// Schema definition would go here
+		},
+	}
 }
