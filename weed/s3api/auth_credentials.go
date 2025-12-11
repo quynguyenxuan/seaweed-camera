@@ -774,7 +774,7 @@ func (iam *IdentityAccessManagement) GetCredentialManager() *credential.Credenti
 
 // LoadS3ApiConfigurationFromCredentialManager loads configuration using the credential manager
 func (iam *IdentityAccessManagement) LoadS3ApiConfigurationFromCredentialManager() error {
-	glog.V(1).Infof("Loading S3 API configuration from credential manager")
+	glog.V(3).Infof("Loading S3 API configuration from credential manager")
 
 	s3ApiConfiguration, err := iam.credentialManager.LoadConfiguration(context.Background())
 	if err != nil {

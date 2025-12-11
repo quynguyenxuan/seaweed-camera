@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"time"
 
@@ -504,6 +505,70 @@ func (s *AdminServer) CleanupCollection(collection string) (int, error) {
 
 	return deletedEntries, nil
 }
+
+//QUYNGUYEN: Cleanup collections matching regex pattern
+// CleanupCollectionsByPattern cleans up all collections whose names match the given regex pattern
+func (s *AdminServer) CleanupCollectionsByPattern(pattern string) (map[string]int, error) {
+	glog.V(2).Infof("QUYNGUYEN: AdminServer.CleanupCollectionsByPattern - pattern: %s", pattern)
+
+	// Compile regex pattern
+	regex, err := regexp.Compile(pattern)
+	if err != nil {
+		glog.V(2).Infof("QUYNGUYEN: Invalid regex pattern: %v", err)
+		return nil, fmt.Errorf("invalid regex pattern: %v", err)
+	}
+
+	// Get all collections from master
+	var allCollections []string
+	err = s.WithMasterClient(func(client master_pb.SeaweedClient) error {
+		resp, err := client.CollectionList(context.Background(), &master_pb.CollectionListRequest{
+			IncludeNormalVolumes: true,
+			IncludeEcVolumes:     true,
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, c := range resp.Collections {
+			allCollections = append(allCollections, c.Name)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		glog.V(2).Infof("QUYNGUYEN: Failed to get collections from master: %v", err)
+		return nil, fmt.Errorf("failed to get collections: %v", err)
+	}
+
+	// Filter collections by regex pattern
+	var matchedCollections []string
+	for _, collection := range allCollections {
+		if regex.MatchString(collection) {
+			matchedCollections = append(matchedCollections, collection)
+		}
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: Found %d collections matching pattern '%s': %v", len(matchedCollections), pattern, matchedCollections)
+
+	// Cleanup each matched collection
+	results := make(map[string]int)
+	for _, collection := range matchedCollections {
+		deletedCount, err := s.CleanupCollection(collection)
+		if err != nil {
+			glog.V(2).Infof("QUYNGUYEN: Failed to cleanup collection %s: %v", collection, err)
+			results[collection] = -2 // Error marker
+		} else {
+			results[collection] = deletedCount
+			glog.V(2).Infof("QUYNGUYEN: Successfully cleaned up collection %s: %d entries", collection, deletedCount)
+		}
+	}
+
+	glog.V(2).Infof("QUYNGUYEN: CleanupCollectionsByPattern completed - pattern: %s, matched: %d, results: %v", pattern, len(matchedCollections), results)
+
+	return results, nil
+}
+//QUYNGUYEN end
 
 // GetClusterVolumeServers retrieves cluster volume servers data including EC shard information
 func (s *AdminServer) GetClusterVolumeServers() (*ClusterVolumeServersData, error) {

@@ -6,7 +6,6 @@ import (
 
 	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/pb"
-	"github.com/seaweedfs/seaweedfs/weed/pb/master_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/worker_pb"
 	"github.com/seaweedfs/seaweedfs/weed/worker/types"
 	"github.com/seaweedfs/seaweedfs/weed/worker/types/base"
@@ -50,44 +49,56 @@ func (t *CollectionCleanupTask) Execute(ctx context.Context, params *worker_pb.T
 	return nil
 }
 
-// cleanupCollectionWithTime calls master API to delete collection with time range
+// cleanupCollection calls admin server to perform collection cleanup
 func (t *CollectionCleanupTask) cleanupCollection(ctx context.Context) error {
 	if t.collection == "" {
 		return fmt.Errorf("collection name is required")
 	}
 
-	glog.V(3).Infof("Connecting to master at %s to cleanup collection %s", t.server, t.collection)
+	glog.V(3).Infof("Calling admin server at %s to cleanup collection %s", t.server, t.collection)
 
-	// Parse master server address
-	masterAddress := pb.ServerAddress(t.server)
+	// Parse admin server address
+	adminAddress := pb.ServerAddress(t.server)
 
 	// Create gRPC dial option
 	grpcDialOption := grpc.WithInsecure()
 
-	// Use pb.WithMasterClient to connect and call CollectionDelete
-	err := pb.WithMasterClient(false, masterAddress, grpcDialOption, false, func(client master_pb.SeaweedClient) error {
-		glog.V(4).Infof("Calling CollectionDelete for collection %s",
-			t.collection)
+	// Connect to admin server's worker gRPC service
+	// Admin gRPC port = HTTP port + 10000
+	grpcAddress := pb.ServerToGrpcAddress(string(adminAddress))
+	
+	glog.V(4).Infof("Connecting to admin gRPC server at %s", grpcAddress)
 
-		resp, err := client.CollectionCleanup(ctx, &master_pb.CollectionCleanupRequest{
-			Name:     t.collection,
-		})
+	// Use pb.GrpcDial to connect to admin server
+	conn, err := pb.GrpcDial(ctx, grpcAddress, false, grpcDialOption)
+	if err != nil {
+		return fmt.Errorf("failed to connect to admin server: %w", err)
+	}
+	defer conn.Close()
 
-		if err != nil {
-			glog.Errorf("Failed to delete collection %s on master: %v", t.collection, err)
-			return fmt.Errorf("master API call failed: %w", err)
-		}
+	// Create worker service client
+	client := worker_pb.NewWorkerServiceClient(conn)
 
-		glog.V(3).Infof("CollectionDelete response for %s: %v", t.collection, resp)
-		return nil
+	// Call CleanupCollection RPC
+	resp, err := client.CleanupCollection(ctx, &worker_pb.CleanupCollectionRequest{
+		WorkerId:          "collection_cleanup_task",
+		TaskId:            t.ID(),
+		CollectionPattern: t.collection, // Can be a single collection name or regex pattern
+		DryRun:            false,
 	})
 
 	if err != nil {
-		glog.Errorf("Collection cleanup failed for %s: %v", t.collection, err)
-		return fmt.Errorf("collection cleanup failed: %w", err)
+		glog.Errorf("Failed to call admin server for collection cleanup: %v", err)
+		return fmt.Errorf("admin API call failed: %w", err)
 	}
 
-	glog.V(3).Infof("Successfully cleaned up collection %s", t.collection)
+	if !resp.Success {
+		glog.Errorf("Collection cleanup failed: %s", resp.Message)
+		return fmt.Errorf("cleanup failed: %s", resp.Message)
+	}
+
+	glog.V(3).Infof("Collection cleanup response: %s (files deleted: %d, bytes freed: %d, duration: %dms)",
+		resp.Message, resp.FilesDeleted, resp.BytesFreed, resp.DurationMs)
 
 	return nil
 }

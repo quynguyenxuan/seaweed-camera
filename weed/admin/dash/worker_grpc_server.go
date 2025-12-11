@@ -625,3 +625,54 @@ func findClientAddress(ctx context.Context) string {
 	}
 	return pr.Addr.String()
 }
+
+// CleanupCollection handles collection cleanup requests from workers
+func (s *WorkerGrpcServer) CleanupCollection(ctx context.Context, req *worker_pb.CleanupCollectionRequest) (*worker_pb.CleanupCollectionResponse, error) {
+	startTime := time.Now()
+	
+	glog.Infof("Worker %s requesting collection cleanup for pattern '%s' (task: %s, dry_run: %v)", 
+		req.WorkerId, req.CollectionPattern, req.TaskId, req.DryRun)
+	
+	// Validate request
+	if req.CollectionPattern == "" {
+		return &worker_pb.CleanupCollectionResponse{
+			Success: false,
+			Message: "collection pattern is required",
+		}, nil
+	}
+	
+	
+	glog.V(1).Infof("Calling admin server to cleanup collections matching pattern '%s'", req.CollectionPattern)
+	
+	// Call admin server to perform collection cleanup by pattern
+	results, err := s.adminServer.CleanupCollectionsByPattern(req.CollectionPattern)
+	if err != nil {
+		glog.Errorf("Failed to cleanup collections matching pattern '%s': %v", req.CollectionPattern, err)
+		return &worker_pb.CleanupCollectionResponse{
+			Success: false,
+			Message: fmt.Sprintf("cleanup failed: %v", err),
+		}, nil
+	}
+	
+	// Calculate total files deleted from results
+	var totalFilesDeleted int64
+	for _, count := range results {
+		if count > 0 {
+			totalFilesDeleted += int64(count)
+		}
+	}
+	
+	duration := time.Since(startTime)
+	glog.Infof("Collection cleanup completed for pattern '%s': %d collections matched, %d files deleted, duration: %v", 
+		req.CollectionPattern, len(results), totalFilesDeleted, duration)
+	
+	return &worker_pb.CleanupCollectionResponse{
+		Success:      true,
+		Message:      fmt.Sprintf("Successfully cleaned up %d collections matching pattern '%s'", len(results), req.CollectionPattern),
+		FilesDeleted: totalFilesDeleted,
+		BytesFreed:   0, // Master doesn't return bytes freed
+		DurationMs:   duration.Milliseconds(),
+	}, nil
+}
+
+

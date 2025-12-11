@@ -602,7 +602,7 @@ func (s *STSService) AssumeRole(ctx context.Context, request *AssumeRoleRequest)
 		return nil, fmt.Errorf("request cannot be nil")
 	}
 
-	sessionDuration := s.calculateSessionDuration(request.DurationSeconds)
+	sessionDuration := s.calculateSessionDuration(request.DurationSeconds, nil)
 	expiresAt := time.Now().Add(sessionDuration)
 
 	// 5. Generate session ID and temporary credentials
@@ -964,7 +964,7 @@ func (s *STSService) GetSessionToken(ctx context.Context, request *GetSessionTok
 	}
 
 	// Calculate session duration
-	sessionDuration := s.calculateSessionDuration(request.DurationSeconds)
+	sessionDuration := s.calculateSessionDuration(request.DurationSeconds, nil)
 	expiresAt := time.Now().Add(sessionDuration)
 
 	// Generate session ID and temporary credentials

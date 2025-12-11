@@ -91,3 +91,9 @@ func (s *AdminServer) getDiscoveredFilers() []string {
 func (s *AdminServer) GetAllFilers() []string {
 	return s.getDiscoveredFilers()
 }
+
+// GetMasterServer returns the current master server address
+func (s *AdminServer) GetMasterServer() string {
+	currentMaster := s.masterClient.GetMaster(context.Background())
+	return string(currentMaster)
+}

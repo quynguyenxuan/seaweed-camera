@@ -3311,6 +3311,184 @@ func (x *TaskStateFile) GetAdminVersion() string {
 	return ""
 }
 
+// CleanupCollectionRequest requests admin to cleanup a collection
+type CleanupCollectionRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	WorkerId          string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`                                                           // Worker requesting the cleanup
+	TaskId            string                 `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`                                                                 // Task ID for tracking
+	CollectionPattern string                 `protobuf:"bytes,3,opt,name=collection_pattern,json=collectionPattern,proto3" json:"collection_pattern,omitempty"`                                // Collection name or regex pattern to match collections for cleanup
+	DryRun            bool                   `protobuf:"varint,4,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`                                                                // If true, don't actually delete files
+	StartTime         int64                  `protobuf:"varint,5,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`                                                       // Optional: cleanup files modified after this time
+	EndTime           int64                  `protobuf:"varint,6,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`                                                             // Optional: cleanup files modified before this time
+	Metadata          map[string]string      `protobuf:"bytes,7,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional metadata
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *CleanupCollectionRequest) Reset() {
+	*x = CleanupCollectionRequest{}
+	mi := &file_worker_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CleanupCollectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CleanupCollectionRequest) ProtoMessage() {}
+
+func (x *CleanupCollectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_worker_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CleanupCollectionRequest.ProtoReflect.Descriptor instead.
+func (*CleanupCollectionRequest) Descriptor() ([]byte, []int) {
+	return file_worker_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *CleanupCollectionRequest) GetWorkerId() string {
+	if x != nil {
+		return x.WorkerId
+	}
+	return ""
+}
+
+func (x *CleanupCollectionRequest) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *CleanupCollectionRequest) GetCollectionPattern() string {
+	if x != nil {
+		return x.CollectionPattern
+	}
+	return ""
+}
+
+func (x *CleanupCollectionRequest) GetDryRun() bool {
+	if x != nil {
+		return x.DryRun
+	}
+	return false
+}
+
+func (x *CleanupCollectionRequest) GetStartTime() int64 {
+	if x != nil {
+		return x.StartTime
+	}
+	return 0
+}
+
+func (x *CleanupCollectionRequest) GetEndTime() int64 {
+	if x != nil {
+		return x.EndTime
+	}
+	return 0
+}
+
+func (x *CleanupCollectionRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+// CleanupCollectionResponse returns the result of collection cleanup
+type CleanupCollectionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`                                                                            // Whether cleanup was successful
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                                                                             // Status or error message
+	FilesDeleted  int64                  `protobuf:"varint,3,opt,name=files_deleted,json=filesDeleted,proto3" json:"files_deleted,omitempty"`                                              // Number of files deleted
+	BytesFreed    int64                  `protobuf:"varint,4,opt,name=bytes_freed,json=bytesFreed,proto3" json:"bytes_freed,omitempty"`                                                    // Bytes freed by cleanup
+	DurationMs    int64                  `protobuf:"varint,5,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`                                                    // Duration of cleanup operation
+	Metadata      map[string]string      `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional result metadata
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CleanupCollectionResponse) Reset() {
+	*x = CleanupCollectionResponse{}
+	mi := &file_worker_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CleanupCollectionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CleanupCollectionResponse) ProtoMessage() {}
+
+func (x *CleanupCollectionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_worker_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CleanupCollectionResponse.ProtoReflect.Descriptor instead.
+func (*CleanupCollectionResponse) Descriptor() ([]byte, []int) {
+	return file_worker_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *CleanupCollectionResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *CleanupCollectionResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *CleanupCollectionResponse) GetFilesDeleted() int64 {
+	if x != nil {
+		return x.FilesDeleted
+	}
+	return 0
+}
+
+func (x *CleanupCollectionResponse) GetBytesFreed() int64 {
+	if x != nil {
+		return x.BytesFreed
+	}
+	return 0
+}
+
+func (x *CleanupCollectionResponse) GetDurationMs() int64 {
+	if x != nil {
+		return x.DurationMs
+	}
+	return 0
+}
+
+func (x *CleanupCollectionResponse) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 var File_worker_proto protoreflect.FileDescriptor
 
 const file_worker_proto_rawDesc = "" +
@@ -3642,9 +3820,34 @@ const file_worker_proto_rawDesc = "" +
 	"\rTaskStateFile\x122\n" +
 	"\x04task\x18\x01 \x01(\v2\x1e.worker_pb.MaintenanceTaskDataR\x04task\x12!\n" +
 	"\flast_updated\x18\x02 \x01(\x03R\vlastUpdated\x12#\n" +
-	"\radmin_version\x18\x03 \x01(\tR\fadminVersion2V\n" +
+	"\radmin_version\x18\x03 \x01(\tR\fadminVersion\"\xde\x02\n" +
+	"\x18CleanupCollectionRequest\x12\x1b\n" +
+	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12-\n" +
+	"\x12collection_pattern\x18\x03 \x01(\tR\x11collectionPattern\x12\x17\n" +
+	"\adry_run\x18\x04 \x01(\bR\x06dryRun\x12\x1d\n" +
+	"\n" +
+	"start_time\x18\x05 \x01(\x03R\tstartTime\x12\x19\n" +
+	"\bend_time\x18\x06 \x01(\x03R\aendTime\x12M\n" +
+	"\bmetadata\x18\a \x03(\v21.worker_pb.CleanupCollectionRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc3\x02\n" +
+	"\x19CleanupCollectionResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12#\n" +
+	"\rfiles_deleted\x18\x03 \x01(\x03R\ffilesDeleted\x12\x1f\n" +
+	"\vbytes_freed\x18\x04 \x01(\x03R\n" +
+	"bytesFreed\x12\x1f\n" +
+	"\vduration_ms\x18\x05 \x01(\x03R\n" +
+	"durationMs\x12N\n" +
+	"\bmetadata\x18\x06 \x03(\v22.worker_pb.CleanupCollectionResponse.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x012\xb6\x01\n" +
 	"\rWorkerService\x12E\n" +
-	"\fWorkerStream\x12\x18.worker_pb.WorkerMessage\x1a\x17.worker_pb.AdminMessage(\x010\x01B2Z0github.com/seaweedfs/seaweedfs/weed/pb/worker_pbb\x06proto3"
+	"\fWorkerStream\x12\x18.worker_pb.WorkerMessage\x1a\x17.worker_pb.AdminMessage(\x010\x01\x12^\n" +
+	"\x11CleanupCollection\x12#.worker_pb.CleanupCollectionRequest\x1a$.worker_pb.CleanupCollectionResponseB2Z0github.com/seaweedfs/seaweedfs/weed/pb/worker_pbb\x06proto3"
 
 var (
 	file_worker_proto_rawDescOnce sync.Once
@@ -3658,53 +3861,57 @@ func file_worker_proto_rawDescGZIP() []byte {
 	return file_worker_proto_rawDescData
 }
 
-var file_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
+var file_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
 var file_worker_proto_goTypes = []any{
-	(*WorkerMessage)(nil),           // 0: worker_pb.WorkerMessage
-	(*AdminMessage)(nil),            // 1: worker_pb.AdminMessage
-	(*WorkerRegistration)(nil),      // 2: worker_pb.WorkerRegistration
-	(*RegistrationResponse)(nil),    // 3: worker_pb.RegistrationResponse
-	(*WorkerHeartbeat)(nil),         // 4: worker_pb.WorkerHeartbeat
-	(*HeartbeatResponse)(nil),       // 5: worker_pb.HeartbeatResponse
-	(*TaskRequest)(nil),             // 6: worker_pb.TaskRequest
-	(*TaskAssignment)(nil),          // 7: worker_pb.TaskAssignment
-	(*TaskParams)(nil),              // 8: worker_pb.TaskParams
-	(*VacuumTaskParams)(nil),        // 9: worker_pb.VacuumTaskParams
-	(*ErasureCodingTaskParams)(nil), // 10: worker_pb.ErasureCodingTaskParams
-	(*TaskSource)(nil),              // 11: worker_pb.TaskSource
-	(*TaskTarget)(nil),              // 12: worker_pb.TaskTarget
-	(*BalanceTaskParams)(nil),       // 13: worker_pb.BalanceTaskParams
-	(*ReplicationTaskParams)(nil),   // 14: worker_pb.ReplicationTaskParams
-	(*TaskUpdate)(nil),              // 15: worker_pb.TaskUpdate
-	(*TaskComplete)(nil),            // 16: worker_pb.TaskComplete
-	(*TaskCancellation)(nil),        // 17: worker_pb.TaskCancellation
-	(*WorkerShutdown)(nil),          // 18: worker_pb.WorkerShutdown
-	(*AdminShutdown)(nil),           // 19: worker_pb.AdminShutdown
-	(*TaskLogRequest)(nil),          // 20: worker_pb.TaskLogRequest
-	(*TaskLogResponse)(nil),         // 21: worker_pb.TaskLogResponse
-	(*TaskLogMetadata)(nil),         // 22: worker_pb.TaskLogMetadata
-	(*TaskLogEntry)(nil),            // 23: worker_pb.TaskLogEntry
-	(*MaintenanceConfig)(nil),       // 24: worker_pb.MaintenanceConfig
-	(*MaintenancePolicy)(nil),       // 25: worker_pb.MaintenancePolicy
-	(*TaskPolicy)(nil),              // 26: worker_pb.TaskPolicy
-	(*VacuumTaskConfig)(nil),        // 27: worker_pb.VacuumTaskConfig
-	(*ErasureCodingTaskConfig)(nil), // 28: worker_pb.ErasureCodingTaskConfig
-	(*BalanceTaskConfig)(nil),       // 29: worker_pb.BalanceTaskConfig
-	(*ReplicationTaskConfig)(nil),   // 30: worker_pb.ReplicationTaskConfig
-	(*MaintenanceTaskData)(nil),     // 31: worker_pb.MaintenanceTaskData
-	(*TaskAssignmentRecord)(nil),    // 32: worker_pb.TaskAssignmentRecord
-	(*TaskCreationMetrics)(nil),     // 33: worker_pb.TaskCreationMetrics
-	(*VolumeHealthMetrics)(nil),     // 34: worker_pb.VolumeHealthMetrics
-	(*TaskStateFile)(nil),           // 35: worker_pb.TaskStateFile
-	nil,                             // 36: worker_pb.WorkerRegistration.MetadataEntry
-	nil,                             // 37: worker_pb.TaskAssignment.MetadataEntry
-	nil,                             // 38: worker_pb.TaskUpdate.MetadataEntry
-	nil,                             // 39: worker_pb.TaskComplete.ResultMetadataEntry
-	nil,                             // 40: worker_pb.TaskLogMetadata.CustomDataEntry
-	nil,                             // 41: worker_pb.TaskLogEntry.FieldsEntry
-	nil,                             // 42: worker_pb.MaintenancePolicy.TaskPoliciesEntry
-	nil,                             // 43: worker_pb.MaintenanceTaskData.TagsEntry
-	nil,                             // 44: worker_pb.TaskCreationMetrics.AdditionalDataEntry
+	(*WorkerMessage)(nil),             // 0: worker_pb.WorkerMessage
+	(*AdminMessage)(nil),              // 1: worker_pb.AdminMessage
+	(*WorkerRegistration)(nil),        // 2: worker_pb.WorkerRegistration
+	(*RegistrationResponse)(nil),      // 3: worker_pb.RegistrationResponse
+	(*WorkerHeartbeat)(nil),           // 4: worker_pb.WorkerHeartbeat
+	(*HeartbeatResponse)(nil),         // 5: worker_pb.HeartbeatResponse
+	(*TaskRequest)(nil),               // 6: worker_pb.TaskRequest
+	(*TaskAssignment)(nil),            // 7: worker_pb.TaskAssignment
+	(*TaskParams)(nil),                // 8: worker_pb.TaskParams
+	(*VacuumTaskParams)(nil),          // 9: worker_pb.VacuumTaskParams
+	(*ErasureCodingTaskParams)(nil),   // 10: worker_pb.ErasureCodingTaskParams
+	(*TaskSource)(nil),                // 11: worker_pb.TaskSource
+	(*TaskTarget)(nil),                // 12: worker_pb.TaskTarget
+	(*BalanceTaskParams)(nil),         // 13: worker_pb.BalanceTaskParams
+	(*ReplicationTaskParams)(nil),     // 14: worker_pb.ReplicationTaskParams
+	(*TaskUpdate)(nil),                // 15: worker_pb.TaskUpdate
+	(*TaskComplete)(nil),              // 16: worker_pb.TaskComplete
+	(*TaskCancellation)(nil),          // 17: worker_pb.TaskCancellation
+	(*WorkerShutdown)(nil),            // 18: worker_pb.WorkerShutdown
+	(*AdminShutdown)(nil),             // 19: worker_pb.AdminShutdown
+	(*TaskLogRequest)(nil),            // 20: worker_pb.TaskLogRequest
+	(*TaskLogResponse)(nil),           // 21: worker_pb.TaskLogResponse
+	(*TaskLogMetadata)(nil),           // 22: worker_pb.TaskLogMetadata
+	(*TaskLogEntry)(nil),              // 23: worker_pb.TaskLogEntry
+	(*MaintenanceConfig)(nil),         // 24: worker_pb.MaintenanceConfig
+	(*MaintenancePolicy)(nil),         // 25: worker_pb.MaintenancePolicy
+	(*TaskPolicy)(nil),                // 26: worker_pb.TaskPolicy
+	(*VacuumTaskConfig)(nil),          // 27: worker_pb.VacuumTaskConfig
+	(*ErasureCodingTaskConfig)(nil),   // 28: worker_pb.ErasureCodingTaskConfig
+	(*BalanceTaskConfig)(nil),         // 29: worker_pb.BalanceTaskConfig
+	(*ReplicationTaskConfig)(nil),     // 30: worker_pb.ReplicationTaskConfig
+	(*MaintenanceTaskData)(nil),       // 31: worker_pb.MaintenanceTaskData
+	(*TaskAssignmentRecord)(nil),      // 32: worker_pb.TaskAssignmentRecord
+	(*TaskCreationMetrics)(nil),       // 33: worker_pb.TaskCreationMetrics
+	(*VolumeHealthMetrics)(nil),       // 34: worker_pb.VolumeHealthMetrics
+	(*TaskStateFile)(nil),             // 35: worker_pb.TaskStateFile
+	(*CleanupCollectionRequest)(nil),  // 36: worker_pb.CleanupCollectionRequest
+	(*CleanupCollectionResponse)(nil), // 37: worker_pb.CleanupCollectionResponse
+	nil,                               // 38: worker_pb.WorkerRegistration.MetadataEntry
+	nil,                               // 39: worker_pb.TaskAssignment.MetadataEntry
+	nil,                               // 40: worker_pb.TaskUpdate.MetadataEntry
+	nil,                               // 41: worker_pb.TaskComplete.ResultMetadataEntry
+	nil,                               // 42: worker_pb.TaskLogMetadata.CustomDataEntry
+	nil,                               // 43: worker_pb.TaskLogEntry.FieldsEntry
+	nil,                               // 44: worker_pb.MaintenancePolicy.TaskPoliciesEntry
+	nil,                               // 45: worker_pb.MaintenanceTaskData.TagsEntry
+	nil,                               // 46: worker_pb.TaskCreationMetrics.AdditionalDataEntry
+	nil,                               // 47: worker_pb.CleanupCollectionRequest.MetadataEntry
+	nil,                               // 48: worker_pb.CleanupCollectionResponse.MetadataEntry
 }
 var file_worker_proto_depIdxs = []int32{
 	2,  // 0: worker_pb.WorkerMessage.registration:type_name -> worker_pb.WorkerRegistration
@@ -3720,42 +3927,46 @@ var file_worker_proto_depIdxs = []int32{
 	17, // 10: worker_pb.AdminMessage.task_cancellation:type_name -> worker_pb.TaskCancellation
 	19, // 11: worker_pb.AdminMessage.admin_shutdown:type_name -> worker_pb.AdminShutdown
 	20, // 12: worker_pb.AdminMessage.task_log_request:type_name -> worker_pb.TaskLogRequest
-	36, // 13: worker_pb.WorkerRegistration.metadata:type_name -> worker_pb.WorkerRegistration.MetadataEntry
+	38, // 13: worker_pb.WorkerRegistration.metadata:type_name -> worker_pb.WorkerRegistration.MetadataEntry
 	8,  // 14: worker_pb.TaskAssignment.params:type_name -> worker_pb.TaskParams
-	37, // 15: worker_pb.TaskAssignment.metadata:type_name -> worker_pb.TaskAssignment.MetadataEntry
+	39, // 15: worker_pb.TaskAssignment.metadata:type_name -> worker_pb.TaskAssignment.MetadataEntry
 	11, // 16: worker_pb.TaskParams.sources:type_name -> worker_pb.TaskSource
 	12, // 17: worker_pb.TaskParams.targets:type_name -> worker_pb.TaskTarget
 	9,  // 18: worker_pb.TaskParams.vacuum_params:type_name -> worker_pb.VacuumTaskParams
 	10, // 19: worker_pb.TaskParams.erasure_coding_params:type_name -> worker_pb.ErasureCodingTaskParams
 	13, // 20: worker_pb.TaskParams.balance_params:type_name -> worker_pb.BalanceTaskParams
 	14, // 21: worker_pb.TaskParams.replication_params:type_name -> worker_pb.ReplicationTaskParams
-	38, // 22: worker_pb.TaskUpdate.metadata:type_name -> worker_pb.TaskUpdate.MetadataEntry
-	39, // 23: worker_pb.TaskComplete.result_metadata:type_name -> worker_pb.TaskComplete.ResultMetadataEntry
+	40, // 22: worker_pb.TaskUpdate.metadata:type_name -> worker_pb.TaskUpdate.MetadataEntry
+	41, // 23: worker_pb.TaskComplete.result_metadata:type_name -> worker_pb.TaskComplete.ResultMetadataEntry
 	22, // 24: worker_pb.TaskLogResponse.metadata:type_name -> worker_pb.TaskLogMetadata
 	23, // 25: worker_pb.TaskLogResponse.log_entries:type_name -> worker_pb.TaskLogEntry
-	40, // 26: worker_pb.TaskLogMetadata.custom_data:type_name -> worker_pb.TaskLogMetadata.CustomDataEntry
-	41, // 27: worker_pb.TaskLogEntry.fields:type_name -> worker_pb.TaskLogEntry.FieldsEntry
+	42, // 26: worker_pb.TaskLogMetadata.custom_data:type_name -> worker_pb.TaskLogMetadata.CustomDataEntry
+	43, // 27: worker_pb.TaskLogEntry.fields:type_name -> worker_pb.TaskLogEntry.FieldsEntry
 	25, // 28: worker_pb.MaintenanceConfig.policy:type_name -> worker_pb.MaintenancePolicy
-	42, // 29: worker_pb.MaintenancePolicy.task_policies:type_name -> worker_pb.MaintenancePolicy.TaskPoliciesEntry
+	44, // 29: worker_pb.MaintenancePolicy.task_policies:type_name -> worker_pb.MaintenancePolicy.TaskPoliciesEntry
 	27, // 30: worker_pb.TaskPolicy.vacuum_config:type_name -> worker_pb.VacuumTaskConfig
 	28, // 31: worker_pb.TaskPolicy.erasure_coding_config:type_name -> worker_pb.ErasureCodingTaskConfig
 	29, // 32: worker_pb.TaskPolicy.balance_config:type_name -> worker_pb.BalanceTaskConfig
 	30, // 33: worker_pb.TaskPolicy.replication_config:type_name -> worker_pb.ReplicationTaskConfig
 	8,  // 34: worker_pb.MaintenanceTaskData.typed_params:type_name -> worker_pb.TaskParams
 	32, // 35: worker_pb.MaintenanceTaskData.assignment_history:type_name -> worker_pb.TaskAssignmentRecord
-	43, // 36: worker_pb.MaintenanceTaskData.tags:type_name -> worker_pb.MaintenanceTaskData.TagsEntry
+	45, // 36: worker_pb.MaintenanceTaskData.tags:type_name -> worker_pb.MaintenanceTaskData.TagsEntry
 	33, // 37: worker_pb.MaintenanceTaskData.creation_metrics:type_name -> worker_pb.TaskCreationMetrics
 	34, // 38: worker_pb.TaskCreationMetrics.volume_metrics:type_name -> worker_pb.VolumeHealthMetrics
-	44, // 39: worker_pb.TaskCreationMetrics.additional_data:type_name -> worker_pb.TaskCreationMetrics.AdditionalDataEntry
+	46, // 39: worker_pb.TaskCreationMetrics.additional_data:type_name -> worker_pb.TaskCreationMetrics.AdditionalDataEntry
 	31, // 40: worker_pb.TaskStateFile.task:type_name -> worker_pb.MaintenanceTaskData
-	26, // 41: worker_pb.MaintenancePolicy.TaskPoliciesEntry.value:type_name -> worker_pb.TaskPolicy
-	0,  // 42: worker_pb.WorkerService.WorkerStream:input_type -> worker_pb.WorkerMessage
-	1,  // 43: worker_pb.WorkerService.WorkerStream:output_type -> worker_pb.AdminMessage
-	43, // [43:44] is the sub-list for method output_type
-	42, // [42:43] is the sub-list for method input_type
-	42, // [42:42] is the sub-list for extension type_name
-	42, // [42:42] is the sub-list for extension extendee
-	0,  // [0:42] is the sub-list for field type_name
+	47, // 41: worker_pb.CleanupCollectionRequest.metadata:type_name -> worker_pb.CleanupCollectionRequest.MetadataEntry
+	48, // 42: worker_pb.CleanupCollectionResponse.metadata:type_name -> worker_pb.CleanupCollectionResponse.MetadataEntry
+	26, // 43: worker_pb.MaintenancePolicy.TaskPoliciesEntry.value:type_name -> worker_pb.TaskPolicy
+	0,  // 44: worker_pb.WorkerService.WorkerStream:input_type -> worker_pb.WorkerMessage
+	36, // 45: worker_pb.WorkerService.CleanupCollection:input_type -> worker_pb.CleanupCollectionRequest
+	1,  // 46: worker_pb.WorkerService.WorkerStream:output_type -> worker_pb.AdminMessage
+	37, // 47: worker_pb.WorkerService.CleanupCollection:output_type -> worker_pb.CleanupCollectionResponse
+	46, // [46:48] is the sub-list for method output_type
+	44, // [44:46] is the sub-list for method input_type
+	44, // [44:44] is the sub-list for extension type_name
+	44, // [44:44] is the sub-list for extension extendee
+	0,  // [0:44] is the sub-list for field type_name
 }
 
 func init() { file_worker_proto_init() }
@@ -3798,7 +4009,7 @@ func file_worker_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_worker_proto_rawDesc), len(file_worker_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   45,
+			NumMessages:   49,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

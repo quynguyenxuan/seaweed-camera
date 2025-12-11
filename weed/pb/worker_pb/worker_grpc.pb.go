@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WorkerService_WorkerStream_FullMethodName = "/worker_pb.WorkerService/WorkerStream"
+	WorkerService_WorkerStream_FullMethodName      = "/worker_pb.WorkerService/WorkerStream"
+	WorkerService_CleanupCollection_FullMethodName = "/worker_pb.WorkerService/CleanupCollection"
 )
 
 // WorkerServiceClient is the client API for WorkerService service.
@@ -30,6 +31,8 @@ const (
 type WorkerServiceClient interface {
 	// WorkerStream maintains a bidirectional stream for worker communication
 	WorkerStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[WorkerMessage, AdminMessage], error)
+	// CleanupCollection allows worker to request admin to cleanup a collection
+	CleanupCollection(ctx context.Context, in *CleanupCollectionRequest, opts ...grpc.CallOption) (*CleanupCollectionResponse, error)
 }
 
 type workerServiceClient struct {
@@ -53,6 +56,16 @@ func (c *workerServiceClient) WorkerStream(ctx context.Context, opts ...grpc.Cal
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type WorkerService_WorkerStreamClient = grpc.BidiStreamingClient[WorkerMessage, AdminMessage]
 
+func (c *workerServiceClient) CleanupCollection(ctx context.Context, in *CleanupCollectionRequest, opts ...grpc.CallOption) (*CleanupCollectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CleanupCollectionResponse)
+	err := c.cc.Invoke(ctx, WorkerService_CleanupCollection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkerServiceServer is the server API for WorkerService service.
 // All implementations must embed UnimplementedWorkerServiceServer
 // for forward compatibility.
@@ -61,6 +74,8 @@ type WorkerService_WorkerStreamClient = grpc.BidiStreamingClient[WorkerMessage, 
 type WorkerServiceServer interface {
 	// WorkerStream maintains a bidirectional stream for worker communication
 	WorkerStream(grpc.BidiStreamingServer[WorkerMessage, AdminMessage]) error
+	// CleanupCollection allows worker to request admin to cleanup a collection
+	CleanupCollection(context.Context, *CleanupCollectionRequest) (*CleanupCollectionResponse, error)
 	mustEmbedUnimplementedWorkerServiceServer()
 }
 
@@ -73,6 +88,9 @@ type UnimplementedWorkerServiceServer struct{}
 
 func (UnimplementedWorkerServiceServer) WorkerStream(grpc.BidiStreamingServer[WorkerMessage, AdminMessage]) error {
 	return status.Error(codes.Unimplemented, "method WorkerStream not implemented")
+}
+func (UnimplementedWorkerServiceServer) CleanupCollection(context.Context, *CleanupCollectionRequest) (*CleanupCollectionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CleanupCollection not implemented")
 }
 func (UnimplementedWorkerServiceServer) mustEmbedUnimplementedWorkerServiceServer() {}
 func (UnimplementedWorkerServiceServer) testEmbeddedByValue()                       {}
@@ -102,13 +120,36 @@ func _WorkerService_WorkerStream_Handler(srv interface{}, stream grpc.ServerStre
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type WorkerService_WorkerStreamServer = grpc.BidiStreamingServer[WorkerMessage, AdminMessage]
 
+func _WorkerService_CleanupCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CleanupCollectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerServiceServer).CleanupCollection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkerService_CleanupCollection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerServiceServer).CleanupCollection(ctx, req.(*CleanupCollectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkerService_ServiceDesc is the grpc.ServiceDesc for WorkerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var WorkerService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "worker_pb.WorkerService",
 	HandlerType: (*WorkerServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CleanupCollection",
+			Handler:    _WorkerService_CleanupCollection_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "WorkerStream",

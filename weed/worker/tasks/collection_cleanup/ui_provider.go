@@ -85,10 +85,11 @@ func (ui *CollectionCleanupUIProvider) GetCurrentConfig() interface{} {
 	config := DefaultConfig()
 
 	return map[string]interface{}{
-		"ttl_days":       config.GetDefaultTtlDays(),
-		"max_concurrent": config.MaxConcurrent,
-		"scan_interval":  config.ScanIntervalSeconds,
-		"enabled":        config.Enabled,
+		"collection_pattern": config.GetCollectionPattern(),
+		"dry_run":            config.IsDryRun(),
+		"max_concurrent":     config.MaxConcurrent,
+		"scan_interval":      config.ScanIntervalSeconds,
+		"enabled":            config.Enabled,
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/seaweedfs/seaweedfs/weed/pb/worker_pb"
+	"github.com/seaweedfs/seaweedfs/weed/worker/tasks"
 	"github.com/seaweedfs/seaweedfs/weed/worker/types"
 )
 
@@ -97,7 +98,12 @@ func TestCollectionCleanupTaskExecution(t *testing.T) {
 
 // TestCollectionCleanupFactory tests the factory creation
 func TestCollectionCleanupFactory(t *testing.T) {
-	factory := NewCollectionCleanupFactory()
+	// Get the factory from the global registry
+	factory := tasks.GetGlobalTaskRegistry().Get(types.TaskTypeCollectionCleanup)
+
+	if factory == nil {
+		t.Fatal("Collection cleanup factory not registered")
+	}
 
 	// Verify factory properties
 	if factory.Type() != string(types.TaskTypeCollectionCleanup) {
@@ -116,7 +122,13 @@ func TestCollectionCleanupFactory(t *testing.T) {
 
 // TestCollectionCleanupFactoryCreate tests creating tasks via factory
 func TestCollectionCleanupFactoryCreate(t *testing.T) {
-	factory := NewCollectionCleanupFactory()
+	// Get the factory from the global registry
+	factory := tasks.GetGlobalTaskRegistry().Get(types.TaskTypeCollectionCleanup)
+
+	if factory == nil {
+		t.Fatal("Collection cleanup factory not registered")
+	}
+
 	params := &worker_pb.TaskParams{}
 
 	task, err := factory.Create(params)
@@ -138,10 +150,6 @@ func TestCollectionCleanupFactoryCreate(t *testing.T) {
 // TestConfigDefaults tests the default configuration
 func TestConfigDefaults(t *testing.T) {
 	config := DefaultConfig()
-
-	if config.GetDefaultTtlDays() <= 0 {
-		t.Error("Default TTL days should be positive")
-	}
 
 	if config.ScanIntervalSeconds <= 0 {
 		t.Error("Scan interval should be positive")

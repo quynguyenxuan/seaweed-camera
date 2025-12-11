@@ -11,6 +11,7 @@ import (
 )
 
 // Detection implements the detection logic for collection cleanup tasks
+//QUYNGUYEN: Refactored to create ONE task per pattern instead of individual tasks per collection
 func Detection(metrics []*types.VolumeHealthMetrics, clusterInfo *types.ClusterInfo, config base.TaskConfig) ([]*types.TaskDetectionResult, error) {
 	if !config.IsEnabled() {
 		return nil, nil
@@ -21,66 +22,57 @@ func Detection(metrics []*types.VolumeHealthMetrics, clusterInfo *types.ClusterI
 
 	glog.V(3).Infof("Starting collection cleanup detection")
 
-	// Get collections that need cleanup
-	collections := getCollectionsNeedingCleanup()
-
-	for _, collection := range collections {
-		taskID := fmt.Sprintf("collection_cleanup_%s_%d", collection.Name, time.Now().Unix())
-
-		result := &types.TaskDetectionResult{
-			TaskID:     taskID,
-			TaskType:   types.TaskTypeCollectionCleanup,
-			Collection: collection.Name,
-			Priority:   types.TaskPriorityNormal,
-			Reason:     fmt.Sprintf("Collection %s has TTL of %d days", collection.Name, collection.TtlDays),
-			ScheduleAt: time.Now(),
-		}
-
-		// Create typed parameters for collection cleanup task
-		result.TypedParams = createCollectionCleanupTaskParams(result, collection, cleanupConfig, clusterInfo)
-		results = append(results, result)
-
-		glog.V(4).Infof("Created collection cleanup task for %s (TTL: %d days)", collection.Name, collection.TtlDays)
+	// Get collection pattern from config
+	pattern := cleanupConfig.GetCollectionPattern()
+	if pattern == "" {
+		pattern = ".*" // Default: match all collections
 	}
 
-	glog.V(3).Infof("Collection cleanup detection completed: created %d tasks", len(results))
+	// Get admin server address from cluster info for task execution
+	adminServer := ""
+	if clusterInfo != nil && len(clusterInfo.Servers) > 0 {
+		adminServer = clusterInfo.Servers[0].Address
+	}
+
+	if adminServer == "" {
+		glog.Errorf("No admin server available in cluster info")
+		return nil, fmt.Errorf("no admin server available")
+	}
+
+	// Create ONE task with the pattern
+	taskID := fmt.Sprintf("collection_cleanup_pattern_%d", time.Now().Unix())
+	
+	result := &types.TaskDetectionResult{
+		TaskID:     taskID,
+		TaskType:   types.TaskTypeCollectionCleanup,
+		Collection: pattern, // Store pattern in Collection field
+		Priority:   types.TaskPriorityNormal,
+		Reason:     fmt.Sprintf("Collection cleanup for pattern '%s'", pattern),
+		ScheduleAt: time.Now(),
+	}
+
+	// Create typed parameters for collection cleanup task
+	result.TypedParams = createCollectionCleanupTaskParams(result, pattern, adminServer)
+	results = append(results, result)
+
+	glog.V(3).Infof("Collection cleanup detection completed: created 1 task for pattern '%s'", pattern)
 	return results, nil
 }
-
-// CollectionWithTtl represents a collection with its TTL configuration
-type CollectionWithTtl struct {
-	Name    string
-	TtlDays int
-}
-
-// getCollectionsNeedingCleanup returns collections that need cleanup
-func getCollectionsNeedingCleanup() []*CollectionWithTtl {
-	// In real implementation, this would:
-	// 1. Query master for all collections
-	// 2. Check TTL configuration for each collection
-	// 3. Return collections that have TTL configured
-
-	// For demo purposes, return some example collections
-	return []*CollectionWithTtl{
-		{Name: "temp_collection", TtlDays: 7},
-		{Name: "backup_collection", TtlDays: 90},
-		{Name: "log_collection", TtlDays: 30},
-	}
-}
+//QUYNGUYEN end
 
 // createCollectionCleanupTaskParams creates typed parameters for collection cleanup tasks
-func createCollectionCleanupTaskParams(task *types.TaskDetectionResult, collection *CollectionWithTtl, cleanupConfig *Config, clusterInfo *types.ClusterInfo) *worker_pb.TaskParams {
+func createCollectionCleanupTaskParams(task *types.TaskDetectionResult, pattern string, adminServer string) *worker_pb.TaskParams {
 	return &worker_pb.TaskParams{
 		TaskId:     task.TaskID,
 		VolumeId:   0, // Collection cleanup doesn't target specific volume
-		Collection: task.Collection,
+		Collection: pattern, // Store pattern for the task
 
 		Sources: []*worker_pb.TaskSource{
 			{
-				Node:          "localhost:9333", // Master server
+				Node:          adminServer, // Admin server address for RPC call
 				VolumeId:      0,
 				EstimatedSize: 0,
-				DataCenter:    "default", // Use default data center
+				DataCenter:    "default",
 				Rack:          "default",
 			},
 		},

@@ -8,6 +8,9 @@ option go_package = "github.com/seaweedfs/seaweedfs/weed/pb/worker_pb";
 service WorkerService {
   // WorkerStream maintains a bidirectional stream for worker communication
   rpc WorkerStream(stream WorkerMessage) returns (stream AdminMessage);
+  
+  // CleanupCollection allows worker to request admin to cleanup a collection
+  rpc CleanupCollection(CleanupCollectionRequest) returns (CleanupCollectionResponse);
 }
 
 // WorkerMessage represents messages from worker to admin
@@ -396,4 +399,27 @@ message TaskStateFile {
   MaintenanceTaskData task = 1;
   int64 last_updated = 2;
   string admin_version = 3;
+}
+
+// ========== Collection Cleanup RPC Messages ==========
+
+// CleanupCollectionRequest requests admin to cleanup a collection
+message CleanupCollectionRequest {
+  string worker_id = 1;           // Worker requesting the cleanup
+  string task_id = 2;             // Task ID for tracking
+  string collection_pattern = 3;  // Collection name or regex pattern to match collections for cleanup
+  bool dry_run = 4;               // If true, don't actually delete files
+  int64 start_time = 5;           // Optional: cleanup files modified after this time
+  int64 end_time = 6;             // Optional: cleanup files modified before this time
+  map<string, string> metadata = 7; // Additional metadata
+}
+
+// CleanupCollectionResponse returns the result of collection cleanup
+message CleanupCollectionResponse {
+  bool success = 1;               // Whether cleanup was successful
+  string message = 2;             // Status or error message
+  int64 files_deleted = 3;        // Number of files deleted
+  int64 bytes_freed = 4;          // Bytes freed by cleanup
+  int64 duration_ms = 5;          // Duration of cleanup operation
+  map<string, string> metadata = 6; // Additional result metadata
 } 
