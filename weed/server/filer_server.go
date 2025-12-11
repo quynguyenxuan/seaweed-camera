@@ -258,6 +258,7 @@ func (fs *FilerServer) Reload() {
 
 	util.LoadConfiguration("security", false)
 	//QUYNGUYEN add to reload filer store when dir change
+	v := util.GetViper()
 	isFresh := fs.filer.LoadConfiguration(v)
 	if isFresh {
 		existingNodes := fs.filer.ListExistingPeerUpdates(context.Background())
