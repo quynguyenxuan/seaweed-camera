@@ -431,7 +431,7 @@ func startSeaweedFSCluster(ctx context.Context, dataDir string) (*TestCluster, e
 			"-port", port,
 			"-dir", volumeDir,
 			"-max", "10",
-			"-mserver", "127.0.0.1:9333",
+			"-master", "127.0.0.1:9333",
 			"-ip", "127.0.0.1",
 			"-dataCenter", "dc1",
 			"-rack", rack,
@@ -913,6 +913,7 @@ func startMultiDiskCluster(ctx context.Context, dataDir string) (*MultiDiskClust
 		"-mdir", masterDir,
 		"-volumeSizeLimitMB", "10",
 		"-ip", "127.0.0.1",
+		"-peers", "none",
 	)
 
 	masterLogFile, err := os.Create(filepath.Join(masterDir, "master.log"))
@@ -956,7 +957,7 @@ func startMultiDiskCluster(ctx context.Context, dataDir string) (*MultiDiskClust
 			"-port", port,
 			"-dir", strings.Join(diskDirs, ","),
 			"-max", strings.Join(maxVolumes, ","),
-			"-mserver", "127.0.0.1:9334",
+			"-master", "127.0.0.1:9334",
 			"-ip", "127.0.0.1",
 			"-dataCenter", "dc1",
 			"-rack", rack,
