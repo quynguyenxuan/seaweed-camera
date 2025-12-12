@@ -79,7 +79,7 @@
       "hostname": "100.70.143.104",
       "port": 5432,
       "username": "sunfs",
-      "password": "sunfs",s
+      "password": "sunfs",
       "database": "sunfs_iam",
       "schema": "public",
       "sslmode": "disable",
