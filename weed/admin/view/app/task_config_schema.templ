@@ -117,6 +117,11 @@ templ TaskConfigSchema(data *maintenance.TaskConfigData, schema *tasks.TaskConfi
                                 <p class="mb-2"><strong>Performance:</strong> Erasure coding is CPU and I/O intensive. Consider running during off-peak hours.</p>
                                 <p class="mb-2"><strong>Durability:</strong> With { fmt.Sprintf("%d+%d", erasure_coding.DataShardsCount, erasure_coding.ParityShardsCount) } configuration, can tolerate up to { fmt.Sprintf("%d", erasure_coding.ParityShardsCount) } shard failures.</p>
                                 <p class="mb-0"><strong>Configuration:</strong> Fullness ratio should be between 0.5 and 1.0 (e.g., 0.90 for 90%).</p>
+                            } else if schema.TaskName == "collection_cleanup" {
+                                <h6 class="alert-heading">Collection Cleanup Operations:</h6>
+                                <p class="mb-2"><strong>⚠️ PERMANENT DELETION:</strong> This functionality will delete files directly and cannot be recovered.</p>
+                                <p class="mb-2"><strong>Safety:</strong> Files are permanently removed from the storage system based on TTL configuration.</p>
+                                <p class="mb-0"><strong>Recommendation:</strong> Ensure proper backup strategies before enabling collection cleanup operations.</p>
                             }
                         </div>
                     </div>

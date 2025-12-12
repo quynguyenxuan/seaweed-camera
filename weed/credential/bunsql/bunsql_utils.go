@@ -47,7 +47,7 @@ func NewDatabaseConfig() DatabaseConfig {
 		SSLMode:               "disable",
 		Timeout:               30 * time.Second,
 		ConnectionMaxIdle:     2,
-		ConnectionMaxOpen:     100,
+		ConnectionMaxOpen:     25,
 		ConnectionMaxLifetime: 0,
 		InterpolateParams:     false,
 		EnableUpsert:          true,

@@ -216,6 +216,7 @@ require (
 	github.com/twpayne/go-kml v1.5.2 // indirect
 	github.com/uptrace/bun v1.2.16 // indirect
 	github.com/uptrace/bun/dialect/mysqldialect v1.2.16 // indirect
+	github.com/uptrace/bun/dialect/pgdialect v1.2.16 // indirect
 	github.com/uptrace/bun/driver/sqliteshim v1.2.16 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect

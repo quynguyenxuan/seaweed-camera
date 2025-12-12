@@ -17,15 +17,16 @@ type BunSqlRoleStore struct {
 	mu        sync.RWMutex
 	db        *bun.DB
 	database  string
+	driver    string
 	tableName string
 	timeout   time.Duration
 }
 
 type RoleModel struct {
-	bun.BaseModel `bun:"table:iam_roles,alias:r"`
+	bun.BaseModel `bun:"table:,alias:r"`
 
 	RoleName  string    `bun:"role_name,pk"`
-	RoleData  string    `bun:"role_data,type:text"` // JSON content
+	RoleData  string    `bun:"role_data,type:jsonb"` // JSONB content as string
 	CreatedAt time.Time `bun:"created_at,nullzero,notnull,default:current_timestamp"`
 	UpdatedAt time.Time `bun:"updated_at,nullzero,notnull,default:current_timestamp"`
 }
@@ -54,6 +55,7 @@ func NewBunSqlRoleStore(config map[string]interface{}) (*BunSqlRoleStore, error)
 	store := &BunSqlRoleStore{
 		db:        db,
 		database:  dbConfig.Database,
+		driver:    dbConfig.Driver,
 		tableName: tableName,
 		timeout:   dbConfig.Timeout,
 	}
@@ -93,16 +95,26 @@ func (m *BunSqlRoleStore) StoreRole(ctx context.Context, filerAddress string, ro
 
 	roleModel := &RoleModel{
 		RoleName:  roleName,
-		RoleData:  string(roleData),
+		RoleData:  string(roleData), // Store as string directly
 		UpdatedAt: time.Now(),
 	}
 
-	// Upsert
-	_, err = m.db.NewInsert().Model(roleModel).ModelTableExpr(m.tableName).
-		On("DUPLICATE KEY UPDATE").
-		Set("role_data = EXCLUDED.role_data").
-		Set("updated_at = EXCLUDED.updated_at").
-		Exec(ctx)
+	// Upsert with database-specific syntax
+	if m.driver == "postgresql" {
+		// PostgreSQL syntax
+		_, err = m.db.NewInsert().Model(roleModel).ModelTableExpr(m.tableName + " AS r").
+			On("CONFLICT (role_name) DO UPDATE").
+			Set("role_data = EXCLUDED.role_data").
+			Set("updated_at = EXCLUDED.updated_at").
+			Exec(ctx)
+	} else {
+		// MySQL syntax (fallback)
+		_, err = m.db.NewInsert().Model(roleModel).ModelTableExpr(m.tableName + " AS r").
+			On("DUPLICATE KEY UPDATE").
+			Set("role_data = EXCLUDED.role_data").
+			Set("updated_at = EXCLUDED.updated_at").
+			Exec(ctx)
+	}
 
 	if err != nil {
 		return fmt.Errorf("failed to store role: %v", err)
@@ -121,7 +133,7 @@ func (m *BunSqlRoleStore) GetRole(ctx context.Context, filerAddress string, role
 	}
 
 	var roleModel RoleModel
-	err := m.db.NewSelect().Model(&roleModel).ModelTableExpr(m.tableName).Where("role_name = ?", roleName).Scan(ctx)
+	err := m.db.NewSelect().Model(&roleModel).ModelTableExpr(m.tableName+" AS r").Where("role_name = ?", roleName).Scan(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("role '%s' not found", roleName)
@@ -131,8 +143,9 @@ func (m *BunSqlRoleStore) GetRole(ctx context.Context, filerAddress string, role
 
 	// Deserialize role from JSON
 	var role RoleDefinition
+
 	if err := json.Unmarshal([]byte(roleModel.RoleData), &role); err != nil {
-		return nil, fmt.Errorf("failed to deserialize role: %v", err)
+		return nil, fmt.Errorf("failed to deserialize role: %v, data was: %s", err, roleModel.RoleData)
 	}
 
 	return &role, nil
@@ -144,7 +157,7 @@ func (m *BunSqlRoleStore) ListRoles(ctx context.Context, filerAddress string) ([
 	defer m.mu.RUnlock()
 
 	var roleNames []string
-	err := m.db.NewSelect().Model((*RoleModel)(nil)).ModelTableExpr(m.tableName).Column("role_name").Order("role_name ASC").Scan(ctx, &roleNames)
+	err := m.db.NewSelect().Model((*RoleModel)(nil)).ModelTableExpr(m.tableName+" AS r").Column("role_name").Order("role_name ASC").Scan(ctx, &roleNames)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list roles: %v", err)
 	}
@@ -161,7 +174,7 @@ func (m *BunSqlRoleStore) DeleteRole(ctx context.Context, filerAddress string, r
 		return fmt.Errorf("role name cannot be empty")
 	}
 
-	_, err := m.db.NewDelete().Model((*RoleModel)(nil)).ModelTableExpr(m.tableName).Where("role_name = ?", roleName).Exec(ctx)
+	_, err := m.db.NewDelete().Model((*RoleModel)(nil)).ModelTableExpr(m.tableName+" AS r").Where("role_name = ?", roleName).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete role: %v", err)
 	}

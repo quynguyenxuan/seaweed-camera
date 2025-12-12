@@ -18,6 +18,7 @@ type BunSqlPolicyStore struct {
 	mu        sync.RWMutex
 	db        *bun.DB
 	database  string
+	driver    string
 	tableName string
 }
 
@@ -25,7 +26,7 @@ type PolicyModel struct {
 	bun.BaseModel `bun:"table:policies,alias:p"`
 
 	PolicyName string    `bun:"policy_name,pk"`
-	PolicyData string    `bun:"policy_data,type:text"` // JSON content
+	PolicyData string    `bun:"policy_data,type:jsonb"` // JSONB content as string
 	CreatedAt  time.Time `bun:"created_at,nullzero,notnull,default:current_timestamp"`
 	UpdatedAt  time.Time `bun:"updated_at,nullzero,notnull,default:current_timestamp"`
 }
@@ -54,6 +55,7 @@ func NewBunSqlPolicyStore(config map[string]interface{}) (PolicyStore, error) {
 	store := &BunSqlPolicyStore{
 		db:        db,
 		database:  dbConfig.Database,
+		driver:    dbConfig.Driver,
 		tableName: tableName,
 	}
 
@@ -94,16 +96,31 @@ func (m *BunSqlPolicyStore) StorePolicy(ctx context.Context, filerAddress string
 
 	policyModel := &PolicyModel{
 		PolicyName: policyName,
-		PolicyData: string(policyData),
+		PolicyData: string(policyData), // Store as string directly
 		UpdatedAt:  time.Now(),
 	}
 
-	// Upsert
-	_, err = m.db.NewInsert().Model(policyModel).ModelTableExpr(m.tableName).
-		On("DUPLICATE KEY UPDATE").
-		Set("policy_data = EXCLUDED.policy_data").
-		Set("updated_at = EXCLUDED.updated_at").
-		Exec(ctx)
+	// Debug: Log table name and driver
+	glog.V(4).Infof("Storing policy '%s' in table '%s' using driver '%s'", policyName, m.tableName, m.driver)
+
+	// Upsert with database-specific syntax
+	if m.driver == "postgresql" {
+		// PostgreSQL syntax
+		glog.V(4).Infof("Using PostgreSQL syntax with table expression: %s AS p", m.tableName)
+		_, err = m.db.NewInsert().Model(policyModel).ModelTableExpr(m.tableName + " AS p").
+			On("CONFLICT (policy_name) DO UPDATE").
+			Set("policy_data = EXCLUDED.policy_data").
+			Set("updated_at = EXCLUDED.updated_at").
+			Exec(ctx)
+	} else {
+		// MySQL syntax (fallback)
+		glog.V(4).Infof("Using MySQL syntax with table expression: %s AS p", m.tableName)
+		_, err = m.db.NewInsert().Model(policyModel).ModelTableExpr(m.tableName + " AS p").
+			On("DUPLICATE KEY UPDATE").
+			Set("policy_data = EXCLUDED.policy_data").
+			Set("updated_at = EXCLUDED.updated_at").
+			Exec(ctx)
+	}
 
 	if err != nil {
 		return fmt.Errorf("failed to store policy: %v", err)
@@ -123,7 +140,7 @@ func (m *BunSqlPolicyStore) GetPolicy(ctx context.Context, filerAddress string, 
 	}
 
 	var policyModel PolicyModel
-	err := m.db.NewSelect().Model(&policyModel).ModelTableExpr(m.tableName).Where("policy_name = ?", policyName).Scan(ctx)
+	err := m.db.NewSelect().Model(&policyModel).ModelTableExpr(m.tableName+" AS p").Where("policy_name = ?", policyName).Scan(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("policy '%s' not found", policyName)
@@ -133,6 +150,7 @@ func (m *BunSqlPolicyStore) GetPolicy(ctx context.Context, filerAddress string, 
 
 	// Deserialize policy from JSON
 	var policy PolicyDocument
+
 	if err := json.Unmarshal([]byte(policyModel.PolicyData), &policy); err != nil {
 		return nil, fmt.Errorf("failed to deserialize policy: %v", err)
 	}
@@ -150,7 +168,7 @@ func (m *BunSqlPolicyStore) DeletePolicy(ctx context.Context, filerAddress strin
 		return fmt.Errorf("policy name cannot be empty")
 	}
 
-	res, err := m.db.NewDelete().Model((*PolicyModel)(nil)).ModelTableExpr(m.tableName).Where("policy_name = ?", policyName).Exec(ctx)
+	res, err := m.db.NewDelete().Model((*PolicyModel)(nil)).ModelTableExpr(m.tableName+" AS p").Where("policy_name = ?", policyName).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete policy: %v", err)
 	}
@@ -171,7 +189,7 @@ func (m *BunSqlPolicyStore) ListPolicies(ctx context.Context, filerAddress strin
 	defer m.mu.RUnlock()
 
 	var policyNames []string
-	err := m.db.NewSelect().Model((*PolicyModel)(nil)).ModelTableExpr(m.tableName).Column("policy_name").Order("policy_name ASC").Scan(ctx, &policyNames)
+	err := m.db.NewSelect().Model((*PolicyModel)(nil)).ModelTableExpr(m.tableName+" AS p").Column("policy_name").Order("policy_name ASC").Scan(ctx, &policyNames)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list policies: %v", err)
 	}

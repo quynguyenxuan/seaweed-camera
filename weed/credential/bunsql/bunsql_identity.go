@@ -21,21 +21,20 @@ type User struct {
 	Actions     []byte    `bun:"actions"`      // JSONB
 	CreatedAt   time.Time `bun:"created_at,nullzero,notnull,default:current_timestamp"`
 	UpdatedAt   time.Time `bun:"updated_at,nullzero,notnull,default:current_timestamp"`
-	
+
 	Credentials []*Credential `bun:"rel:has-many,join:username=username"`
 }
 
 type Credential struct {
 	bun.BaseModel `bun:"table:credentials,alias:c"`
 
-	ID          int64      `bun:"id,pk,autoincrement"`
-	Username    string     `bun:"username,notnull"`
-	AccessKey   string     `bun:"access_key,unique,notnull"`
-	SecretKey   string     `bun:"secret_key,notnull"`
-	Permissions string     `bun:"permissions"`
-	CreatedAt   time.Time  `bun:"created_at,nullzero,notnull,default:current_timestamp"`
-	UpdatedAt   time.Time  `bun:"updated_at,nullzero,notnull,default:current_timestamp"`
-	Expiration  *time.Time `bun:"expiration"`
+	ID         int64      `bun:"id,pk,autoincrement"`
+	Username   string     `bun:"username,notnull"`
+	AccessKey  string     `bun:"access_key,unique,notnull"`
+	SecretKey  string     `bun:"secret_key,notnull"`
+	CreatedAt  time.Time  `bun:"created_at,nullzero,notnull,default:current_timestamp"`
+	UpdatedAt  time.Time  `bun:"updated_at,nullzero,notnull,default:current_timestamp"`
+	Expiration *time.Time `bun:"expiration"`
 }
 
 func (store *BunSqlStore) LoadConfiguration(ctx context.Context) (*iam_pb.S3ApiConfiguration, error) {
@@ -44,7 +43,7 @@ func (store *BunSqlStore) LoadConfiguration(ctx context.Context) (*iam_pb.S3ApiC
 	}
 
 	config := &iam_pb.S3ApiConfiguration{}
-	
+
 	var users []User
 	err := store.db.NewSelect().Model(&users).Relation("Credentials").Scan(ctx)
 	if err != nil {
@@ -55,7 +54,7 @@ func (store *BunSqlStore) LoadConfiguration(ctx context.Context) (*iam_pb.S3ApiC
 		identity := &iam_pb.Identity{
 			Name: user.Username,
 		}
-		
+
 		if len(user.AccountData) > 0 {
 			if err := json.Unmarshal(user.AccountData, &identity.Account); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal account data for user %s: %v", user.Username, err)
@@ -74,12 +73,12 @@ func (store *BunSqlStore) LoadConfiguration(ctx context.Context) (*iam_pb.S3ApiC
 				t = cred.Expiration.Unix()
 			}
 			identity.Credentials = append(identity.Credentials, &iam_pb.Credential{
-				AccessKey: cred.AccessKey,
-				SecretKey: cred.SecretKey,
+				AccessKey:  cred.AccessKey,
+				SecretKey:  cred.SecretKey,
 				Expiration: t,
 			})
 		}
-		
+
 		config.Identities = append(config.Identities, identity)
 	}
 
@@ -93,8 +92,12 @@ func (store *BunSqlStore) SaveConfiguration(ctx context.Context, config *iam_pb.
 
 	return store.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 		// Clear existing
-		if _, err := tx.NewDelete().Model((*Credential)(nil)).Where("1=1").Exec(ctx); err != nil { return err }
-		if _, err := tx.NewDelete().Model((*User)(nil)).Where("1=1").Exec(ctx); err != nil { return err }
+		if _, err := tx.NewDelete().Model((*Credential)(nil)).Where("1=1").Exec(ctx); err != nil {
+			return err
+		}
+		if _, err := tx.NewDelete().Model((*User)(nil)).Where("1=1").Exec(ctx); err != nil {
+			return err
+		}
 
 		// Insert new
 		for _, identity := range config.Identities {
@@ -102,11 +105,15 @@ func (store *BunSqlStore) SaveConfiguration(ctx context.Context, config *iam_pb.
 			var err error
 			if identity.Account != nil {
 				accountData, err = json.Marshal(identity.Account)
-				if err != nil { return err }
+				if err != nil {
+					return err
+				}
 			}
 			if identity.Actions != nil {
 				actions, err = json.Marshal(identity.Actions)
-				if err != nil { return err }
+				if err != nil {
+					return err
+				}
 			}
 
 			user := &User{
@@ -117,7 +124,7 @@ func (store *BunSqlStore) SaveConfiguration(ctx context.Context, config *iam_pb.
 			if _, err := tx.NewInsert().Model(user).Exec(ctx); err != nil {
 				return err
 			}
-			
+
 			for _, cred := range identity.Credentials {
 				var expiration *time.Time
 				if cred.Expiration > 0 {
@@ -157,11 +164,15 @@ func (store *BunSqlStore) CreateUser(ctx context.Context, identity *iam_pb.Ident
 		var err error
 		if identity.Account != nil {
 			accountData, err = json.Marshal(identity.Account)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 		}
 		if identity.Actions != nil {
 			actions, err = json.Marshal(identity.Actions)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 		}
 
 		user := &User{
@@ -229,8 +240,8 @@ func (store *BunSqlStore) GetUser(ctx context.Context, username string) (*iam_pb
 			t = cred.Expiration.Unix()
 		}
 		identity.Credentials = append(identity.Credentials, &iam_pb.Credential{
-			AccessKey: cred.AccessKey,
-			SecretKey: cred.SecretKey,
+			AccessKey:  cred.AccessKey,
+			SecretKey:  cred.SecretKey,
 			Expiration: t,
 		})
 	}
@@ -245,17 +256,25 @@ func (store *BunSqlStore) UpdateUser(ctx context.Context, username string, ident
 
 	return store.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 		exists, err := tx.NewSelect().Model((*User)(nil)).Where("username = ?", username).Exists(ctx)
-		if err != nil { return err }
-		if !exists { return credential.ErrUserNotFound }
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return credential.ErrUserNotFound
+		}
 
 		var accountData, actions []byte
 		if identity.Account != nil {
 			accountData, err = json.Marshal(identity.Account)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 		}
 		if identity.Actions != nil {
 			actions, err = json.Marshal(identity.Actions)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 		}
 
 		user := &User{
@@ -303,7 +322,7 @@ func (store *BunSqlStore) DeleteUser(ctx context.Context, username string) error
 	if err != nil {
 		return err
 	}
-	
+
 	rows, err := res.RowsAffected()
 	if err != nil {
 		return err
@@ -311,7 +330,7 @@ func (store *BunSqlStore) DeleteUser(ctx context.Context, username string) error
 	if rows == 0 {
 		return credential.ErrUserNotFound
 	}
-	// Credentials should be deleted by cascade if defined in DB schema, but we didn't define ON DELETE CASCADE in struct tags for Bun to handle automatically on DB side unless we use Exec DDL. 
+	// Credentials should be deleted by cascade if defined in DB schema, but we didn't define ON DELETE CASCADE in struct tags for Bun to handle automatically on DB side unless we use Exec DDL.
 	// Bun struct 'rel:has-many' doesn't enforce DB constraint automatically.
 	// But let's assume we want to be safe and delete credentials manually or rely on DB constraint if createTables set it up.
 	// In createTables, we just used Model(model).IfNotExists().Exec().
@@ -320,15 +339,21 @@ func (store *BunSqlStore) DeleteUser(ctx context.Context, username string) error
 	// So we should delete credentials first or set up cascade.
 	// Let's do manual delete credentials first in transaction if we were doing this properly, but pure DeleteUser usually implies cascading.
 	// However, since we returned already if rows==0, let's just leave it there. If we want to be strict, we should wrap in transaction.
-	
+
 	// Re-implementing with explicit credential deletion for safety
 	return store.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 		res, err := tx.NewDelete().Model((*User)(nil)).Where("username = ?", username).Exec(ctx)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		rows, err := res.RowsAffected()
-		if err != nil { return err }
-		if rows == 0 { return credential.ErrUserNotFound }
-		
+		if err != nil {
+			return err
+		}
+		if rows == 0 {
+			return credential.ErrUserNotFound
+		}
+
 		// Delete credentials
 		_, err = tx.NewDelete().Model((*Credential)(nil)).Where("username = ?", username).Exec(ctx)
 		return err
@@ -377,7 +402,7 @@ func (store *BunSqlStore) CreateAccessKey(ctx context.Context, username string, 
 	if !exists {
 		return credential.ErrUserNotFound
 	}
-	
+
 	var expiration *time.Time
 	if cred.Expiration > 0 {
 		t := time.Unix(cred.Expiration, 0)
@@ -404,17 +429,21 @@ func (store *BunSqlStore) DeleteAccessKey(ctx context.Context, username string, 
 	if err != nil {
 		return err
 	}
-	
+
 	rows, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
-	
+
 	if rows == 0 {
 		// Check user exists to disambiguate error
 		exists, err := store.db.NewSelect().Model((*User)(nil)).Where("username = ?", username).Exists(ctx)
-		if err != nil { return err }
-		if !exists { return credential.ErrUserNotFound }
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return credential.ErrUserNotFound
+		}
 		return credential.ErrAccessKeyNotFound
 	}
 
