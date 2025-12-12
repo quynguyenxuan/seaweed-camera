@@ -168,6 +168,12 @@ func (m *IAMManager) createRoleStore(config *RoleStoreConfig) (RoleStore, error)
 			return nil, err
 		}
 		return NewGenericCachedRoleStoreWithStore(config.StoreConfig, postgresStore), nil
+	case "bunsql":
+		bunsqlStore, err := NewBunSqlRoleStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedRoleStoreWithStore(config.StoreConfig, bunsqlStore), nil
 	default:
 		return nil, fmt.Errorf("unsupported role store type: %s", config.StoreType)
 	}
@@ -214,6 +220,12 @@ func (m *IAMManager) createRoleStoreWithProvider(config *RoleStoreConfig, filerA
 			return nil, err
 		}
 		return NewGenericCachedRoleStoreWithStore(config.StoreConfig, postgresStore), nil
+	case "bunsql":
+		bunsqlStore, err := NewBunSqlRoleStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedRoleStoreWithStore(config.StoreConfig, bunsqlStore), nil
 	default:
 		return nil, fmt.Errorf("unsupported role store type: %s", config.StoreType)
 	}

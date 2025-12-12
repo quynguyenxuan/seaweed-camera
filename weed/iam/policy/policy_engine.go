@@ -262,6 +262,12 @@ func (e *PolicyEngine) createPolicyStore(config *PolicyEngineConfig) (PolicyStor
 			return nil, err
 		}
 		return NewGenericCachedPolicyStoreWithStore(config.StoreConfig, postgresStore), nil
+	case "bunsql":
+		bunsqlStore, err := NewBunSqlPolicyStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedPolicyStoreWithStore(config.StoreConfig, bunsqlStore), nil
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", config.StoreType)
 	}
@@ -303,6 +309,12 @@ func (e *PolicyEngine) createPolicyStoreWithProvider(config *PolicyEngineConfig,
 			return nil, err
 		}
 		return NewGenericCachedPolicyStoreWithStore(config.StoreConfig, postgresStore), nil
+	case "bunsql":
+		bunsqlStore, err := NewBunSqlPolicyStore(config.StoreConfig)
+		if err != nil {
+			return nil, err
+		}
+		return NewGenericCachedPolicyStoreWithStore(config.StoreConfig, bunsqlStore), nil
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", config.StoreType)
 	}

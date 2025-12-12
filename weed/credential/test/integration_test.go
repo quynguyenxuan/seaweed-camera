@@ -9,6 +9,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/util"
 
 	// Import all store implementations to register them
+	_ "github.com/seaweedfs/seaweedfs/weed/credential/bunsql"
 	_ "github.com/seaweedfs/seaweedfs/weed/credential/cassandra"
 	_ "github.com/seaweedfs/seaweedfs/weed/credential/filer_etc"
 	_ "github.com/seaweedfs/seaweedfs/weed/credential/memory"
@@ -22,7 +23,13 @@ func TestStoreRegistration(t *testing.T) {
 		t.Fatal("No credential stores registered")
 	}
 
-	expectedStores := []string{string(credential.StoreTypeFilerEtc), string(credential.StoreTypeMemory), string(credential.StoreTypePostgres), string(credential.StoreTypeCassandra)}
+	expectedStores := []string{
+		string(credential.StoreTypeFilerEtc),
+		string(credential.StoreTypeMemory),
+		string(credential.StoreTypePostgres),
+		string(credential.StoreTypeCassandra),
+		string(credential.StoreTypeBunSql),
+	}
 
 	// Verify all expected stores are present
 	for _, expected := range expectedStores {

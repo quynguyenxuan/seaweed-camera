@@ -18,6 +18,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/util/grace"
 
 	// Import credential stores to register them
+	_ "github.com/seaweedfs/seaweedfs/weed/credential/bunsql"
 	_ "github.com/seaweedfs/seaweedfs/weed/credential/cassandra"
 	_ "github.com/seaweedfs/seaweedfs/weed/credential/filer_etc"
 	_ "github.com/seaweedfs/seaweedfs/weed/credential/memory"

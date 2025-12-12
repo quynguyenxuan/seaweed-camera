@@ -56,8 +56,9 @@
   ],
   "policy": {
     "defaultEffect": "Allow",
-    "storeType": "postgres",
+    "storeType": "bunsql",
     "storeConfig": {
+      "driver": "postgresql",
       "hostname": "100.70.143.104",
       "port": 5432,
       "username": "sunfs",
@@ -72,12 +73,13 @@
     }
   },
   "roleStore": {
-    "storeType": "postgres",
+    "storeType": "bunsql",
     "storeConfig": {
+      "driver": "postgresql",
       "hostname": "100.70.143.104",
       "port": 5432,
       "username": "sunfs",
-      "password": "sunfs",
+      "password": "sunfs",s
       "database": "sunfs_iam",
       "schema": "public",
       "sslmode": "disable",

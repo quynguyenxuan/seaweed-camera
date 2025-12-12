@@ -26,7 +26,8 @@ const (
 	StoreTypePostgres CredentialStoreTypeName = "postgres"
 	StoreTypeMysql    CredentialStoreTypeName = "mysql"
 	StoreTypeFoundationDB CredentialStoreTypeName = "foundationdb"
-	StoreTypeCassandra CredentialStoreTypeName = "cassandra"	
+	StoreTypeCassandra CredentialStoreTypeName = "cassandra"
+	StoreTypeBunSql    CredentialStoreTypeName = "bunsql"
 )
 
 // CredentialStore defines the interface for user credential storage and retrieval
