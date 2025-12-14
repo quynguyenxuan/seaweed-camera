@@ -83,6 +83,7 @@ type S3Bucket struct {
 	ObjectLockMode     string    `json:"object_lock_mode"`     // Object lock mode: "GOVERNANCE" or "COMPLIANCE"
 	ObjectLockDuration int32     `json:"object_lock_duration"` // Default retention duration in days
 	Ttl                string    `json:"ttl"`                  // Bucket TTL (e.g., "7d", "24h")
+	Owner              string    `json:"owner,omitempty"`      // Bucket owner identity; empty means admin-only access
 }
 
 type S3Object struct {

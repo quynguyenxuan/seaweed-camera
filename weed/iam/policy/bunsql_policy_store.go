@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +24,7 @@ type BunSqlPolicyStore struct {
 }
 
 type PolicyModel struct {
-	bun.BaseModel `bun:"table:policies,alias:p"`
+	bun.BaseModel `bun:"table:sts_policies,alias:p"`
 
 	PolicyName string    `bun:"policy_name,pk"`
 	PolicyData string    `bun:"policy_data,type:jsonb"` // JSONB content as string
@@ -96,7 +97,7 @@ func (m *BunSqlPolicyStore) StorePolicy(ctx context.Context, filerAddress string
 
 	policyModel := &PolicyModel{
 		PolicyName: policyName,
-		PolicyData: string(policyData), // Store as string directly
+		PolicyData: string(policyData), // Convert to string to match role store implementation
 		UpdatedAt:  time.Now(),
 	}
 
@@ -151,8 +152,22 @@ func (m *BunSqlPolicyStore) GetPolicy(ctx context.Context, filerAddress string, 
 	// Deserialize policy from JSON
 	var policy PolicyDocument
 
-	if err := json.Unmarshal([]byte(policyModel.PolicyData), &policy); err != nil {
-		return nil, fmt.Errorf("failed to deserialize policy: %v", err)
+	// Check if the data is double-encoded (JSON string within JSON)
+	if strings.HasPrefix(policyModel.PolicyData, "\"") && strings.HasSuffix(policyModel.PolicyData, "\"") {
+		// Data is stored as JSON string, need to unmarshal twice
+		var jsonString string
+		if err := json.Unmarshal([]byte(policyModel.PolicyData), &jsonString); err != nil {
+			return nil, fmt.Errorf("failed to deserialize policy string: %v, data was: %s", err, policyModel.PolicyData)
+		}
+		// Now unmarshal the actual JSON content
+		if err := json.Unmarshal([]byte(jsonString), &policy); err != nil {
+			return nil, fmt.Errorf("failed to deserialize policy content: %v, data was: %s", err, jsonString)
+		}
+	} else {
+		// Data is stored as regular JSON, unmarshal directly
+		if err := json.Unmarshal([]byte(policyModel.PolicyData), &policy); err != nil {
+			return nil, fmt.Errorf("failed to deserialize policy: %v, data was: %s", err, policyModel.PolicyData)
+		}
 	}
 
 	glog.V(2).Infof("Retrieved policy %s from BunSQL", policyName)

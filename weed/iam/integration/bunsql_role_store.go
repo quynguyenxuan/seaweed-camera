@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +24,7 @@ type BunSqlRoleStore struct {
 }
 
 type RoleModel struct {
-	bun.BaseModel `bun:"table:,alias:r"`
+	bun.BaseModel `bun:"table:iam_roles,alias:r"`
 
 	RoleName  string    `bun:"role_name,pk"`
 	RoleData  string    `bun:"role_data,type:jsonb"` // JSONB content as string
@@ -95,7 +96,7 @@ func (m *BunSqlRoleStore) StoreRole(ctx context.Context, filerAddress string, ro
 
 	roleModel := &RoleModel{
 		RoleName:  roleName,
-		RoleData:  string(roleData), // Store as string directly
+		RoleData:  string(roleData), // Convert to string to match postgres implementation
 		UpdatedAt: time.Now(),
 	}
 
@@ -144,8 +145,22 @@ func (m *BunSqlRoleStore) GetRole(ctx context.Context, filerAddress string, role
 	// Deserialize role from JSON
 	var role RoleDefinition
 
-	if err := json.Unmarshal([]byte(roleModel.RoleData), &role); err != nil {
-		return nil, fmt.Errorf("failed to deserialize role: %v, data was: %s", err, roleModel.RoleData)
+	// Check if the data is double-encoded (JSON string within JSON)
+	if strings.HasPrefix(roleModel.RoleData, "\"") && strings.HasSuffix(roleModel.RoleData, "\"") {
+		// Data is stored as JSON string, need to unmarshal twice
+		var jsonString string
+		if err := json.Unmarshal([]byte(roleModel.RoleData), &jsonString); err != nil {
+			return nil, fmt.Errorf("failed to deserialize role string: %v, data was: %s", err, roleModel.RoleData)
+		}
+		// Now unmarshal the actual JSON content
+		if err := json.Unmarshal([]byte(jsonString), &role); err != nil {
+			return nil, fmt.Errorf("failed to deserialize role content: %v, data was: %s", err, jsonString)
+		}
+	} else {
+		// Data is stored as regular JSON, unmarshal directly
+		if err := json.Unmarshal([]byte(roleModel.RoleData), &role); err != nil {
+			return nil, fmt.Errorf("failed to deserialize role: %v, data was: %s", err, roleModel.RoleData)
+		}
 	}
 
 	return &role, nil

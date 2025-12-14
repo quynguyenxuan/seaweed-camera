@@ -137,6 +137,7 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 				s3Api.GET("/buckets/:bucket", h.adminServer.ShowBucketDetails)
 				s3Api.PUT("/buckets/:bucket/quota", h.adminServer.UpdateBucketQuota)
 				s3Api.PUT("/buckets/:bucket/ttl", h.adminServer.UpdateBucketTTL)
+				s3Api.PUT("/buckets/:bucket/owner", h.adminServer.UpdateBucketOwner)
 			}
 
 			// User management API routes
@@ -300,6 +301,7 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 				s3Api.GET("/buckets/:bucket", h.adminServer.ShowBucketDetails)
 				s3Api.PUT("/buckets/:bucket/quota", h.adminServer.UpdateBucketQuota)
 				s3Api.PUT("/buckets/:bucket/ttl", h.adminServer.UpdateBucketTTL)
+				s3Api.PUT("/buckets/:bucket/owner", h.adminServer.UpdateBucketOwner)
 			}
 
 			// User management API routes
