@@ -9,7 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"path/filepath"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -491,7 +491,7 @@ func (s3a *S3ApiServer) putToFiler(r *http.Request, filePath string, dataReader 
 
 	// Create entry
 	entry := &filer_pb.Entry{
-		Name:        filepath.Base(filePath),
+		Name:        path.Base(filePath),
 		IsDirectory: false,
 		Attributes: &filer_pb.FuseAttributes{
 			Crtime:   now.Unix(),
@@ -506,20 +506,14 @@ func (s3a *S3ApiServer) putToFiler(r *http.Request, filePath string, dataReader 
 		Extended: make(map[string][]byte),
 	}
 
-	// Set Md5 attribute based on context:
-	// 1. For multipart upload PARTS (stored in .uploads/ directory): ALWAYS set Md5
-	//    - Parts must use simple MD5 ETags, never composite format
-	//    - Even if a part has multiple chunks internally, its ETag is MD5 of entire part
-	// 2. For regular object uploads: only set Md5 for single-chunk uploads
-	//    - Multi-chunk regular objects use composite "md5-count" format
-	isMultipartPart := strings.Contains(filePath, "/"+s3_constants.MultipartUploadsFolder+"/")
-	if isMultipartPart || len(chunkResult.FileChunks) == 1 {
-		entry.Attributes.Md5 = md5Sum
-	}
+	// Always set Md5 attribute for regular object uploads (PutObject)
+	// This ensures the ETag is a pure MD5 hash, which AWS S3 SDKs expect
+	// for PutObject responses. The composite "md5-count" format is only
+	// used for multipart upload completion (CompleteMultipartUpload API),
+	// not for regular PutObject even if the file is internally auto-chunked.
+	entry.Attributes.Md5 = md5Sum
 
-	// Calculate ETag using the same logic as GET to ensure consistency
-	// For single chunk: uses entry.Attributes.Md5
-	// For multiple chunks: uses filer.ETagChunks() which returns "<hash>-<count>"
+	// Calculate ETag - with Md5 set, this returns the pure MD5 hash
 	etag = filer.ETag(entry)
 	glog.V(4).Infof("putToFiler: Calculated ETag=%s for %d chunks", etag, len(chunkResult.FileChunks))
 
@@ -611,10 +605,10 @@ func (s3a *S3ApiServer) putToFiler(r *http.Request, filePath string, dataReader 
 	// Use context.Background() to ensure metadata save completes even if HTTP request is cancelled
 	// This matches the chunk upload behavior and prevents orphaned chunks
 	glog.V(3).Infof("putToFiler: About to create entry - dir=%s, name=%s, chunks=%d, extended keys=%d",
-		filepath.Dir(filePath), filepath.Base(filePath), len(entry.Chunks), len(entry.Extended))
+		path.Dir(filePath), path.Base(filePath), len(entry.Chunks), len(entry.Extended))
 	createErr := s3a.WithFilerClient(false, func(client filer_pb.SeaweedFilerClient) error {
 		req := &filer_pb.CreateEntryRequest{
-			Directory: filepath.Dir(filePath),
+			Directory: path.Dir(filePath),
 			Entry:     entry,
 		}
 		glog.V(3).Infof("putToFiler: Calling CreateEntry for %s", filePath)

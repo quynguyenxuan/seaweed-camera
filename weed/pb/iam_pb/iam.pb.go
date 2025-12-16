@@ -79,6 +79,7 @@ type Identity struct {
 	Credentials   []*Credential          `protobuf:"bytes,2,rep,name=credentials,proto3" json:"credentials,omitempty"`
 	Actions       []string               `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
 	Account       *Account               `protobuf:"bytes,4,opt,name=account,proto3" json:"account,omitempty"`
+	Disabled      bool                   `protobuf:"varint,5,opt,name=disabled,proto3" json:"disabled,omitempty"` // User status: false = enabled (default), true = disabled
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -141,11 +142,19 @@ func (x *Identity) GetAccount() *Account {
 	return nil
 }
 
+func (x *Identity) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
+}
+
 type Credential struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccessKey     string                 `protobuf:"bytes,1,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
 	SecretKey     string                 `protobuf:"bytes,2,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
-	Expiration    int64                  `protobuf:"varint,3,opt,name=expiration,proto3" json:"expiration,omitempty"` // bool is_disabled = 4;
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"` // Access key status: "Active" or "Inactive"
+	Expiration    int64                  `protobuf:"varint,4,opt,name=expiration,proto3" json:"expiration,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -190,6 +199,13 @@ func (x *Credential) GetAccessKey() string {
 func (x *Credential) GetSecretKey() string {
 	if x != nil {
 		return x.SecretKey
+	}
+	return ""
+}
+
+func (x *Credential) GetStatus() string {
+	if x != nil {
+		return x.Status
 	}
 	return ""
 }
@@ -270,20 +286,22 @@ const file_iam_proto_rawDesc = "" +
 	"\n" +
 	"identities\x18\x01 \x03(\v2\x10.iam_pb.IdentityR\n" +
 	"identities\x12+\n" +
-	"\baccounts\x18\x02 \x03(\v2\x0f.iam_pb.AccountR\baccounts\"\x99\x01\n" +
+	"\baccounts\x18\x02 \x03(\v2\x0f.iam_pb.AccountR\baccounts\"\xb5\x01\n" +
 	"\bIdentity\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x124\n" +
 	"\vcredentials\x18\x02 \x03(\v2\x12.iam_pb.CredentialR\vcredentials\x12\x18\n" +
 	"\aactions\x18\x03 \x03(\tR\aactions\x12)\n" +
-	"\aaccount\x18\x04 \x01(\v2\x0f.iam_pb.AccountR\aaccount\"j\n" +
+	"\aaccount\x18\x04 \x01(\v2\x0f.iam_pb.AccountR\aaccount\x12\x1a\n" +
+	"\bdisabled\x18\x05 \x01(\bR\bdisabled\"\x82\x01\n" +
 	"\n" +
 	"Credential\x12\x1d\n" +
 	"\n" +
 	"access_key\x18\x01 \x01(\tR\taccessKey\x12\x1d\n" +
 	"\n" +
-	"secret_key\x18\x02 \x01(\tR\tsecretKey\x12\x1e\n" +
+	"secret_key\x18\x02 \x01(\tR\tsecretKey\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x1e\n" +
 	"\n" +
-	"expiration\x18\x03 \x01(\x03R\n" +
+	"expiration\x18\x04 \x01(\x03R\n" +
 	"expiration\"a\n" +
 	"\aAccount\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
