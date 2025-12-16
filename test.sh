@@ -5,12 +5,10 @@ warp put --duration=1h      --host=localhost:8334     --obj.size=1M     --obj.ra
 go run weed.go -v=1  volume -dir=/mnt/dc1/volumes/volume_12/v2 -preStopSeconds=3 -max=1
 
 do_put() {
-    go run /mnt/nvme0n1p6/warp put --duration=1s \
-    --host=127.0.0.1:8233 \
-    --obj.size=5K,10K \
-    --obj.randsize=true \
-    --obj.nametemplate="007_%d%s_$(date +'%y%m%d%H%M%S')_2343234234.m3u8" \
-    --bucket=camera2010 \
+    warp put --duration=90s  \
+    --host=127.0.0.1:8333 \
+    --obj.size=512K \
+    --bucket=camera2020 \
     --concurrent=1 \
     --noprefix \
     --noclear \
