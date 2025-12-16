@@ -30,8 +30,8 @@ message Identity {
 message Credential {
     string access_key = 1;
     string secret_key = 2;
-    int64 expiration = 3;
     string status = 3;  // Access key status: "Active" or "Inactive"
+    int64 expiration = 4;
 }
 
 message Account {

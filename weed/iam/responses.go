@@ -150,3 +150,32 @@ type UpdateAccessKeyResponse struct {
 	CommonResponse
 	XMLName xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ UpdateAccessKeyResponse"`
 }
+
+// QUYNGUYEN add
+type AssumeRoleResponse struct {
+	CommonResponse
+	XMLName          xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ AssumeRoleResponse"`
+	AssumeRoleResult struct {
+		Credentials     sts.Credentials     `xml:"Credentials"`
+		AssumedRoleUser sts.AssumedRoleUser `xml:"AssumedRoleUser"`
+	} `xml:"AssumeRoleResult"`
+}
+
+type AssumeRoleWithWebIdentityResponse struct {
+	CommonResponse
+	XMLName                         xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ AssumeRoleWithWebIdentityResponse"`
+	AssumeRoleWithWebIdentityResult struct {
+		Credentials     sts.Credentials     `xml:"Credentials"`
+		AssumedRoleUser sts.AssumedRoleUser `xml:"AssumedRoleUser"`
+	} `xml:"AssumeRoleWithWebIdentityResult"`
+}
+
+type GetSessionTokenResponse struct {
+	CommonResponse
+	XMLName               xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ GetSessionTokenResponse"`
+	GetSessionTokenResult struct {
+		Credentials sts.Credentials `xml:"Credentials"`
+	} `xml:"GetSessionTokenResult"`
+}
+
+// QUYNGUYEN end
