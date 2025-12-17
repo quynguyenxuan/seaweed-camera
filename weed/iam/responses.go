@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/sts"
 )
 
 // CommonResponse is embedded in all IAM response types to provide RequestId.
@@ -176,6 +177,44 @@ type GetSessionTokenResponse struct {
 	GetSessionTokenResult struct {
 		Credentials sts.Credentials `xml:"Credentials"`
 	} `xml:"GetSessionTokenResult"`
+}
+
+type DeletePolicyResponse struct {
+	CommonResponse
+	XMLName xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ DeletePolicyResponse"`
+}
+
+type ListPoliciesResponse struct {
+	CommonResponse
+	XMLName            xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ ListPoliciesResponse"`
+	ListPoliciesResult struct {
+		Policies    []*iam.Policy `xml:"Policies>member"`
+		IsTruncated bool          `xml:"IsTruncated"`
+		Marker      string        `xml:"Marker"`
+	} `xml:"ListPoliciesResult"`
+}
+
+type CreateRoleResponse struct {
+	CommonResponse
+	XMLName          xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ CreateRoleResponse"`
+	CreateRoleResult struct {
+		Role iam.Role `xml:"Role"`
+	} `xml:"CreateRoleResult"`
+}
+
+type DeleteRoleResponse struct {
+	CommonResponse
+	XMLName xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ DeleteRoleResponse"`
+}
+
+type ListRolesResponse struct {
+	CommonResponse
+	XMLName         xml.Name `xml:"https://iam.amazonaws.com/doc/2010-05-08/ ListRolesResponse"`
+	ListRolesResult struct {
+		Roles       []*iam.Role `xml:"Roles>member"`
+		IsTruncated bool        `xml:"IsTruncated"`
+		Marker      string      `xml:"Marker"`
+	} `xml:"ListRolesResult"`
 }
 
 // QUYNGUYEN end

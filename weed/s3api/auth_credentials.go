@@ -430,11 +430,6 @@ func (iam *IdentityAccessManagement) CleanExpiredAccessKey() error {
 	}
 	return nil
 }
-//QUYnguyen Add
-func (iam *IdentityAccessManagement) LookupByAccessKey(accessKey string) (identity *Identity, cred *Credential, found bool) {
-	return iam.lookupByAccessKey(accessKey)
-}
-//QUYnguyen end
 
 func (iam *IdentityAccessManagement) lookupByAccessKey(accessKey string) (identity *Identity, cred *Credential, found bool) {
 	iam.m.RLock()

@@ -5,28 +5,26 @@ package iamapi
 
 import (
 	"context"
-	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/seaweedfs/seaweedfs/weed/glog"
+	iamlib "github.com/seaweedfs/seaweedfs/weed/iam"
 	"github.com/seaweedfs/seaweedfs/weed/iam/policy"
 	seaweedSts "github.com/seaweedfs/seaweedfs/weed/iam/sts"
-	iamlib "github.com/seaweedfs/seaweedfs/weed/iam"
 	"github.com/seaweedfs/seaweedfs/weed/pb/filer_pb"
 	"github.com/seaweedfs/seaweedfs/weed/pb/iam_pb"
 	"github.com/seaweedfs/seaweedfs/weed/s3api/policy_engine"
 	"github.com/seaweedfs/seaweedfs/weed/s3api/s3err"
 
-	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/sts"
 	jwt "github.com/golang-jwt/jwt/v5"
 	cred "github.com/seaweedfs/seaweedfs/weed/credential"
@@ -203,7 +201,7 @@ func GetPolicyDocument(policy *string) (policy_engine.PolicyDocument, error) {
 	return policyDocument, nil
 }
 
-func (iama *IamApiServer) CreatePolicy(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp CreatePolicyResponse, iamError *IamError) {
+func (iama *IamApiServer) CreatePolicy(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp CreatePolicyResponse, iamErr *IamError) {
 	policyName := values.Get("PolicyName")
 	policyDocumentString := values.Get("PolicyDocument")
 	policyDocument, err := GetPolicyDocument(&policyDocumentString)
@@ -229,8 +227,10 @@ func (iama *IamApiServer) CreatePolicy(s3cfg *iam_pb.S3ApiConfiguration, values 
 // 	policies.Policies[policyName] = policyDocument
 // 	if err = iama.s3ApiConfig.PutPolicies(&policies); err != nil {
 // 		return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: err}
-// 	}
-	
+// 	}	
+		return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: err}
+	}
+
 	//QUYNGUYEN end
 	return resp, nil
 }
@@ -241,7 +241,7 @@ type IamError struct {
 }
 
 // https://docs.aws.amazon.com/IAM/latest/APIReference/API_PutUserPolicy.html
-func (iama *IamApiServer) PutUserPolicy(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp PutUserPolicyResponse, iamError *IamError) {
+func (iama *IamApiServer) PutUserPolicy(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp PutUserPolicyResponse, iamErr *IamError) {
 	userName := values.Get("UserName")
 	policyName := values.Get("PolicyName")
 	policyDocumentString := values.Get("PolicyDocument")
@@ -871,7 +871,7 @@ func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {
 
 	case "ListAccessKeys":
 		iama.handleImplicitUsername(r, values)
-		response = iama.ListAccessKeys(s3cfg, values)
+		response, iamError = iama.ListAccessKeys(s3cfg, values)
 		changed = false
 
 	case "CreateUser":
@@ -913,7 +913,7 @@ func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {
 		}
 	case "DeleteAccessKey":
 		iama.handleImplicitUsername(r, values)
-		response = iama.DeleteAccessKey(s3cfg, values)
+		response, iamError = iama.DeleteAccessKey(s3cfg, values)
 	case "CreatePolicy":
 		response, iamError = iama.CreatePolicy(s3cfg, values)
 		if iamError != nil {
@@ -983,19 +983,19 @@ func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {
 		}
 		changed = false
 	case "AssumeRoleWithCredentials":
-		handleImplicitUsername(r, values)
+		iama.handleImplicitUsername(r, values)
 		if response, iamError = iama.AssumeRoleWithCredentials(s3cfg, values); iamError != nil {
 			writeIamErrorResponse(w, r, iamError)
 			return
 		}
 	case "AssumeRole":
-		handleImplicitUsername(r, values)
+		iama.handleImplicitUsername(r, values)
 		if response, iamError = iama.AssumeRole(s3cfg, values); iamError != nil {
 			writeIamErrorResponse(w, r, iamError)
 			return
 		}
 	case "AssumeRoleWithWebIdentity":
-		handleImplicitUsername(r, values)
+		iama.handleImplicitUsername(r, values)
 		if response, iamError = iama.AssumeRoleWithWebIdentity(s3cfg, values); iamError != nil {
 			writeIamErrorResponse(w, r, iamError)
 			return
@@ -1028,7 +1028,7 @@ func (iama *IamApiServer) DoActions(w http.ResponseWriter, r *http.Request) {
 	s3err.WriteXMLResponse(w, r, http.StatusOK, response)
 }
 
-func (iama *IamApiServer) DeletePolicy(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp DeletePolicyResponse, iamError *IamError) {
+func (iama *IamApiServer) DeletePolicy(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp DeletePolicyResponse, iamErr *IamError) {
 	policyName := values.Get("PolicyArn")
 	// Extract policy name from ARN if needed, or just use name if passed directly
 	// AWS CLI passes PolicyArn
@@ -1043,7 +1043,7 @@ func (iama *IamApiServer) DeletePolicy(s3cfg *iam_pb.S3ApiConfiguration, values 
 	return resp, nil
 }
 
-func (iama *IamApiServer) ListPolicies(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp ListPoliciesResponse, iamError *IamError) {
+func (iama *IamApiServer) ListPolicies(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp ListPoliciesResponse, iamErr *IamError) {
 	policyManager := iama.iam.GetCredentialManager().GetPolicyManager()
 	policies, err := policyManager.GetPolicies(context.Background())
 	if err != nil {
@@ -1064,7 +1064,7 @@ func (iama *IamApiServer) ListPolicies(s3cfg *iam_pb.S3ApiConfiguration, values 
 	return resp, nil
 }
 
-func (iama *IamApiServer) CreateRole(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp CreateRoleResponse, iamError *IamError) {
+func (iama *IamApiServer) CreateRole(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp CreateRoleResponse, iamErr *IamError) {
 	roleName := values.Get("RoleName")
 	assumeRolePolicyDocument := values.Get("AssumeRolePolicyDocument")
 	description := values.Get("Description")
@@ -1102,7 +1102,7 @@ func (iama *IamApiServer) CreateRole(s3cfg *iam_pb.S3ApiConfiguration, values ur
 	return resp, nil
 }
 
-func (iama *IamApiServer) DeleteRole(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp DeleteRoleResponse, iamError *IamError) {
+func (iama *IamApiServer) DeleteRole(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp DeleteRoleResponse, iamErr *IamError) {
 	roleName := values.Get("RoleName")
 
 	iamManager := iama.iam.GetIAMManager()
@@ -1117,7 +1117,7 @@ func (iama *IamApiServer) DeleteRole(s3cfg *iam_pb.S3ApiConfiguration, values ur
 	return resp, nil
 }
 
-func (iama *IamApiServer) ListRoles(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp ListRolesResponse, iamError *IamError) {
+func (iama *IamApiServer) ListRoles(s3cfg *iam_pb.S3ApiConfiguration, values url.Values) (resp ListRolesResponse, iamErr *IamError) {
 	iamManager := iama.iam.GetIAMManager()
 	if iamManager == nil {
 		return resp, &IamError{Code: iam.ErrCodeServiceFailureException, Error: fmt.Errorf("IAM manager not initialized")}

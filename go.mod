@@ -97,7 +97,7 @@ require (
 	gocloud.dev/pubsub/natspubsub v0.43.0
 	gocloud.dev/pubsub/rabbitpubsub v0.43.0
 	golang.org/x/crypto v0.45.0
-	golang.org/x/exp v0.0.0-20250811191247-51f88131bc50
+	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 	golang.org/x/image v0.34.0
 	golang.org/x/net v0.47.0
 	golang.org/x/oauth2 v0.32.0 // indirect
@@ -157,6 +157,10 @@ require (
 	github.com/shirou/gopsutil/v4 v4.25.11
 	github.com/tarantool/go-tarantool/v2 v2.4.1
 	github.com/tikv/client-go/v2 v2.0.7
+	github.com/uptrace/bun v1.2.16
+	github.com/uptrace/bun/dialect/mysqldialect v1.2.16
+	github.com/uptrace/bun/dialect/pgdialect v1.2.16
+	github.com/uptrace/bun/driver/sqliteshim v1.2.16
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.5.0
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.122.0
@@ -214,10 +218,6 @@ require (
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/twpayne/go-geom v1.4.1 // indirect
 	github.com/twpayne/go-kml v1.5.2 // indirect
-	github.com/uptrace/bun v1.2.16 // indirect
-	github.com/uptrace/bun/dialect/mysqldialect v1.2.16 // indirect
-	github.com/uptrace/bun/dialect/pgdialect v1.2.16 // indirect
-	github.com/uptrace/bun/driver/sqliteshim v1.2.16 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect

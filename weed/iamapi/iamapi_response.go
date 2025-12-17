@@ -9,21 +9,26 @@ import (
 
 // Type aliases for IAM response types from shared package
 type (
-	CommonResponse          = iamlib.CommonResponse
-	ListUsersResponse       = iamlib.ListUsersResponse
-	ListAccessKeysResponse  = iamlib.ListAccessKeysResponse
-	DeleteAccessKeyResponse = iamlib.DeleteAccessKeyResponse
-	CreatePolicyResponse    = iamlib.CreatePolicyResponse
-	CreateUserResponse      = iamlib.CreateUserResponse
-	DeleteUserResponse      = iamlib.DeleteUserResponse
-	GetUserResponse         = iamlib.GetUserResponse
-	UpdateUserResponse      = iamlib.UpdateUserResponse
-	CreateAccessKeyResponse = iamlib.CreateAccessKeyResponse
-	PutUserPolicyResponse   = iamlib.PutUserPolicyResponse
-	DeleteUserPolicyResponse = iamlib.DeleteUserPolicyResponse
-	GetUserPolicyResponse   = iamlib.GetUserPolicyResponse
-	ErrorResponse           = iamlib.ErrorResponse
-	AssumeRoleResponse        = iamlib.AssumeRoleResponse
+	CommonResponse                    = iamlib.CommonResponse
+	ListUsersResponse                 = iamlib.ListUsersResponse
+	ListAccessKeysResponse            = iamlib.ListAccessKeysResponse
+	DeleteAccessKeyResponse           = iamlib.DeleteAccessKeyResponse
+	CreatePolicyResponse              = iamlib.CreatePolicyResponse
+	DeletePolicyResponse              = iamlib.DeletePolicyResponse
+	ListPoliciesResponse              = iamlib.ListPoliciesResponse
+	CreateUserResponse                = iamlib.CreateUserResponse
+	DeleteUserResponse                = iamlib.DeleteUserResponse
+	GetUserResponse                   = iamlib.GetUserResponse
+	UpdateUserResponse                = iamlib.UpdateUserResponse
+	CreateAccessKeyResponse           = iamlib.CreateAccessKeyResponse
+	PutUserPolicyResponse             = iamlib.PutUserPolicyResponse
+	DeleteUserPolicyResponse          = iamlib.DeleteUserPolicyResponse
+	GetUserPolicyResponse             = iamlib.GetUserPolicyResponse
+	ErrorResponse                     = iamlib.ErrorResponse
+	AssumeRoleResponse                = iamlib.AssumeRoleResponse
 	AssumeRoleWithWebIdentityResponse = iamlib.AssumeRoleWithWebIdentityResponse
-	GetSessionTokenResponse   = iamlib.GetSessionTokenResponse
+	GetSessionTokenResponse           = iamlib.GetSessionTokenResponse
+	CreateRoleResponse                = iamlib.CreateRoleResponse
+	DeleteRoleResponse                = iamlib.DeleteRoleResponse
+	ListRolesResponse                 = iamlib.ListRolesResponse
 )
