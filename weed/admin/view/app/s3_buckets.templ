@@ -554,9 +554,9 @@ templ S3Buckets(data dash.S3BucketsData) {
                         <label for="bucketTtlInput" class="form-label">
                             <i class="fas fa-clock me-1"></i>TTL Configuration
                         </label>
-                        <input type="text" class="form-control" id="bucketTtlInput" placeholder="e.g., 7d, 24h, 30m">
+                        <input type="text" class="form-control" id="bucketTtlInput" placeholder="e.g., 24h, 30m">
                         <div class="form-text">
-                            Enter TTL duration (e.g., 7d for 7 days, 24h for 24 hours, 30m for 30 minutes). Leave empty to disable TTL.
+                            Enter TTL duration (e.g., 24h for 24 hours, 30m for 30 minutes). Leave empty to disable TTL.
                         </div>
                     </div>
                     
@@ -564,7 +564,6 @@ templ S3Buckets(data dash.S3BucketsData) {
                         <i class="fas fa-info-circle me-2"></i>
                         <strong>TTL Format Examples:</strong>
                         <ul class="mb-0 mt-2">
-                            <li><code>7d</code> - 7 days</li>
                             <li><code>24h</code> - 24 hours</li>
                             <li><code>30m</code> - 30 minutes</li>
                             <li><code>1h30m</code> - 1 hour 30 minutes</li>

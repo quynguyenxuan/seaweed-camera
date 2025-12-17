@@ -24,18 +24,20 @@ const (
 	ConfigSubdir = "conf"
 
 	// Configuration file names (protobuf binary)
-	MaintenanceConfigFile     = "maintenance.pb"
-	VacuumTaskConfigFile      = "task_vacuum.pb"
-	ECTaskConfigFile          = "task_erasure_coding.pb"
-	BalanceTaskConfigFile     = "task_balance.pb"
-	ReplicationTaskConfigFile = "task_replication.pb"
+	MaintenanceConfigFile           = "maintenance.pb"
+	VacuumTaskConfigFile            = "task_vacuum.pb"
+	ECTaskConfigFile                = "task_erasure_coding.pb"
+	BalanceTaskConfigFile           = "task_balance.pb"
+	ReplicationTaskConfigFile       = "task_replication.pb"
+	CollectionCleanupTaskConfigFile = "task_collection_cleanup.pb"
 
 	// JSON reference files
-	MaintenanceConfigJSONFile     = "maintenance.json"
-	VacuumTaskConfigJSONFile      = "task_vacuum.json"
-	ECTaskConfigJSONFile          = "task_erasure_coding.json"
-	BalanceTaskConfigJSONFile     = "task_balance.json"
-	ReplicationTaskConfigJSONFile = "task_replication.json"
+	MaintenanceConfigJSONFile           = "maintenance.json"
+	VacuumTaskConfigJSONFile            = "task_vacuum.json"
+	ECTaskConfigJSONFile                = "task_erasure_coding.json"
+	BalanceTaskConfigJSONFile           = "task_balance.json"
+	ReplicationTaskConfigJSONFile       = "task_replication.json"
+	CollectionCleanupTaskConfigJSONFile = "task_collection_cleanup.json"
 
 	// Task persistence subdirectories and settings
 	TasksSubdir       = "tasks"
@@ -270,6 +272,11 @@ func (cp *ConfigPersistence) SaveVacuumTaskConfig(config *VacuumTaskConfig) erro
 // SaveVacuumTaskPolicy saves complete vacuum task policy to protobuf file
 func (cp *ConfigPersistence) SaveVacuumTaskPolicy(policy *worker_pb.TaskPolicy) error {
 	return cp.saveTaskConfig(VacuumTaskConfigFile, policy)
+}
+
+// SaveCollectionCleanupTaskPolicy saves complete collection cleanup task policy to protobuf file
+func (cp *ConfigPersistence) SaveCollectionCleanupTaskPolicy(policy *worker_pb.TaskPolicy) error {
+	return cp.saveTaskConfig(CollectionCleanupTaskConfigFile, policy)
 }
 
 // LoadVacuumTaskConfig loads vacuum task configuration from protobuf file

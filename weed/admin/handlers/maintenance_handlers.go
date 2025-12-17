@@ -18,6 +18,7 @@ import (
 	"github.com/seaweedfs/seaweedfs/weed/glog"
 	"github.com/seaweedfs/seaweedfs/weed/worker/tasks"
 	"github.com/seaweedfs/seaweedfs/weed/worker/tasks/balance"
+	"github.com/seaweedfs/seaweedfs/weed/worker/tasks/collection_cleanup"
 	"github.com/seaweedfs/seaweedfs/weed/worker/tasks/erasure_coding"
 	"github.com/seaweedfs/seaweedfs/weed/worker/tasks/vacuum"
 	"github.com/seaweedfs/seaweedfs/weed/worker/types"
@@ -237,6 +238,8 @@ func (h *MaintenanceHandlers) UpdateTaskConfig(c *gin.Context) {
 		config = &balance.Config{}
 	case types.TaskTypeErasureCoding:
 		config = &erasure_coding.Config{}
+	case types.TaskTypeCollectionCleanup:
+		config = &collection_cleanup.Config{}
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported task type: " + taskTypeName})
 		return
@@ -295,6 +298,11 @@ func (h *MaintenanceHandlers) UpdateTaskConfig(c *gin.Context) {
 		if balanceConfig, ok := config.(*balance.Config); ok {
 			glog.V(1).Infof("Parsed balance config - Enabled: %v, MaxConcurrent: %d, ScanIntervalSeconds: %d, ImbalanceThreshold: %f, MinServerCount: %d",
 				balanceConfig.Enabled, balanceConfig.MaxConcurrent, balanceConfig.ScanIntervalSeconds, balanceConfig.ImbalanceThreshold, balanceConfig.MinServerCount)
+		}
+	case types.TaskTypeCollectionCleanup:
+		if cleanupConfig, ok := config.(*collection_cleanup.Config); ok {
+			glog.V(1).Infof("Parsed collection cleanup config - Enabled: %v, MaxConcurrent: %d, ScanIntervalSeconds: %d, CollectionPattern: '%s', DryRun: %v",
+				cleanupConfig.Enabled, cleanupConfig.MaxConcurrent, cleanupConfig.ScanIntervalSeconds, cleanupConfig.CollectionPattern, cleanupConfig.DryRun)
 		}
 	}
 
@@ -582,6 +590,8 @@ func (h *MaintenanceHandlers) saveTaskConfigToProtobuf(taskType types.TaskType, 
 		return configPersistence.SaveErasureCodingTaskPolicy(taskPolicy)
 	case types.TaskTypeBalance:
 		return configPersistence.SaveBalanceTaskPolicy(taskPolicy)
+	case types.TaskTypeCollectionCleanup:
+		return configPersistence.SaveCollectionCleanupTaskPolicy(taskPolicy)
 	default:
 		return fmt.Errorf("unsupported task type for protobuf persistence: %s", taskType)
 	}

@@ -2141,8 +2141,10 @@ func getBoolFromMap(m map[string]interface{}, key string) bool {
 }
 
 // getAllBucketTTLs gets filer configuration for all collections at once to avoid multiple filer calls
-func (s *AdminServer) getAllBucketTTLs() (*filer.FilerConf, error) {
+func (s *AdminServer) getAllBucketTTLs() (map[string]string, error) {
 	var fc *filer.FilerConf
+	ttls := make(map[string]string)
+
 	err := s.WithFilerClient(func(client filer_pb.SeaweedFilerClient) error {
 		// Use filer configuration from filers
 		if len(s.cachedFilers) == 0 {
@@ -2154,9 +2156,15 @@ func (s *AdminServer) getAllBucketTTLs() (*filer.FilerConf, error) {
 		for i, filer := range s.cachedFilers {
 			filerAddresses[i] = pb.ServerAddress(filer)
 		}
-
 		var err error
 		fc, err = filer.ReadFilerConfFromFilers(filerAddresses, s.grpcDialOption, nil)
+		if err == nil {
+			// Get new map from GetAllCollectionTtls and merge into result
+			newTtls := fc.GetAllCollectionTtls()
+			for collection, ttl := range newTtls {
+				ttls[collection] = ttl
+			}
+		}
 		return err
 	})
 
@@ -2165,7 +2173,7 @@ func (s *AdminServer) getAllBucketTTLs() (*filer.FilerConf, error) {
 		return nil, err
 	}
 
-	return fc, nil
+	return ttls, nil
 }
 
 // getBucketTTL gets TTL configuration for a specific bucket
@@ -2271,7 +2279,7 @@ func (s *AdminServer) UpdateBucketTTL(c *gin.Context) {
 		"new_ttl": request.TTL,
 	})
 }
-
+//Quynguyen add
 // CleanupCollection handles cleanup collection requests
 func (s *AdminServer) CleanupCollectionHandler(c *gin.Context) {
 	collectionName := c.Param("name")
@@ -2333,3 +2341,4 @@ func (s *AdminServer) DeleteCollection(collection string) error {
 		return err
 	})
 }
+//Quynguyen end

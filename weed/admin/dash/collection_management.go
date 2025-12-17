@@ -168,22 +168,15 @@ func (s *AdminServer) GetClusterCollections() (*ClusterCollectionsData, error) {
 
 	// Get TTL for all collections at once from bucket configuration (batch lookup for performance)
 	if len(collections) > 0 {
-		fc, err := s.getAllBucketTTLs()
+		ttls, err := s.getAllBucketTTLs()
 		if err != nil {
 			glog.Warningf("Failed to get filer configuration: %v", err)
 			// Continue without TTLs if batch lookup fails
 		} else {
-			// Apply TTLs to collections using the filer config
+			// Apply TTLs to collections using the TTL map
 			for i := range collections {
-				ttls := fc.GetCollectionTtls(collections[i].Name)
-				if len(ttls) > 0 {
-					// Return the first TTL found (could be multiple for different paths)
-					for _, t := range ttls {
-						if t != "" {
-							collections[i].Ttl = t
-							break
-						}
-					}
+				if ttl, exists := ttls[collections[i].Name]; exists {
+					collections[i].Ttl = ttl
 				} else {
 					collections[i].Ttl = ""
 				}
@@ -392,25 +385,7 @@ func (s *AdminServer) GetCollectionDetails(collectionName string, page int, page
 	sort.Strings(diskTypeList)
 
 	// Get TTL from bucket configuration (collection name usually matches bucket name)
-	var collectionTtl string
-	fc, err := s.getAllBucketTTLs()
-	if err != nil {
-		glog.Warningf("Failed to get filer configuration for collection %s: %v", collectionName, err)
-		collectionTtl = ""
-	} else {
-		ttls := fc.GetCollectionTtls(collectionName)
-		if len(ttls) > 0 {
-			// Return the first TTL found (could be multiple for different paths)
-			for _, t := range ttls {
-				if t != "" {
-					collectionTtl = t
-					break
-				}
-			}
-		} else {
-			collectionTtl = ""
-		}
-	}
+	collectionTtl := s.getBucketTTL(collectionName)
 
 	return &CollectionDetailsData{
 		CollectionName: collectionName,

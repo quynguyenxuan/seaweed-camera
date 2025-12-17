@@ -141,6 +141,7 @@ templ ClusterCollections(data dash.ClusterCollectionsData) {
                                     <th>EC Volumes</th>
                                     <th>Files</th>
                                     <th>Size (Logical)</th>
+                                    <th>TTL</th>
                                     <th>Disk Types</th>
                                     <th>Actions</th>
                                 </tr>
@@ -190,6 +191,17 @@ templ ClusterCollections(data dash.ClusterCollectionsData) {
                                             </div>
                                         </td>
                                         <td>
+                                            if collection.Ttl != "" {
+                                                <span class="badge bg-info" title="Time To Live">
+                                                    <i class="fas fa-clock me-1"></i>{collection.Ttl}
+                                                </span>
+                                            } else {
+                                                <span class="text-muted">
+                                                    <i class="fas fa-infinity me-1"></i>None
+                                                </span>
+                                            }
+                                        </td>
+                                        <td>
                                             for i, diskType := range collection.DiskTypes {
                                                 if i > 0 {
                                                     <span class="me-1"></span>
@@ -212,7 +224,8 @@ templ ClusterCollections(data dash.ClusterCollectionsData) {
                                                         data-ec-volume-count={fmt.Sprintf("%d", collection.EcVolumeCount)}
                                                         data-file-count={fmt.Sprintf("%d", collection.FileCount)}
                                                         data-total-size={fmt.Sprintf("%d", collection.TotalSize)}
-                                                        data-disk-types={formatDiskTypes(collection.DiskTypes)}>
+                                                        data-disk-types={formatDiskTypes(collection.DiskTypes)}
+                                                        data-ttl={collection.Ttl}>
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                                 <button type="button" 
@@ -278,7 +291,8 @@ templ ClusterCollections(data dash.ClusterCollectionsData) {
                         ecVolumeCount: parseInt(button.getAttribute('data-ec-volume-count')),
                         fileCount: parseInt(button.getAttribute('data-file-count')),
                         totalSize: parseInt(button.getAttribute('data-total-size')),
-                        diskTypes: button.getAttribute('data-disk-types')
+                        diskTypes: button.getAttribute('data-disk-types'),
+                        ttl: button.getAttribute('data-ttl')
                     };
                     showCollectionDetails(collectionData);
                     break;
@@ -325,6 +339,11 @@ templ ClusterCollections(data dash.ClusterCollectionsData) {
             (collection.diskTypes ? collection.diskTypes.split(', ').map(type => 
                 '<span class="badge bg-' + getDiskTypeBadgeColor(type) + ' me-1">' + type + '</span>'
             ).join('') : '<span class="text-muted">Unknown</span>') +
+            '</td></tr>' +
+            '<tr><td><strong>TTL:</strong></td><td>' +
+            (collection.ttl && collection.ttl !== '' ? 
+                '<span class="badge bg-info me-1"><i class="fas fa-clock me-1"></i>' + collection.ttl + '</span>' : 
+                '<span class="text-muted"><i class="fas fa-infinity me-1"></i>None</span>') +
             '</td></tr>' +
             '</table>' +
             '</div>' +

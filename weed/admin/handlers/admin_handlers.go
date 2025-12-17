@@ -101,8 +101,10 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 		protected.GET("/cluster/volumes/:id/:server", h.clusterHandlers.ShowVolumeDetails)
 		protected.GET("/cluster/collections", h.clusterHandlers.ShowClusterCollections)
 		protected.GET("/cluster/collections/:name", h.clusterHandlers.ShowCollectionDetails)
+		protected.POST("/cluster/collections/:name/cleanup", h.adminServer.CleanupCollectionHandler)
+		protected.DELETE("/cluster/collections/:name", h.adminServer.DeleteCollectionHandler)
 		protected.GET("/cluster/ec-shards", h.clusterHandlers.ShowClusterEcShards)
-		protected.GET("/cluster/ec-volumes/:id", h.clusterHandlers.ShowEcVolumeDetails)
+		protected.GET("/cluster/ec-volumes/:id", h.clusterHandlers.ShowVolumeDetails)
 
 		// Message Queue management routes
 		protected.GET("/mq/brokers", h.mqHandlers.ShowBrokers)
@@ -135,6 +137,9 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 				s3Api.POST("/buckets", h.adminServer.CreateBucket)
 				s3Api.DELETE("/buckets/:bucket", h.adminServer.DeleteBucket)
 				s3Api.GET("/buckets/:bucket", h.adminServer.ShowBucketDetails)
+				//QUYNGUYEN: cleanup bucket API
+				s3Api.POST("/buckets/:bucket/cleanup", h.adminServer.CleanupBucket)
+				//QUYNGUYEN end
 				s3Api.PUT("/buckets/:bucket/quota", h.adminServer.UpdateBucketQuota)
 				s3Api.PUT("/buckets/:bucket/ttl", h.adminServer.UpdateBucketTTL)
 				s3Api.PUT("/buckets/:bucket/owner", h.adminServer.UpdateBucketOwner)
@@ -266,6 +271,10 @@ func (h *AdminHandlers) SetupRoutes(r *gin.Engine, authRequired bool, username, 
 		r.GET("/cluster/volumes/:id/:server", h.clusterHandlers.ShowVolumeDetails)
 		r.GET("/cluster/collections", h.clusterHandlers.ShowClusterCollections)
 		r.GET("/cluster/collections/:name", h.clusterHandlers.ShowCollectionDetails)
+		//QUYNGUYEN: cleanup collection API
+		r.POST("/cluster/collections/:name/cleanup", h.adminServer.CleanupCollectionHandler)
+		r.DELETE("/cluster/collections/:name", h.adminServer.DeleteCollectionHandler)
+		//QUYNGUYEN end
 		r.GET("/cluster/ec-shards", h.clusterHandlers.ShowClusterEcShards)
 		r.GET("/cluster/ec-volumes/:id", h.clusterHandlers.ShowEcVolumeDetails)
 

@@ -419,7 +419,7 @@ templ CollectionDetails(data dash.CollectionDetailsData) {
 
 			// Call API to cleanup collection
 			fetch(`/cluster/collections/${encodeURIComponent(collection)}/cleanup`, {
-				method: 'DELETE',
+				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				}

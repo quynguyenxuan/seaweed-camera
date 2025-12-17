@@ -214,6 +214,7 @@ func (fc *FilerConf) GetCollectionLocations(collection string) (locations []stri
 	})
 	return locations
 }
+
 // ClonePathConf creates a mutable copy of an existing PathConf.
 // Use this when you need to modify a config (e.g., before calling SetLocationConf).
 //
@@ -248,6 +249,16 @@ func (fc *FilerConf) GetCollectionTtls(collection string) (ttls map[string]strin
 	fc.rules.Walk(func(key []byte, value *filer_pb.FilerConf_PathConf) bool {
 		if value.Collection == collection {
 			ttls[value.LocationPrefix] = value.GetTtl()
+		}
+		return true
+	})
+	return ttls
+}
+func (fc *FilerConf) GetAllCollectionTtls() map[string]string {
+	ttls := make(map[string]string)
+	fc.rules.Walk(func(key []byte, value *filer_pb.FilerConf_PathConf) bool {
+		if value.Collection != "" && value.GetTtl() != "" {
+			ttls[value.Collection] = value.GetTtl()
 		}
 		return true
 	})
