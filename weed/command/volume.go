@@ -73,6 +73,8 @@ type VolumeServerOptions struct {
 	hasSlowRead                 *bool
 	readBufferSizeMB            *int
 	ldbTimeout                  *int64
+	debug                       *bool
+	debugPort                   *int
 }
 
 func init() {
@@ -111,10 +113,8 @@ func init() {
 	v.inflightDownloadDataTimeout = cmdVolume.Flag.Duration("inflightDownloadDataTimeout", 60*time.Second, "inflight download data wait timeout of volume servers")
 	v.hasSlowRead = cmdVolume.Flag.Bool("hasSlowRead", true, "<experimental> if true, this prevents slow reads from blocking other requests, but large file read P99 latency will increase.")
 	v.readBufferSizeMB = cmdVolume.Flag.Int("readBufferSizeMB", 4, "<experimental> larger values can optimize query performance but will increase some memory usage,Use with hasSlowRead normally.")
-	//QUYNGUYEN Add
-	// v.volumeDeletionInterval = cmdVolume.Flag.Duration("volumeDeletionInterval", 0*time.Millisecond, "<experimental> time between two volume deletions in miliseconds.")
-	// v.volumeSplitInSeconds = cmdVolume.Flag.Duration("volumeSplitInSeconds", 0*time.Second, "<experimental> split volume file every n seconds.")
-
+	v.debug = cmdVolume.Flag.Bool("debug", false, "serves runtime profiling data via pprof on the port specified by -debug.port")
+	v.debugPort = cmdVolume.Flag.Int("debug.port", 6060, "http port for debugging")
 }
 
 var cmdVolume = &Command{
@@ -134,6 +134,9 @@ var (
 )
 
 func runVolume(cmd *Command, args []string) bool {
+	if *v.debug {
+		grace.StartDebugServer(*v.debugPort)
+	}
 
 	util.LoadSecurityConfiguration()
 
