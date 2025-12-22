@@ -453,7 +453,7 @@ func (UnimplementedSeaweedServer) RaftRemoveServer(context.Context, *RaftRemoveS
 	return nil, status.Error(codes.Unimplemented, "method RaftRemoveServer not implemented")
 }
 func (UnimplementedSeaweedServer) RaftLeadershipTransfer(context.Context, *RaftLeadershipTransferRequest) (*RaftLeadershipTransferResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RaftLeadershipTransfer not implemented")
+	return nil, status.Error(codes.Unimplemented, "method RaftLeadershipTransfer not implemented")
 }
 func (UnimplementedSeaweedServer) VolumeGrow(context.Context, *VolumeGrowRequest) (*VolumeGrowResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VolumeGrow not implemented")
